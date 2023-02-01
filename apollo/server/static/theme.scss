@@ -1,0 +1,19 @@
+$feature-flags: (
+  enable-css-custom-properties: true,
+  grid-columns-16: true,
+);
+
+@use 'carbon-components/scss/globals/scss/vendor/@carbon/elements/scss/themes/generated/themes';
+@import 'carbon-components/scss/globals/scss/styles.scss';
+
+:root {
+  @include carbon--theme($carbon--theme--g90, true);
+}
+
+a {
+  color: map-get($carbon--theme--g90, 'link-01');
+}
+
+.bx--inline-notification__text-wrapper {
+  width: 100%;
+}

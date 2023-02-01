@@ -1,0 +1,146 @@
+{% extends "layout.jinja" %}
+
+{% block content %}
+<div class="bx--grid bx--grid--full-width" style="margin:0;">
+  <div class="bx--row">
+    <div class="bx--col-lg-15">
+      <div style="display:flex;align-items:center;padding-top:0.3rem;">
+        <h1 style="padding-right:0.4rem;">{{ advisory.name }}</h1>
+        {% if advisory.kind == "Security" %}
+        {% set advisory_tag_type = "red" %}
+        {% elif advisory.kind == "Bug Fix" %}
+        {% set advisory_tag_type = "purple" %}
+        {% elif advisory.kind == "Enhancement" %}
+        {% set advisory_tag_type = "teal" %}
+        {% endif %}
+        <bx-tag type="{{ advisory_tag_type }}">{{ advisory.kind }}</bx-tag>
+        {% for override in advisory.rpm_rh_overrides %}
+        <bx-tag type="blue">
+          Override for {{ override.supported_products_rh_mirror.name }}
+        </bx-tag>
+        {% endfor %}
+      </div>
+      <div style="display:flex;align-items:center;padding-top:0.3rem;">
+        <h5 style="font-weight:500;margin-right:1rem;">
+          Issued at: <span style="font-weight:400;">{{advisory.red_hat_issued_at.date() }}</span>
+        </h5>
+      </div>
+    </div>
+  </div>
+  <div class="bx--row" style="margin-top:1rem;">
+    <div class="bx--col">
+      <div style="display:flex;align-items:center">
+        <bx-btn kind="primary" target="_blank" href="https://access.redhat.com/errata/{{ advisory.name }}"
+          style="margin-right:1rem;">
+          {% include "launch_icon.jinja" %}
+          <div style="margin-left:1rem;">
+            Open original
+          </div>
+        </bx-btn>
+
+        <form id="override" action="/red_hat/advisories/{{ advisory.name }}" method="POST">
+          <input type="hidden" name="action" value="override" />
+          <bx-btn kind="primary" form_id="override">Override</bx-button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <!--<div class="bx--row" style="margin-top:1rem;">
+    <div class="bx--col">
+      <div style="display:flex;align-items:center;">
+        {% if advisory.kind == "Security" %}
+        {% set advisory_tag_type = "red" %}
+        {% elif advisory.kind == "Bug Fix" %}
+        {% set advisory_tag_type = "purple" %}
+        {% elif advisory.kind == "Enhancement" %}
+        {% set advisory_tag_type = "teal" %}
+        {% endif %}
+        <bx-tag type="{{ advisory_tag_type }}">{{ advisory.kind }}</bx-tag>
+        {% for override in advisory.rpm_rh_overrides %}
+        <bx-tag type="blue">
+          Override for {{ override.supported_products_rh_mirror.name }}
+        </bx-tag>
+        {% endfor %}
+      </div>
+    </div>
+  </div>-->
+</div>
+
+<div class="bx--grid bx--grid--full-width" style="margin:3rem 0;">
+  <div class="bx--row">
+    <div class="bx--col-lg-10">
+      <div style="background:var(--cds-ui-02);color:var(--cds-text-01);padding:2rem;">
+        <h3 style="font-weight:600;color:var(--cds-text-04);padding-bottom:0.3rem;">Synopsis</h3>
+        <p>{{ advisory.synopsis }}</p>
+        <br /><br />
+
+        <h3 style="font-weight:600;color:var(--cds-text-04);padding-bottom:0.3rem;">Description</h3>
+        {% set description = advisory.description.split("\n") %}
+        {% for line in description %}
+        <p>{{ line }}</p>
+        {% endfor %}
+        <br /><br />
+
+        <h3 style="font-weight:600;color:var(--cds-text-04);padding-bottom:0.3rem;">Affected products</h3>
+        <bx-ordered-list>
+          {% for product in advisory.affected_products %}
+          <bx-list-item style="font-size:var(--cds-body-short-02-font-size)">
+            {{ product.name }} - {{ product.major_version }}{% if product.minor_version %}.{{ product.minor_version }}{%
+            endif %}
+          </bx-list-item>
+          {% endfor %}
+        </bx-ordered-list>
+        <br /> <br />
+
+        <h3 style="font-weight:600;color:var(--cds-text-04);padding-bottom:0.3rem;">Fixes</h3>
+        <bx-ordered-list>
+          {% for ticket in advisory.bugzilla_tickets %}
+          <bx-list-item style="font-size:var(--cds-body-short-02-font-size)">
+            <a target="_blank" href="https://bugzilla.redhat.com/show_bug.cgi?id={{ ticket.bugzilla_bug_id }}">
+              {{ ticket.bugzilla_bug_id }}
+            </a>
+          </bx-list-item>
+          {% endfor %}
+        </bx-ordered-list>
+        <br /> <br />
+
+        <h3 style="font-weight:600;color:var(--cds-text-04);padding-bottom:0.3rem;">CVEs</h3>
+        <bx-ordered-list>
+          {% for cve in advisory.cves %}
+          <bx-list-item style="font-size:var(--cds-body-short-02-font-size)">
+            <a target="_blank" href="https://cve.mitre.org/cgi-bin/cvename.cgi?name={{ cve.cve }}">
+              {{ cve.cve }}
+            </a>
+          </bx-list-item>
+          {% endfor %}
+        </bx-ordered-list>
+      </div>
+    </div>
+    <div class="bx--col-lg-6">
+      <div style="background:var(--cds-ui-02);color:var(--cds-text-01);padding:2rem;">
+        {% set pkg_list = {} %}
+        {% for pkg in advisory.packages %}
+        {% if pkg.repo_name in pkg_list %}
+        {% set x=pkg_list.__getitem__(pkg.repo_name).append(pkg) %}
+        {% else %}
+        {% set x=pkg_list.__setitem__(pkg.repo_name, [pkg]) %}
+        {% endif %}
+        {% endfor %}
+
+        <h3 style="font-weight:600;color:var(--cds-text-04);padding-bottom:0.3rem;">Affected packages</h3>
+        {% for repo_name, pkg in pkg_list.items() %}
+        <h4 style="padding-bottom:0.3rem;font-weight:400;">{{ repo_name }}</h4>
+        <bx-ordered-list>
+          {% for p in pkg %}
+          <bx-list-item style="font-size:var(--cds-body-short-02-font-size)">
+            {{ p.nevra }}
+          </bx-list-item>
+          {% endfor %}
+          </bx-list-item>
+        </bx-ordered-list>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

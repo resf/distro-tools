@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Peridot Apollo</title>
+
+  <link rel="stylesheet" href="/static/static.css">
+  <script src="/static/static.js"></script>
+
+  <style>
+    body {
+      font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif
+    }
+  </style>
+</head>
+
+<body>
+  <div style="display:flex;flex-flow:column;justify-content:center;align-items:center;width:100vw;height:100vh">
+    <div style="display:flex;justify-content:center;align-items:center;">
+      <img alt="Peridot logo " height="80px" src="/assets/pd-logo-np.svg" /><br />
+      <h3 style="padding-left:1rem;font-weight:600;">Apollo<br />Errata Management</h3>
+    </div>
+
+
+    {% if error %}
+    <div style="margin-top:3rem;">
+      <h5 style="color:#fa4d56;border-left:0;margin:0;">
+        {{ error }}
+      </h5>
+    </div>
+    {% endif %}
+    {% if should_show_setup_success %}
+    <div style="margin-top:3rem;">
+      <h5 style="color:#198038;border-left:0;margin:0;">
+        Admin user created successfully. Please login.
+      </h5>
+    </div>
+    {% endif %}
+
+    <div style="width:100%;max-width:450px;margin-top:2rem;">
+      {% if should_show_setup %}
+      <form id="signup_form" action="/login/setup" method="POST">
+        <bx-form-item>
+          <bx-input required name="name" form_id="signup_form">
+            <span slot="label-text">Name</span>
+          </bx-input>
+          <bx-input required name="email" type="email" form_id="signup_form">
+            <span slot="label-text">Email</span>
+          </bx-input>
+          <bx-input required name="password" type="password" form_id="signup_form">
+            <span slot="label-text">Password</span>
+          </bx-input>
+          <bx-input required name="confirm_password" type="password" form_id="signup_form">
+            <span slot="label-text">Confirm Password</span>
+          </bx-input>
+          <div
+            style="display:flex;justify-content:space-between;align-items:center;flex-direction:row-reverse;margin-top:25px;width:100%">
+            <bx-btn type="submit" style="margin-left:auto;display:block" form_id="signup_form">Create
+              admin user</bx-btn>
+          </div>
+        </bx-form-item>
+      </form>
+      {% else %}
+      <form id="login_form" action=" /login/" method="POST">
+        <bx-form-item>
+          <bx-input required name="email" type="email" form_id="login_form">
+            <span slot="label-text">Email</span>
+          </bx-input>
+          <bx-input required name="password" type="password" form_id="login_form">
+            <span slot="label-text">Password</span>
+          </bx-input>
+          <div
+            style="display:flex;justify-content:space-between;align-items:center;flex-direction:row-reverse;margin-top:25px;width:100%">
+            <bx-btn type="submit" style="margin-left:auto;display:block" form_id="login_form">Login</bx-btn>
+            {% if oidc_provider_name %}
+            <bx-btn href="/login/oidc" size="sm" kind="ghost" style="display:block;">{{ oidc_provider_name }}</bx-btn>
+            {% endif %}
+          </div>
+        </bx-form-item>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</body>
+
+</html>

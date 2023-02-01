@@ -1,0 +1,22 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library")
+
+py_binary(
+    name = "cveindexer",
+    srcs = ["__main__.py"],
+    imports = ["../.."],
+    main = "__main__.py",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":cveindexer_lib",
+        "//common:common_lib",
+        "@pypi_click//:pkg",
+        "@pypi_temporalio//:pkg",
+    ],
+)
+
+py_library(
+    name = "cveindexer_lib",
+    srcs = ["temporal.py"],
+    imports = ["../.."],
+    visibility = ["//:__subpackages__"],
+)

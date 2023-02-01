@@ -1,0 +1,20 @@
+load("@aspect_rules_esbuild//esbuild:defs.bzl", "esbuild")
+
+srcs = glob([
+    "*.ts",
+    "*.scss",
+])
+
+esbuild(
+    name = "static",
+    srcs = srcs + [
+        "//:node_modules/@carbon/themes",
+        "//:node_modules/@carbon/web-components",
+        "//:node_modules/carbon-components",
+        "//:node_modules/esbuild-sass-plugin",
+    ],
+    config = ":esbuild.config.mjs",
+    entry_point = "index.ts",
+    output_css = "static.css",
+    visibility = ["//visibility:public"],
+)

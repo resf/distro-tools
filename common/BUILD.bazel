@@ -1,0 +1,20 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+
+py_library(
+    name = "common_lib",
+    srcs = [
+        "database.py",
+        "env.py",
+        "fastapi.py",
+        "info.py",
+        "logger.py",
+        "temporal.py",
+    ],
+    imports = [".."],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "@pypi_fastapi//:pkg",
+        "@pypi_temporalio//:pkg",
+        "@pypi_tortoise_orm//:pkg",
+    ],
+)

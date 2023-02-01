@@ -1,0 +1,103 @@
+{% extends "layout.jinja" %}
+
+{% block content %}
+<div class="bx--grid bx--grid--full-width">
+  <div style="display:flex;align-items:center;padding-top:0.3rem;">
+    <h1 style="padding-right:0.4rem;">{{ advisory.name }}</h1>
+    {% if advisory.kind == "Security" %}
+    {% set advisory_tag_type = "red" %}
+    {% elif advisory.kind == "Bug Fix" %}
+    {% set advisory_tag_type = "purple" %}
+    {% elif advisory.kind == "Enhancement" %}
+    {% set advisory_tag_type = "teal" %}
+    {% endif %}
+    <bx-tag type="{{ advisory_tag_type }}">{{ advisory.kind }}</bx-tag>
+    {% if advisory.red_hat_advisory_id %}
+    <bx-tag type="blue">
+      Mirrored from
+      {% if request.state.settings.serve_rh_advisories %}
+      <a href="/red_hat/advisories/{{ advisory.red_hat_advisory.name}}"
+        style="color:var(--cds-tag-color-blue);margin-left:0.2rem;">
+        {{advisory.red_hat_advisory.name }}
+      </a>
+      {% else %}
+      <a target="_blank" href="https://access.redhat.com/errata/{{ advisory.red_hat_advisory.name }}"
+        style="color:var(--cds-tag-color-blue);margin-left:0.2rem;">
+        {{ advisory.red_hat_advisory.name }}
+      </a>
+      {% endif %}
+    </bx-tag>
+    {% endif %}
+  </div>
+  <div style="display:flex;align-items:center;padding-top:0.3rem;">
+    <h5 style="font-weight:500;margin-right:1rem;">
+      Issued at: <span style="font-weight:400;">{{ advisory.published_at.date() }}</span>
+    </h5>
+    <h5 style="font-weight:500">Updated at: <span style="font-weight:400;">{{ advisory.updated_at.date() }}</span></h5>
+  </div>
+</div>
+
+<div class="bx--grid bx--grid--full-width" style="margin:3rem 0;">
+  <div class="bx--row">
+    <div class="bx--col-lg-10">
+      <div style="background:var(--cds-ui-02);color:var(--cds-text-01);padding:2rem;">
+        <h3 style="font-weight:600;color:var(--cds-text-04);padding-bottom:0.3rem;">Synopsis</h3>
+        <p>{{ advisory.synopsis }}</p>
+        <br /><br />
+
+        <h3 style="font-weight:600;color:var(--cds-text-04);padding-bottom:0.3rem;">Description</h3>
+        {% set description = advisory.description.split("\n") %}
+        {% for line in description %}
+        <p>{{ line }}</p>
+        {% endfor %}
+        <br /><br />
+
+        <h3 style="font-weight:600;color:var(--cds-text-04);padding-bottom:0.3rem;">Affected products</h3>
+        <bx-ordered-list>
+          {% for product in advisory.affected_products %}
+          <bx-list-item style="font-size:var(--cds-body-short-02-font-size)">{{ product.name }}</bx-list-item>
+          {% endfor %}
+        </bx-ordered-list>
+        <br /> <br />
+
+        <h3 style="font-weight:600;color:var(--cds-text-04);padding-bottom:0.3rem;">Fixes</h3>
+        <bx-ordered-list>
+          {% for fix in advisory.fixes %}
+          <bx-list-item style="font-size:var(--cds-body-short-02-font-size)">
+            <a target="_blank" href="{{ fix.source }}">{{ fix.ticket_id }}</a>
+          </bx-list-item>
+          {% endfor %}
+        </bx-ordered-list>
+        <br /> <br />
+
+        <h3 style="font-weight:600;color:var(--cds-text-04);padding-bottom:0.3rem;">CVEs</h3>
+        <bx-ordered-list>
+          {% for cve in advisory.cves %}
+          <bx-list-item style="font-size:var(--cds-body-short-02-font-size)">
+            <a target="_blank" href="https://cve.mitre.org/cgi-bin/cvename.cgi?name={{ cve.cve }}">
+              {{ cve.cve }}
+            </a>
+          </bx-list-item>
+          {% endfor %}
+        </bx-ordered-list>
+      </div>
+    </div>
+    <div class="bx--col-lg-6">
+      <div style="background:var(--cds-ui-02);color:var(--cds-text-01);padding:2rem;">
+        <h3 style="font-weight:600;color:var(--cds-text-04);">Affected packages</h3>
+        {% for product_repo_name, nevras in package_map.items() %}
+        <h4 style="padding-bottom:0.3rem;font-weight:400;padding-top:0.3rem;">{{ product_repo_name }}</h4>
+        <bx-ordered-list>
+          {% for nevra in nevras %}
+          <bx-list-item style="font-size:var(--cds-body-short-02-font-size)">
+            {{ nevra }}
+          </bx-list-item>
+          {% endfor %}
+          </bx-list-item>
+        </bx-ordered-list>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

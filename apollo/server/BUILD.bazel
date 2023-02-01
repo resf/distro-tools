@@ -1,0 +1,48 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+load("//build/macros:fastapi.bzl", "fastapi_binary")
+
+py_library(
+    name = "server_lib",
+    srcs = [
+        "roles.py",
+        "routes/admin_index.py",
+        "routes/advisories.py",
+        "routes/api_advisories.py",
+        "routes/api_compat.py",
+        "routes/api_red_hat.py",
+        "routes/login.py",
+        "routes/logout.py",
+        "routes/red_hat_advisories.py",
+        "routes/statistics.py",
+        "server.py",
+        "settings.py",
+        "utils.py",
+    ],
+    data = [
+        ":assets",
+        ":templates",
+        "//apollo/server/static",
+    ],
+    imports = ["../.."],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//apollo/db:db_lib",
+        "//apollo/db/serialize:serialize_lib",
+        "//common:common_lib",
+        "@pypi_fastapi//:pkg",
+        "@pypi_fastapi_pagination//:pkg",
+        "@pypi_itsdangerous//:pkg",
+        "@pypi_jinja2//:pkg",
+        "@pypi_passlib//:pkg",
+        "@pypi_python_multipart//:pkg",
+        "@pypi_starlette//:pkg",
+        "@pypi_tortoise_orm//:pkg",
+    ],
+)
+
+fastapi_binary(
+    name = "server",
+    imports = ["../.."],
+    path = "apollo.server.server",
+    port = "9999",
+)

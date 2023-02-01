@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>{% block title %}Peridot Apollo{% endblock %}</title>
+
+  <link rel="stylesheet" href="/static/static.css">
+  <script src="/static/static.js"></script>
+
+  <style>
+    .bx--main {
+      padding: 2rem 1rem;
+    }
+  </style>
+
+  <style>
+    .apollo-outer {
+      margin-top: 3rem;
+      padding: 0;
+    }
+
+    .apollo-outer bx-inline-notification {
+      margin: 0;
+      color: #ffffff;
+      --cds-inverse-01: #ffffff;
+      background: var(--cds-button-separator);
+    }
+
+    .apollo-outer bx-inline-notification:not(.top-notification) {
+      width: 100%;
+      max-width: 100% !important;
+    }
+
+    .apollo-outer bx-inline-notification.top-notification {
+      background: var(--cds-field-01);
+      border-left: 0;
+      border-bottom: 1px solid var(--apollo-notification-border-color, var(--apollo-notification-text-color));
+      max-width: 100%;
+      margin-top: 4rem;
+      color: var(--apollo-notification-text-color);
+    }
+
+    .apollo-outer bx-inline-notification~#apollo-notification-wrapper>bx-inline-notification {
+      margin-top: 2rem;
+    }
+  </style>
+
+  {% if notification %}
+  {% if notification.get("kind") == "error" %}
+  <style>
+    :root {
+      --apollo-notification-text-color: var(--cds-danger-02);
+    }
+  </style>
+  {% elif notification.get("kind") == "success" %}
+  <style>
+    :root {
+      --apollo-notification-border-color: var(--cds-inverse-support-02);
+    }
+  </style>
+  {% elif notification.get("kind") == "warning" %}
+  <style>
+    :root {
+      --apollo-notification-text-color: var(--cds-inverse-support-03);
+    }
+  </style>
+  {% else %}
+  <style>
+    :root {
+      --apollo-notification-text-color: #ffffff;
+    }
+  </style>
+  {% endif %}
+  {% endif %}
+
+  {% block head %}{% endblock %}
+</head>
+
+<body class="bx--body">
+  <bx-header aria-label="Apollo">
+    <bx-header-menu-button button-label-active="Close menu" button-label-inactive="Open menu"></bx-header-menu-button>
+    <bx-header-name href="/" prefix="Peridot">[Apollo]</bx-header-name>
+    <bx-header-nav menu-bar-label="Peridot [Apollo]">
+      <bx-header-nav-item href="/">Advisories</bx-header-nav-item>
+      {% if request.state.settings.serve_rh_advisories %}
+      <bx-header-nav-item href="/red_hat/advisories/">Red Hat Advisories</bx-header-nav-item>
+      {% endif %}
+      <bx-header-nav-item href="/statistics/">Statistics</bx-header-nav-item>
+      {% if request.state.settings.is_admin %}
+      <bx-header-nav-item href="/admin/">Admin</bx-header-nav-item>
+      {% endif %}
+    </bx-header-nav>
+    <bx-header-nav style="margin-left:auto;padding-left:0">
+      {% if request.session.get("user.name") %}
+      <bx-header-nav-item>{{ request.session.get("user.name") }}</bx-header-nav-item>
+      <bx-header-nav-item href="/logout/">Logout</bx-header-nav-item>
+      {% else %}
+      <bx-header-nav-item href="/login/">Login</bx-header-nav-item>
+      {% endif %}
+    </bx-header-nav>
+  </bx-header>
+
+  <div class="apollo-outer">
+    {% block outer_content %}{% endblock %}
+    {% if title %}
+    <bx-inline-notification kind="info" title="{{ title }}" hide-close-button>
+    </bx-inline-notification>
+    {% endif %}
+    {% if notification %}
+    <div id="apollo-notification-wrapper" style="margin:0 3.5rem">
+      <bx-inline-notification class="top-notification" kind="{{ notification.get('kind', 'none') }}"
+        title="{{ notification['title'] }}" subtitle="{{ notification['subtitle'] }}"
+        hide-close-button></bx-inline-notification>
+    </div>
+    {% endif %}
+  </div>
+
+  <main class="bx--main bx--container">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+
+</html>

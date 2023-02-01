@@ -1,0 +1,38 @@
+From e0c49b576595abdfa5167fa7726e604701f79cd8 Mon Sep 17 00:00:00 2001
+From: Mustafa Gezen <mustafa@ctrliq.com>
+Date: Sun, 29 Jan 2023 05:54:58 +0100
+Subject: [PATCH] Fix Quart and Hypercorn failing to install with rules_python
+
+---
+ .../tools/wheel_installer/wheel_installer.py      | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/python/pip_install/tools/wheel_installer/wheel_installer.py b/python/pip_install/tools/wheel_installer/wheel_installer.py
+index 1f6eaf2..3bbaaaf 100644
+--- a/python/pip_install/tools/wheel_installer/wheel_installer.py
++++ b/python/pip_install/tools/wheel_installer/wheel_installer.py
+@@ -422,6 +422,21 @@ def main() -> None:
+     extras = {name: extras_for_pkg} if extras_for_pkg and name else dict()
+ 
+     whl = next(iter(glob.glob("*.whl")))
++
++    # If wheel starts with "Quart" then rename it to "quart"
++    # For some reason the quart package publishes a wheel with a capital Q
++    # but internally it is referenced as "quart".
++    # This leads to the "installer" package failing to read the WHEEL file
++    # Ugly hack, but it is what it is.
++    # The same problem is also present with "Hypercorn".
++    # This developer is definitely doing something weird but whatever.
++    if whl.startswith("Quart"):
++        os.rename(whl, whl.replace("Quart", "quart"))
++        whl = whl.replace("Quart", "quart")
++    if whl.startswith("Hypercorn"):
++        os.rename(whl, whl.replace("Hypercorn", "hypercorn"))
++        whl = whl.replace("Hypercorn", "hypercorn")
++
+     _extract_wheel(
+         wheel_file=whl,
+         extras=extras,
+-- 
+2.32.0 (Apple Git-132)
+

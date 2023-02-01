@@ -1,0 +1,39 @@
+{% extends "layout.jinja" %}
+
+{% block content %}
+<h2 style="margin-bottom:1rem;">Red Hat Advisories</h2>
+
+<bx-pagination page-size="{{ advisories.size }}" start="{{ (advisories.page-1) * advisories.size }}"
+    total="{{ advisories.total }}">
+    <bx-page-sizes-select slot="page-sizes-select">
+        <option value="50">50</option>
+    </bx-page-sizes-select>
+    <bx-pages-select value="{{ advisories.page - 1 }}" total="{{ advisories_pages }}"></bx-pages-select>
+</bx-pagination>
+<bx-data-table>
+    <bx-table>
+        <bx-table-head>
+            <bx-table-header-row>
+                <bx-table-header-cell>Name</bx-table-header-cell>
+                <bx-table-header-cell>Synopsis</bx-table-header-cell>
+                <bx-table-header-cell>Issued at</bx-table-header-cell>
+                <bx-table-header-cell>Indexed at</bx-table-header-cell>
+                <bx-table-header-cell>Kind</bx-table-header-cell>
+                <bx-table-header-cell>Severity</bx-table-header-cell>
+            </bx-table-header-row>
+        </bx-table-head>
+        <bx-table-body>
+            {% for advisory in advisories.items -%}
+            <bx-table-row>
+                <bx-table-cell><a href="/red_hat/advisories/{{ advisory.name }}">{{ advisory.name }}</a></bx-table-cell>
+                <bx-table-cell>{{ advisory.synopsis }}</bx-table-cell>
+                <bx-table-cell>{{ advisory.red_hat_issued_at.date() }}</bx-table-cell>
+                <bx-table-cell>{{ advisory.created_at.date() }}</bx-table-cell>
+                <bx-table-cell>{{ advisory.kind }}</bx-table-cell>
+                <bx-table-cell>{{ advisory.severity }}</bx-table-cell>
+            </bx-table-row>
+            {% endfor %}
+        </bx-table-body>
+    </bx-table>
+</bx-data-table>
+{% endblock %}

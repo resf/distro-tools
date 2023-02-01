@@ -1,0 +1,18 @@
+{
+  "python.analysis.extraPaths": [
+    "bazel-bin",
+    ".venv/lib/python3.9/site-packages"
+  ],
+  "protoc": {
+    "options": ["--proto_path=third_party/googleapis"]
+  },
+  "python.linting.enabled": true,
+  "python.linting.pylintEnabled": true,
+  "python.formatting.provider": "yapf",
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.formatOnSave": true,
+  "[python]": {
+    "editor.tabSize": 4
+  }
+}

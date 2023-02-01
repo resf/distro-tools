@@ -1,0 +1,2 @@
+generated/**/*.py
+third_party/**/*.py

@@ -1,0 +1,27 @@
+{% extends "layout.jinja" %}
+
+{% block content %}
+<h2>Statistics</h2>
+
+<bx-structured-list>
+    <bx-structured-list-head>
+        <bx-structured-list-header-row>
+            <bx-structured-list-header-cell>Service</bx-structured-list-header-cell>
+            <bx-structured-list-header-cell>Resource</bx-structured-list-header-cell>
+            <bx-structured-list-header-cell>Value</bx-structured-list-header-cell>
+        </bx-structured-list-header-row>
+    </bx-structured-list-head>
+    <bx-structured-list-body>
+        <bx-structured-list-row>
+            <bx-structured-list-cell>rpmworker</bx-structured-list-cell>
+            <bx-structured-list-cell>Advisories</bx-structured-list-cell>
+            <bx-structured-list-cell>{{ advisory_count }}</bx-structured-list-cell>
+        </bx-structured-list-row>
+        <bx-structured-list-row>
+            <bx-structured-list-cell>rhworker</bx-structured-list-cell>
+            <bx-structured-list-cell>Red Hat Advisories</bx-structured-list-cell>
+            <bx-structured-list-cell>{{ rh_advisory_count }}</bx-structured-list-cell>
+        </bx-structured-list-row>
+    </bx-structured-list-body>
+</bx-structured-list>
+{% endblock %}

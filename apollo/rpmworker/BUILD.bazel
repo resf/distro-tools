@@ -1,0 +1,35 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library")
+
+py_library(
+    name = "rpmworker_lib",
+    srcs = [
+        "repomd.py",
+        "rh_matcher_activities.py",
+        "rh_matcher_workflows.py",
+        "temporal.py",
+    ],
+    imports = ["../.."],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//apollo/db:db_lib",
+        "//common:common_lib",
+        "@pypi_aiohttp//:pkg",
+        "@pypi_pyyaml//:pkg",
+        "@pypi_temporalio//:pkg",
+        "@pypi_tortoise_orm//:pkg",
+    ],
+)
+
+py_binary(
+    name = "rpmworker",
+    srcs = ["__main__.py"],
+    imports = ["../.."],
+    main = "__main__.py",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":rpmworker_lib",
+        "//common:common_lib",
+        "@pypi_click//:pkg",
+        "@pypi_temporalio//:pkg",
+    ],
+)

@@ -1,0 +1,35 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library")
+
+py_binary(
+    name = "rhworker",
+    srcs = ["__main__.py"],
+    imports = ["../.."],
+    main = "__main__.py",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":rhworker_lib",
+        "//common:common_lib",
+        "@pypi_click//:pkg",
+        "@pypi_temporalio//:pkg",
+    ],
+)
+
+py_library(
+    name = "rhworker_lib",
+    srcs = [
+        "poll_rh_activities.py",
+        "poll_rh_workflow.py",
+        "temporal.py",
+    ],
+    imports = ["../.."],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//apollo/db:db_lib",
+        "//apollo/rherrata:rherrata_lib",
+        "//apollo/rhwebscraper:rhwebscraper_lib",
+        "//common:common_lib",
+        "@pypi_aiohttp//:pkg",
+        "@pypi_temporalio//:pkg",
+        "@pypi_tortoise_orm//:pkg",
+    ],
+)

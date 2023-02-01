@@ -1,0 +1,53 @@
+{% extends "layout.jinja" %}
+
+{% block head %}
+<style>
+  bx-side-nav {
+    margin-top: 3rem;
+    height: calc(100% - 3rem);
+  }
+
+  .bx--container {
+    will-change: margin-left;
+    transition: margin-left .11s cubic-bezier(0.2, 0, 1, 0.9)
+  }
+
+  @media(min-width: 66rem) {
+    .bx--container {
+      margin-left: 16rem
+    }
+  }
+
+  .bx--with-rail .bx--container {
+    margin-left: 3rem
+  }
+
+  @media(min-width: 66rem) {
+    .bx--rail-expanded .bx--container {
+      margin-left: 16rem
+    }
+  }
+
+  @media(min-width: 66rem) {
+    .bx--with-side-nav-for-header .bx--container {
+      margin-left: 0
+    }
+  }
+
+  .bx--main {
+    height: 100%;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<bx-side-nav aria-label="Side navigation" expanded>
+  <bx-side-nav-items>
+    <bx-side-nav-link href="/admin">General</bx-side-nav-link>
+    <bx-side-nav-link href="/admin/users">Users</bx-side-nav-link>
+    <bx-side-nav-link href="/admin/oidc">OIDC</bx-side-nav-link>
+  </bx-side-nav-items>
+</bx-side-nav>
+
+{% block admin_content %}{% endblock %}
+{% endblock %}

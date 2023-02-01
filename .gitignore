@@ -1,0 +1,8 @@
+.idea
+.ijwb
+/.*.venv
+.venv
+*.pyc
+bazel-*
+__pycache__
+node_modules

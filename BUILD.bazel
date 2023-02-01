@@ -1,0 +1,79 @@
+load("@bazel_gazelle//:def.bzl", "gazelle", "gazelle_binary")
+load("@pypi//:requirements.bzl", "all_whl_requirements")
+load("@rules_python_gazelle_plugin//:def.bzl", "GAZELLE_PYTHON_RUNTIME_DEPS")
+load("@rules_python_gazelle_plugin//manifest:defs.bzl", "gazelle_python_manifest")
+load("@rules_python_gazelle_plugin//modules_mapping:def.bzl", "modules_mapping")
+load("@rules_python//python:defs.bzl", "py_runtime", "py_runtime_pair")
+load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
+load("@npm//:defs.bzl", "npm_link_all_packages")
+
+# gazelle:prefix github.com/rocky-linux/peridot
+# gazelle:go_generate_proto false
+
+# gazelle:python_library_naming_convention $package_name$_lib
+# gazelle:python_binary_naming_convention $package_name$
+# gazelle:map_kind py_binary py_binary @aspect_rules_py//py:defs.bzl
+# gazelle:map_kind py_library py_library @aspect_rules_py//py:defs.bzl
+
+# gazelle:exclude *.venv
+# gazelle:exclude third_party/googleapis
+
+# gazelle:resolve py grpc @pypi_grpcio//:pkg
+# gazelle:resolve py apollo.proto.v1.apollo_pb2_grpc //apollo/proto/v1:apollopb_py_pb2_grpc
+
+gazelle_python_manifest(
+    name = "gazelle_python_manifest",
+    modules_mapping = ":modules_map",
+    pip_repository_name = "pypi",
+    requirements = "requirements_lock.txt",
+)
+
+gazelle_binary(
+    name = "gazelle_bin",
+    languages = [
+        "@bazel_gazelle//language/go",
+        "@bazel_gazelle//language/proto",
+        "@rules_python_gazelle_plugin//python",
+    ],
+)
+
+gazelle(
+    name = "gazelle",
+    data = GAZELLE_PYTHON_RUNTIME_DEPS,
+    gazelle = ":gazelle_bin",
+)
+
+compile_pip_requirements(
+    name = "requirements",
+    extra_args = ["--allow-unsafe"],
+    requirements_in = "requirements.txt",
+    requirements_txt = "requirements_lock.txt",
+)
+
+modules_mapping(
+    name = "modules_map",
+    wheels = all_whl_requirements,
+)
+
+py_runtime(
+    name = "container_py3_runtime",
+    interpreter_path = "/usr/bin/python3",
+    python_version = "PY3",
+)
+
+py_runtime_pair(
+    name = "container_py_runtime_pair",
+    py2_runtime = None,
+    py3_runtime = ":container_py3_runtime",
+)
+
+toolchain(
+    name = "container_py_toolchain",
+    exec_compatible_with = [
+        "@io_bazel_rules_docker//platforms:run_in_container",
+    ],
+    toolchain = ":container_py_runtime_pair",
+    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
+)
+
+npm_link_all_packages(name = "node_modules")
