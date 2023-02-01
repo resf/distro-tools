@@ -48,7 +48,7 @@ class Info:
 
     def temporal_host(self):
         if is_k8s():
-            return "workflow-temporal-frontend.workflow.svc.cluster.local:7233"
+            return os.environ.get("TEMPORAL_HOSTPORT", "workflow-temporal-frontend.workflow.svc.cluster.local:7233")
         else:
             return os.environ.get("TEMPORAL_HOSTPORT", "localhost:7233")
 

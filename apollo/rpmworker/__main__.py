@@ -15,6 +15,7 @@ from apollo.rpmworker.temporal import TASK_QUEUE
 from common.database import Database
 from common.info import Info
 from common.temporal import Temporal
+from common.logger import Logger
 
 
 async def run():
@@ -44,6 +45,7 @@ async def run():
 @click.command()
 def main():
     Info("apollorpmworker", "apollo2")
+    Logger().info("Starting apollo-rpmworker")
     asyncio.run(run())
 
 

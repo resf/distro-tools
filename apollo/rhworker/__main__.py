@@ -43,7 +43,7 @@ async def run():
 @click.command()
 def main():
     Info("apollorhworker", "apollo2")
-    Logger()
+    Logger().info("Starting apollo-rhworker")
     asyncio.run(run())
 
 

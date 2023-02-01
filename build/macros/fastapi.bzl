@@ -22,7 +22,7 @@ def fastapi_binary(name, image_name, path, port, deps = [], tags = [], **kwargs)
         name = "{}.image".format(name),
         srcs = ["@pypi_hypercorn//:rules_python_wheel_entry_point_hypercorn.py"],
         main = "@pypi_hypercorn//:rules_python_wheel_entry_point_hypercorn.py",
-        args = ["{}:app".format(path), "--bind 127.0.0.1:{}".format(port)],
+        args = ["{}:app".format(path)],
         visibility = ["//:__subpackages__"],
         deps = deps + [
             ":{}_lib".format(name),
