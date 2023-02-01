@@ -142,6 +142,10 @@ load("@io_bazel_rules_docker//repositories:deps.bzl", container_deps = "deps")
 
 container_deps()
 
+load("@io_bazel_rules_docker//python3:image.bzl", _py_image_repos = "repositories")
+
+_py_image_repos()
+
 # esbuild
 http_archive(
     name = "aspect_rules_esbuild",

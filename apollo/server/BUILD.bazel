@@ -42,6 +42,7 @@ py_library(
 
 fastapi_binary(
     name = "server",
+    image_name = "apollo-server",
     imports = ["../.."],
     path = "apollo.server.server",
     port = "9999",

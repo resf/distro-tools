@@ -1,8 +1,10 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library")
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+load("//build/macros:pyimage.bzl", "pyimage")
 
-py_binary(
+pyimage(
     name = "rhworker",
     srcs = ["__main__.py"],
+    image_name = "apollo-rhworker",
     imports = ["../.."],
     main = "__main__.py",
     visibility = ["//:__subpackages__"],

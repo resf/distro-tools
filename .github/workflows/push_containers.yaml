@@ -1,0 +1,25 @@
+name: Push containers
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: bazelbuild/setup-bazelisk@v2
+    - name: Mount bazel cache  # Optional
+      uses: actions/cache@v3
+      with:
+        path: "~/.cache/bazel"
+        key: bazel
+    - name: Push containers
+      run: |
+        bazel run //apollo/server:server.push
+        bazel run //apollo/rpmworker:rpmworker.push
+        bazel run //apollo/rhworker:rhworker.push

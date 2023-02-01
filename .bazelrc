@@ -33,3 +33,5 @@ build:toplevel --config=inmemory
 build:toplevel --experimental_remote_download_outputs=toplevel
 
 build --stamp=true
+build --workspace_status_command=build/stamp.sh
+run --workspace_status_command=build/stamp.sh
