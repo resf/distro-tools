@@ -250,7 +250,7 @@ async def fetch_advisories_compat(
 
 
 @router.get(
-    "/",
+    "",
     response_model=Pagination[Advisory_Pydantic_V2],
     dependencies=[
         Depends(pagination_ctx(Pagination[Advisory_Pydantic_V2], CompatParams))
