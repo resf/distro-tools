@@ -58,6 +58,7 @@ Advisory_Pydantic = pydantic_model_creator(
         "fixes.advisory_id",
         "affected_products.advisory",
         "affected_products.advisory_id",
+        "affected_products.supported_product",
     ),
 )
 
@@ -93,7 +94,7 @@ class Advisory_Pydantic_V2(BaseModel):
     fixes: list[Advisory_Pydantic_V2_Fix]
     cves: list[Advisory_Pydantic_V2_CVE]
     references: list[str]
-    publishedAt: datetime.datetime
+    publishedAt: str
     rpms: dict[str, list[str]]
     rebootSuggested: bool
     buildReferences: list[str]
