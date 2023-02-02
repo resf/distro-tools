@@ -20,7 +20,7 @@ from pydantic import BaseModel
 from rssgen.feed import RssGenerator
 
 from apollo.db import Advisory, RedHatIndexState
-from apollo.db.serialize import Advisory_Pydantic_V2, Advisory_Pydantic_V2_CVE, Advisory_Pydantic_V2_Fix, Advisory_Pydantic_V2_RPM
+from apollo.db.serialize import Advisory_Pydantic_V2, Advisory_Pydantic_V2_CVE, Advisory_Pydantic_V2_Fix, Advisory_Pydantic_V2_RPMs
 from apollo.server.settings import UI_URL, COMPANY_NAME, MANAGING_EDITOR, get_setting
 
 from common.fastapi import RenderErrorTemplateException
@@ -128,16 +128,9 @@ def v3_advisory_to_v2(
         for pkg in advisory.packages:
             name = f"{pkg.supported_product.variant} {pkg.supported_products_rh_mirror.match_major_version}"
             if name not in rpms:
-                rpms[name] = []
-            if pkg.nevra not in rpms[name]:
-                rpms[name].append(pkg.nevra)
-
-    rpms_res = {}
-    if include_rpms:
-        for product, rpms in rpms.items():
-            rpms_res[product] = [
-                Advisory_Pydantic_V2_RPM(nevra=x) for x in rpms
-            ]
+                rpms[name] = Advisory_Pydantic_V2_RPMs(nvras=[])
+            if pkg.nevra not in rpms[name].nvras:
+                rpms[name].nvras.append(pkg.nevra)
 
     published_at = advisory.published_at.isoformat("T"
                                                   ).replace("+00:00", "") + "Z"
@@ -156,7 +149,7 @@ def v3_advisory_to_v2(
         shortCode=advisory.name[0:2],
         topic=advisory.topic if advisory.topic else "",
         solution=None,
-        rpms=rpms_res,
+        rpms=rpms,
         affectedProducts=affected_products,
         references=[],
         rebootSuggested=False,

@@ -72,8 +72,8 @@ class Advisory_Pydantic_V2_Fix(BaseModel):
     description: str
 
 
-class Advisory_Pydantic_V2_RPM(BaseModel):
-    nevra: str
+class Advisory_Pydantic_V2_RPMs(BaseModel):
+    nvras: list[str]
 
 
 class Advisory_Pydantic_V2_CVE(BaseModel):
@@ -99,7 +99,7 @@ class Advisory_Pydantic_V2(BaseModel):
     cves: list[Advisory_Pydantic_V2_CVE]
     references: list[str]
     publishedAt: str
-    rpms: dict[str, list[Advisory_Pydantic_V2_RPM]]
+    rpms: dict[str, Advisory_Pydantic_V2_RPMs]
     rebootSuggested: bool
     buildReferences: list[str]
 
