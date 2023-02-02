@@ -196,6 +196,17 @@ async def fetch_advisories_compat(
         elif q_kind == "TYPE_SECURITY":
             q_kind = "Security"
 
+    q_severity = severity
+    if q_severity:
+        if q_severity == "SEVERITY_LOW":
+            q_severity = "Low"
+        elif q_severity == "SEVERITY_MEDIUM":
+            q_severity = "Moderate"
+        elif q_severity == "SEVERITY_IMPORTANT":
+            q_severity = "Important"
+        elif q_severity == "SEVERITY_CRITICAL":
+            q_severity = "Critical"
+
     a = """
         with vars (search, size, page_offset, product, before, after, cve, synopsis, severity, kind) as (
             values ($1 :: text, $2 :: bigint, $3 :: bigint, $4 :: text, $5 :: timestamp, $6 :: timestamp, $7 :: text, $8 :: text, $9 :: text, $10 :: text)
@@ -250,7 +261,7 @@ async def fetch_advisories_compat(
             after,
             cve,
             synopsis,
-            severity,
+            q_severity,
             q_kind,
         ]
     )
