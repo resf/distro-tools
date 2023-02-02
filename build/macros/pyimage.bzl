@@ -1,9 +1,9 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@aspect_rules_py//py:defs.bzl", _py_binary = "py_binary")
 load("@io_bazel_rules_docker//python3:image.bzl", "py3_image")
 load("@io_bazel_rules_docker//container:container.bzl", "container_push")
 
-def pyimage(name, image_name, **kwargs):
-    py_binary(
+def py_binary(name, image_name, **kwargs):
+    _py_binary(
         name = name,
         **kwargs
     )

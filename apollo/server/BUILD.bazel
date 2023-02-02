@@ -35,6 +35,7 @@ py_library(
         "@pypi_jinja2//:pkg",
         "@pypi_passlib//:pkg",
         "@pypi_python_multipart//:pkg",
+        "@pypi_rssgen//:pkg",
         "@pypi_starlette//:pkg",
         "@pypi_tortoise_orm//:pkg",
     ],

@@ -1,7 +1,7 @@
 load("@aspect_rules_py//py:defs.bzl", "py_library")
-load("//build/macros:pyimage.bzl", "pyimage")
+load("//build/macros:pyimage.bzl", "py_binary")
 
-pyimage(
+py_binary(
     name = "rhworker",
     srcs = ["__main__.py"],
     image_name = "apollo-rhworker",
@@ -28,7 +28,6 @@ py_library(
     deps = [
         "//apollo/db:db_lib",
         "//apollo/rherrata:rherrata_lib",
-        "//apollo/rhwebscraper:rhwebscraper_lib",
         "//common:common_lib",
         "@pypi_aiohttp//:pkg",
         "@pypi_temporalio//:pkg",

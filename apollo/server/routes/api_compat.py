@@ -7,14 +7,17 @@ from typing import TypeVar, Generic, Optional
 
 from tortoise import connections
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from fastapi.exceptions import HTTPException
 from fastapi_pagination.links import Page
 from fastapi_pagination import Params
 from fastapi_pagination.ext.tortoise import create_page
 
+from rssgen.feed import RssGenerator
+
 from apollo.db import Advisory, RedHatIndexState
 from apollo.db.serialize import Advisory_Pydantic_V2, Advisory_Pydantic_V2_CVE, Advisory_Pydantic_V2_Fix
+from apollo.server.settings import UI_URL, COMPANY_NAME, MANAGING_EDITOR, get_setting
 
 from common.fastapi import RenderErrorTemplateException
 
@@ -29,6 +32,13 @@ class Pagination(Page[T], Generic[T]):
     class Config:
         allow_population_by_field_name = True
         fields = {"items": {"alias": "advisories"}}
+
+
+class CompatParams(Params):
+    limit: int = Query(50, ge=1, le=100, description="Page size")
+
+    def get_size(self) -> int:
+        return self.limit if self.limit else self.size
 
 
 def v3_advisory_to_v2(
@@ -104,20 +114,16 @@ def v3_advisory_to_v2(
     )
 
 
-@router.get(
-    "/",
-    response_model=Pagination[Advisory_Pydantic_V2],
-)
-async def list_advisories_compat_v2(
-    params: Params = Depends(),
-    product: str = Query(default=None, alias="filters.product"),
-    before_raw: str = Query(default=None, alias="filters.before"),
-    after_raw: str = Query(default=None, alias="filters.after"),
-    cve: str = Query(default=None, alias="filters.cve"),
-    synopsis: str = Query(default=None, alias="filters.synopsis"),
-    keyword: str = Query(default=None, alias="filters.keyword"),
-    severity: str = Query(default=None, alias="filters.severity"),
-    kind: str = Query(default=None, alias="filters.type"),
+async def fetch_advisories_compat(
+    params: CompatParams,
+    product: str,
+    before_raw: str,
+    after_raw: str,
+    cve: str,
+    synopsis: str,
+    keyword: str,
+    severity: str,
+    kind: str,
 ):
     before = None
     after = None
@@ -128,15 +134,13 @@ async def list_advisories_compat_v2(
                 before_raw.removesuffix("Z")
             )
     except:
-        raise RenderErrorTemplateException("Invalid before date", 400)
+        raise RenderErrorTemplateException("Invalid before date", 400)  # noqa # pylint: disable=raise-missing-from
 
     try:
         if after_raw:
             after = datetime.datetime.fromisoformat(after_raw.removesuffix("Z"))
     except:
-        raise RenderErrorTemplateException("Invalid after date", 400)
-
-    state = await RedHatIndexState.first()
+        raise RenderErrorTemplateException("Invalid after date", 400)  # noqa # pylint: disable=raise-missing-from
 
     a = """
         with vars (search, size, page_offset, product, before, after, cve, synopsis, severity, kind) as (
@@ -157,11 +161,10 @@ async def list_advisories_compat_v2(
             count(a.*) over () as total
         from
             advisories a
-        left outer join advisory_affected_products ap on ap.advisory_id = a.id
         left outer join advisory_cves c on c.advisory_id = a.id
         left outer join advisory_fixes f on f.advisory_id = a.id
         where
-            ((select product from vars) is null or ap.name ilike '%' || (select product from vars) || '%')
+            ((select product from vars) is null or exists (select name from advisory_affected_products where advisory_id = a.id and name like '%' || (select product from vars) || '%'))
             and ((select before from vars) is null or a.published_at < (select before from vars))
             and ((select after from vars) is null or a.published_at > (select after from vars))
             and (a.published_at is not null)
@@ -170,7 +173,7 @@ async def list_advisories_compat_v2(
             and ((select severity from vars) is null or a.severity = (select severity from vars))
             and ((select kind from vars) is null or a.kind = (select kind from vars))
             and ((select search from vars) is null or
-            ap.name ilike '%' || (select search from vars) || '%' or
+            exists (select name from advisory_affected_products where advisory_id = a.id and name like '%' || (select product from vars) || '%') or
             a.synopsis ilike '%' || (select search from vars) || '%' or
             a.description ilike '%' || (select search from vars) || '%' or
             exists (select cve from advisory_cves where advisory_id = a.id and cve ilike '%' || (select search from vars) || '%') or
@@ -184,8 +187,16 @@ async def list_advisories_compat_v2(
     connection = connections.get("default")
     results = await connection.execute_query(
         a, [
-            keyword, params.size, params.size * (params.page - 1), product,
-            before, after, cve, synopsis, severity, kind
+            keyword,
+            params.get_size(),
+            params.get_size() * (params.page - 1),
+            product,
+            before,
+            after,
+            cve,
+            synopsis,
+            severity,
+            kind,
         ]
     )
 
@@ -194,8 +205,42 @@ async def list_advisories_compat_v2(
         if results[1]:
             count = results[1][0]["total"]
 
+    return (count, results[1])
+
+
+@router.get(
+    "/",
+    response_model=Pagination[Advisory_Pydantic_V2],
+)
+async def list_advisories_compat_v2(
+    params: CompatParams = Depends(),
+    product: str = Query(default=None, alias="filters.product"),
+    before_raw: str = Query(default=None, alias="filters.before"),
+    after_raw: str = Query(default=None, alias="filters.after"),
+    cve: str = Query(default=None, alias="filters.cve"),
+    synopsis: str = Query(default=None, alias="filters.synopsis"),
+    keyword: str = Query(default=None, alias="filters.keyword"),
+    severity: str = Query(default=None, alias="filters.severity"),
+    kind: str = Query(default=None, alias="filters.type"),
+):
+
+    state = await RedHatIndexState.first()
+
+    fetch_adv = await fetch_advisories_compat(
+        params,
+        product,
+        before_raw,
+        after_raw,
+        cve,
+        synopsis,
+        keyword,
+        severity,
+        kind,
+    )
+    count = fetch_adv[0]
+
     advisories = []
-    for adv in results[1]:
+    for adv in fetch_adv[1]:
         advisory = Advisory(**adv)
         await advisory.fetch_related(
             "packages",
@@ -218,6 +263,62 @@ async def list_advisories_compat_v2(
     ) + "Z"
 
     return page
+
+
+@router.get(":rss")
+async def list_advisories_compat_v2_rss(
+    params: CompatParams = Depends(),
+    product: str = Query(default=None, alias="filters.product"),
+    before_raw: str = Query(default=None, alias="filters.before"),
+    after_raw: str = Query(default=None, alias="filters.after"),
+    cve: str = Query(default=None, alias="filters.cve"),
+    synopsis: str = Query(default=None, alias="filters.synopsis"),
+    keyword: str = Query(default=None, alias="filters.keyword"),
+    severity: str = Query(default=None, alias="filters.severity"),
+    kind: str = Query(default=None, alias="filters.type"),
+):
+    fetch_adv = await fetch_advisories_compat(
+        params,
+        product,
+        before_raw,
+        after_raw,
+        cve,
+        synopsis,
+        keyword,
+        severity,
+        kind,
+    )
+    count = fetch_adv[0]
+    advisories = fetch_adv[1]
+
+    ui_url = await get_setting(UI_URL)
+    company_name = await get_setting(COMPANY_NAME)
+    managing_editor = await get_setting(MANAGING_EDITOR)
+
+    fg = RssGenerator()
+    fg.title(f"{company_name} Errata Feed")
+    fg.link(href=ui_url, rel="alternate")
+    fg.language("en")
+    fg.description(f"Advisories issued by {company_name}")
+    fg.copyright(
+        f"(C) {company_name} {datetime.datetime.now().year}. All rights reserved. CVE sources are copyright of their respective owners."
+    )
+    fg.managingEditor(f"{managing_editor} ({company_name})")
+
+    if count != 0:
+        fg.pubDate(advisories[0]["published_at"])
+        fg.lastBuildDate(advisories[0]["published_at"])
+
+    for adv in advisories:
+        advisory = Advisory(**adv)
+        fe = fg.add_entry()
+        fe.title(f"{advisory.name}: {advisory.synopsis}")
+        fe.link(href=f"{ui_url}/{advisory.name}", rel="alternate")
+        fe.description(advisory.topic)
+        fe.id(str(advisory.id))
+        fe.pubDate(advisory.published_at)
+
+    return Response(content=fg.rss_str(), media_type="application/xml")
 
 
 @router.get(

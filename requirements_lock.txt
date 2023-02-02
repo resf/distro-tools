@@ -648,6 +648,7 @@ python-dateutil==2.8.2 \
     --hash=sha256:961d03dc3453ebbc59dbdea9e4e11c5651520a876d0f4db161e8674aae935da9
     # via
     #   openapi-python-client
+    #   rssgen
     #   temporalio
 python-multipart==0.0.5 \
     --hash=sha256:f7bb5f611fc600d15fa47b3974c8aa16e93724513b49b5f95c81e6624c83fa43
@@ -704,6 +705,10 @@ rfc3986[idna2008]==1.5.0 \
     --hash=sha256:270aaf10d87d0d4e095063c65bf3ddbc6ee3d0b226328ce21e036f946e421835 \
     --hash=sha256:a86d6e1f5b1dc238b218b012df0aa79409667bb209e58da56d0b94704e712a97
     # via httpx
+rssgen==0.9.0 \
+    --hash=sha256:26b6ec12d59a55b9962b83d4044e3bf9cd2d11c4942d8e93692eac70b9f3f6fa \
+    --hash=sha256:c8c19bc1540a5789221e2df0be591d5864e619c49ab6517a8f4a524f8b7be868
+    # via -r ./requirements.txt
 setuptools==58.2.0 \
     --hash=sha256:2551203ae6955b9876741a26ab3e767bb3242dafe86a32a749ea0d78b6792f11 \
     --hash=sha256:2c55bdb85d5bb460bd2e3b12052b677879cffcf46c0c688f2e5bf51d36001145

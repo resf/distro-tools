@@ -16,6 +16,9 @@ OIDC_ADMIN_ROLE = "oidc-admin-role"
 OIDC_ELEVATED_ROLE = "oidc-elevated-role"
 RH_MATCH_STALE = "rh-match-stale"
 DISABLE_SERVING_RH_ADVISORIES = "disable-serving-rh-advisories"
+UI_URL = "ui-url"
+COMPANY_NAME = "company-name"
+MANAGING_EDITOR = "managing-editor"
 
 
 async def get_setting(name: str) -> Optional[str]:

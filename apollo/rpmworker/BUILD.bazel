@@ -1,5 +1,5 @@
 load("@aspect_rules_py//py:defs.bzl", "py_library")
-load("//build/macros:pyimage.bzl", "pyimage")
+load("//build/macros:pyimage.bzl", "py_binary")
 
 py_library(
     name = "rpmworker_lib",
@@ -21,10 +21,10 @@ py_library(
     ],
 )
 
-pyimage(
+py_binary(
     name = "rpmworker",
-    image_name = "apollo-rpmworker",
     srcs = ["__main__.py"],
+    image_name = "apollo-rpmworker",
     imports = ["../.."],
     main = "__main__.py",
     visibility = ["//:__subpackages__"],

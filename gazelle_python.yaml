@@ -1069,6 +1069,12 @@ manifest:
     rfc3986.parseresult: rfc3986
     rfc3986.uri: rfc3986
     rfc3986.validators: rfc3986
+    rssgen: rssgen
+    rssgen.compat: rssgen
+    rssgen.entry: rssgen
+    rssgen.feed: rssgen
+    rssgen.util: rssgen
+    rssgen.version: rssgen
     setuptools: setuptools
     setuptools.archive_util: setuptools
     setuptools.build_meta: setuptools
@@ -1497,4 +1503,4 @@ manifest:
     yarl: yarl
   pip_repository:
     name: pypi
-integrity: 6adcf30189668fa8123faef9b05219d91bf45a1950bc648c64a3c84e829b117d
+integrity: 98955591e0f143193fb26aa58a3c5c9120c83f3270459709acd849f9613119ac
