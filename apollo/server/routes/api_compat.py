@@ -3,15 +3,19 @@ This module implements the compatibility API for Apollo V2 advisories
 """
 
 import datetime
-from typing import TypeVar, Generic, Optional
+from typing import TypeVar, Generic, Optional, Any, Sequence
 
 from tortoise import connections
 
 from fastapi import APIRouter, Depends, Query, Response
 from fastapi.exceptions import HTTPException
-from fastapi_pagination.links import Page
-from fastapi_pagination import Params
+from fastapi_pagination import pagination_ctx
+from fastapi_pagination.bases import BasePage
+from fastapi_pagination.default import Page
+from fastapi_pagination.types import GreaterEqualOne, GreaterEqualZero
 from fastapi_pagination.ext.tortoise import create_page
+
+from pydantic import BaseModel
 
 from rssgen.feed import RssGenerator
 
@@ -26,19 +30,49 @@ router = APIRouter(tags=["v2_compat"])
 T = TypeVar("T")
 
 
-class Pagination(Page[T], Generic[T]):
+class CompatParams(BaseModel):
+    page: int = Query(0, ge=0, description="Page number")
+    limit: int = Query(20, ge=1, le=100, description="Page size")
+
+    def get_offset(self) -> int:
+        print(self.limit * self.page)
+        return self.limit * self.page
+
+    def get_size(self) -> int:
+        return self.limit
+
+
+class Pagination(BasePage[T], Generic[T]):
     lastUpdated: Optional[str]  # noqa # pylint: disable=invalid-name
+
+    page: GreaterEqualZero
+    size: GreaterEqualOne
+
+    __params_type__ = CompatParams
+
+    @classmethod
+    def create(
+        cls,
+        items: Sequence[T],
+        params: CompatParams,
+        *,
+        total: Optional[int] = None,
+        **kwargs: Any,
+    ) -> Page[T]:
+        if not isinstance(params, CompatParams):
+            raise ValueError("Pagination should be used with CompatParams")
+
+        return cls(
+            total=total,
+            items=items,
+            page=params.page,
+            size=params.limit,
+            **kwargs,
+        )
 
     class Config:
         allow_population_by_field_name = True
         fields = {"items": {"alias": "advisories"}}
-
-
-class CompatParams(Params):
-    limit: int = Query(50, ge=1, le=100, description="Page size")
-
-    def get_size(self) -> int:
-        return self.limit if self.limit else self.size
 
 
 def v3_advisory_to_v2(
@@ -93,9 +127,11 @@ def v3_advisory_to_v2(
                 rpms[name] = []
             rpms[name].append(pkg.nevra)
 
+    published_at = advisory.published_at.isoformat("T"
+                                                  ).replace("+00:00", "") + "Z"
     return Advisory_Pydantic_V2(
         id=advisory.id,
-        publishedAt=advisory.published_at,
+        publishedAt=published_at,
         name=advisory.name,
         synopsis=advisory.synopsis,
         description=advisory.description,
@@ -190,7 +226,7 @@ async def fetch_advisories_compat(
         a, [
             keyword,
             params.get_size(),
-            params.get_size() * (params.page - 1),
+            params.get_offset(),
             product,
             before,
             after,
@@ -206,12 +242,19 @@ async def fetch_advisories_compat(
         if results[1]:
             count = results[1][0]["total"]
 
-    return (count, results[1])
+    advisories = [Advisory(**x) for x in results[1]]
+    return (
+        count,
+        advisories,
+    )
 
 
 @router.get(
     "/",
     response_model=Pagination[Advisory_Pydantic_V2],
+    dependencies=[
+        Depends(pagination_ctx(Pagination[Advisory_Pydantic_V2], CompatParams))
+    ]
 )
 async def list_advisories_compat_v2(
     params: CompatParams = Depends(),
@@ -224,8 +267,6 @@ async def list_advisories_compat_v2(
     severity: str = Query(default=None, alias="filters.severity"),
     kind: str = Query(default=None, alias="filters.type"),
 ):
-    params.page = params.page + 1
-
     state = await RedHatIndexState.first()
 
     fetch_adv = await fetch_advisories_compat(
@@ -243,8 +284,7 @@ async def list_advisories_compat_v2(
 
     advisories = []
     for adv in fetch_adv[1]:
-        advisory = Advisory(**adv)
-        await advisory.fetch_related(
+        await adv.fetch_related(
             "packages",
             "cves",
             "fixes",
@@ -253,7 +293,7 @@ async def list_advisories_compat_v2(
             "packages__supported_product",
             "packages__supported_products_rh_mirror",
         )
-        advisories.append(advisory)
+        advisories.append(adv)
 
     v2_advisories: list[Advisory_Pydantic_V2] = []
     for advisory in advisories:
@@ -261,7 +301,8 @@ async def list_advisories_compat_v2(
 
     page = create_page(v2_advisories, count, params)
     page.lastUpdated = state.last_indexed_at.isoformat("T").replace(
-        "+00:00", ""
+        "+00:00",
+        "",
     ) + "Z"
 
     return page
@@ -292,6 +333,7 @@ async def list_advisories_compat_v2_rss(
     )
     count = fetch_adv[0]
     advisories = fetch_adv[1]
+    advisories.reverse()
 
     ui_url = await get_setting(UI_URL)
     company_name = await get_setting(COMPANY_NAME)
@@ -308,11 +350,10 @@ async def list_advisories_compat_v2_rss(
     fg.managingEditor(f"{managing_editor} ({company_name})")
 
     if count != 0:
-        fg.pubDate(advisories[0]["published_at"])
-        fg.lastBuildDate(advisories[0]["published_at"])
+        fg.pubDate(advisories[0].published_at)
+        fg.lastBuildDate(advisories[0].published_at)
 
-    for adv in advisories:
-        advisory = Advisory(**adv)
+    for advisory in advisories:
         fe = fg.add_entry()
         fe.title(f"{advisory.name}: {advisory.synopsis}")
         fe.link(href=f"{ui_url}/{advisory.name}", rel="alternate")
