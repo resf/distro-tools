@@ -60,23 +60,33 @@ async def get_matching_rh_advisories(
         affected_products__minor_version=mirror.match_minor_version,
         affected_products__arch=mirror.match_arch,
     ).order_by("red_hat_issued_at").prefetch_related(
-        "packages", "cves", "bugzilla_tickets"
+        "packages",
+        "cves",
+        "bugzilla_tickets",
     )
 
     override_ids = []
     overrides = await SupportedProductsRpmRhOverride.filter(
-        supported_products_rh_mirror_id=mirror.id
-    ).prefetch_related("red_hat_advisory")
+        supported_products_rh_mirror_id=mirror.id,
+        updated_at__isnull=True,
+    ).prefetch_related(
+        "red_hat_advisory",
+        "red_hat_advisory__packages",
+        "red_hat_advisory__cves",
+        "red_hat_advisory__bugzilla_tickets",
+    )
     for override in overrides:
         override_ids.append(override.red_hat_advisory_id)
         advisories.append(override.red_hat_advisory)
 
     blocked = await SupportedProductsRhBlock.filter(
-        supported_products_rh_mirror_id=mirror.id,
+        supported_products_rh_mirror_id=mirror.id
     ).all()
     blocked_ids = []
     now = datetime.datetime.now(datetime.timezone.utc)
     for b in blocked:
+        if b.red_hat_advisory_id in override_ids:
+            continue
         delta = now - b.created_at
         if delta.days >= 14:
             blocked_ids.append(b.red_hat_advisory_id)
@@ -84,9 +94,7 @@ async def get_matching_rh_advisories(
     # Remove all advisories without packages and blocked advisories
     final = []
     for advisory in advisories:
-        if advisory.packages and (
-            advisory.id not in blocked_ids and advisory.id not in override_ids
-        ):
+        if advisory.packages and advisory.id not in blocked_ids:
             final.append(advisory)
 
     return final
@@ -398,6 +406,12 @@ A Common Vulnerability Scoring System (CVSS) base score, which gives a detailed 
             ignore_conflicts=True,
         )
 
+        # Set update_at to now for any overrides for advisory
+        await SupportedProductsRpmRhOverride.filter(
+            red_hat_advisory_id=advisory.id,
+            supported_products_rh_mirror_id__in=[x.id for x in mirrors],
+        ).update(updated_at=datetime.datetime.utcnow())
+
 
 async def process_repomd(
     mirror: SupportedProductsRhMirror,
@@ -512,11 +526,11 @@ async def match_rh_repos(supported_product_id: int) -> None:
         for rpm_repomd in mirror.rpm_repomds:
             if rpm_repomd.arch != mirror.match_arch:
                 continue
-            published_at = None
-            if rpm_repomd.production:
-                published_at = datetime.datetime.now()
             advisory_map = await process_repomd(mirror, rpm_repomd, advisories)
             if advisory_map:
+                published_at = None
+                if rpm_repomd.production:
+                    published_at = datetime.datetime.utcnow()
                 for advisory_name, obj in advisory_map.items():
                     if advisory_name in all_advisories:
                         all_advisories[advisory_name]["packages"].extend(
