@@ -242,7 +242,7 @@ async def fetch_advisories_compat(
             cve,
             synopsis,
             severity,
-            kind,
+            f"TYPE_{kind.upper()}",
         ]
     )
 
