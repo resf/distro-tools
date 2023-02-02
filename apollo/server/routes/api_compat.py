@@ -224,6 +224,7 @@ async def list_advisories_compat_v2(
     severity: str = Query(default=None, alias="filters.severity"),
     kind: str = Query(default=None, alias="filters.type"),
 ):
+    params.page = params.page + 1
 
     state = await RedHatIndexState.first()
 
