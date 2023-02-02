@@ -75,6 +75,10 @@ class Pagination(BasePage[T], Generic[T]):
         fields = {"items": {"alias": "advisories"}}
 
 
+class AdvisoryResponse(BaseModel):
+    advisory: Advisory_Pydantic_V2
+
+
 def v3_advisory_to_v2(
     advisory: Advisory,
     include_rpms=True,
@@ -370,7 +374,7 @@ async def list_advisories_compat_v2_rss(
 
 @router.get(
     "/{advisory_name}",
-    response_model=Advisory_Pydantic_V2,
+    response_model=AdvisoryResponse,
 )
 async def get_advisory_compat_v2(advisory_name: str):
     advisory = await Advisory.filter(name=advisory_name).prefetch_related(
@@ -386,4 +390,6 @@ async def get_advisory_compat_v2(advisory_name: str):
     if not advisory:
         raise HTTPException(404)
 
-    return Advisory_Pydantic_V2.from_orm(v3_advisory_to_v2(advisory))
+    return AdvisoryResponse(
+        advisory=Advisory_Pydantic_V2.from_orm(v3_advisory_to_v2(advisory))
+    )
