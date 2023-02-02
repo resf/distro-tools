@@ -157,12 +157,14 @@ async def clone_advisory(
             "Red Hat Enterprise Linux", product.name
         )
         synopsis = synopsis.replace("RHEL", product.name)
+        synopsis = synopsis.replace("rhel", product.name)
         synopsis = synopsis.replace("Red Hat", product.vendor)
         synopsis = synopsis.replace(advisory.name, name)
         description = advisory.description.replace(
             "Red Hat Enterprise Linux", product.name
         )
         description = description.replace("RHEL", product.name)
+        description = description.replace("rhel", product.name)
         description = description.replace("Red Hat", product.vendor)
         description = description.replace(advisory.name, name)
 
