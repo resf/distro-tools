@@ -59,6 +59,11 @@ Logger()
 Database(True, app, ["apollo.db"])
 
 
+@app.get("/_/healthz")
+async def health():
+    return {"status": "ok"}
+
+
 @app.exception_handler(404)
 async def not_found_handler(request, exc):
     if request.url.path.startswith("/api"
