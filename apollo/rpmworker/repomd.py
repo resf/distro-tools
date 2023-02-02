@@ -13,6 +13,10 @@ from common.logger import Logger
 NVRA_RE = re.compile(
     r"^(\S+)-([\w~%.+]+)-(\w+(?:\.[\w~%+]+)+?)(?:\.(\w+))?(?:\.rpm)?$"
 )
+NEVRA_RE = re.compile(
+    r"^(\S+)-(\d):([\w~%.+]+)-(\w+(?:\.[\w~%+]+)+?)(?:\.(\w+))?(?:\.rpm)?$"
+)
+EPOCH_RE = re.compile(r"(\d+):")
 DIST_RE = re.compile(r"(\.el\d(?:_\d|))")
 MODULE_DIST_RE = re.compile(r"\.module.+$")
 

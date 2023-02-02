@@ -9,14 +9,15 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi_pagination import add_pagination
 
+from apollo.server.routes.advisories import router as advisories_router
 from apollo.server.routes.statistics import router as statistics_router
 from apollo.server.routes.login import router as login_router
 from apollo.server.routes.logout import router as logout_router
 from apollo.server.routes.admin_index import router as admin_index_router
 from apollo.server.routes.api_advisories import router as api_advisories_router
-from apollo.server.routes.api_compat import router as api_compat_router
+from apollo.server.routes.api_updateinfo import router as api_updateinfo_router
 from apollo.server.routes.api_red_hat import router as api_red_hat_router
-from apollo.server.routes.advisories import router as advisories_router
+from apollo.server.routes.api_compat import router as api_compat_router
 from apollo.server.routes.red_hat_advisories import router as red_hat_advisories_router
 from apollo.server.settings import SECRET_KEY, SettingsMiddleware, get_setting
 from apollo.server.utils import admin_user_scheme, templates
@@ -49,8 +50,9 @@ app.include_router(
 )
 app.include_router(red_hat_advisories_router, prefix="/red_hat")
 app.include_router(api_advisories_router, prefix="/api/v3/advisories")
-app.include_router(api_compat_router, prefix="/v2/advisories")
+app.include_router(api_updateinfo_router, prefix="/api/v3/updateinfo")
 app.include_router(api_red_hat_router, prefix="/api/v3/red_hat")
+app.include_router(api_compat_router, prefix="/v2/advisories")
 
 add_pagination(app)
 

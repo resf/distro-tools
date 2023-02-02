@@ -1128,6 +1128,9 @@ manifest:
     shellingham.posix.proc: shellingham
     shellingham.posix.ps: shellingham
     six: six
+    slugify: python_slugify
+    slugify.slugify: python_slugify
+    slugify.special: python_slugify
     sniffio: sniffio
     soupsieve: soupsieve
     soupsieve.css_match: soupsieve
@@ -1303,6 +1306,7 @@ manifest:
     temporalio.worker.workflow_sandbox: temporalio
     temporalio.workflow: temporalio
     test_autoflake: autoflake
+    text_unidecode: text_unidecode
     toml: toml
     toml.decoder: toml
     toml.encoder: toml
@@ -1503,4 +1507,4 @@ manifest:
     yarl: yarl
   pip_repository:
     name: pypi
-integrity: 98955591e0f143193fb26aa58a3c5c9120c83f3270459709acd849f9613119ac
+integrity: 8d848d11c467949c981e296a23211f42a009566f0d2ab5fe11ceb59ade4cb74e
