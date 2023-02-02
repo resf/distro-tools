@@ -129,6 +129,10 @@ def v3_advisory_to_v2(
 
     published_at = advisory.published_at.isoformat("T"
                                                   ).replace("+00:00", "") + "Z"
+    severity = advisory.severity.upper()
+    if severity == "NONE":
+        severity = "UNKNOWN"
+
     return Advisory_Pydantic_V2(
         id=advisory.id,
         publishedAt=published_at,
@@ -136,7 +140,7 @@ def v3_advisory_to_v2(
         synopsis=advisory.synopsis,
         description=advisory.description,
         type=kind,
-        severity=f"SEVERITY_{advisory.severity.upper()}",
+        severity=f"SEVERITY_{severity}",
         shortCode=advisory.name[0:2],
         topic=advisory.topic if advisory.topic else "",
         solution=None,
