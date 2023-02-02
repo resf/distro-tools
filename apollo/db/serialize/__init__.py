@@ -72,6 +72,10 @@ class Advisory_Pydantic_V2_Fix(BaseModel):
     description: str
 
 
+class Advisory_Pydantic_V2_RPM(BaseModel):
+    nevra: str
+
+
 class Advisory_Pydantic_V2_CVE(BaseModel):
     name: str
     sourceBy: str

@@ -20,7 +20,7 @@ from pydantic import BaseModel
 from rssgen.feed import RssGenerator
 
 from apollo.db import Advisory, RedHatIndexState
-from apollo.db.serialize import Advisory_Pydantic_V2, Advisory_Pydantic_V2_CVE, Advisory_Pydantic_V2_Fix
+from apollo.db.serialize import Advisory_Pydantic_V2, Advisory_Pydantic_V2_CVE, Advisory_Pydantic_V2_Fix, Advisory_Pydantic_V2_RPM
 from apollo.server.settings import UI_URL, COMPANY_NAME, MANAGING_EDITOR, get_setting
 
 from common.fastapi import RenderErrorTemplateException
@@ -129,7 +129,12 @@ def v3_advisory_to_v2(
             name = f"{pkg.supported_product.variant} {pkg.supported_products_rh_mirror.match_major_version}"
             if name not in rpms:
                 rpms[name] = []
-            rpms[name].append(pkg.nevra)
+            if pkg.nevra not in rpms[name]:
+                rpms[name].append(pkg.nevra)
+
+    rpms_res = {}
+    for product, rpms in rpms.items():
+        rpms_res[product] = [Advisory_Pydantic_V2_RPM(nevra=x) for x in rpms]
 
     published_at = advisory.published_at.isoformat("T"
                                                   ).replace("+00:00", "") + "Z"
