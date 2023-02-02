@@ -38,6 +38,7 @@ async def list_advisories(
             a.description,
             a.kind,
             a.severity,
+            a.topic,
             a.red_hat_advisory_id,
             count(a.*) over () as total
         from
