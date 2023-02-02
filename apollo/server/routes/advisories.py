@@ -59,7 +59,7 @@ async def list_advisories(
         """
 
         connection = connections.get("default")
-        results = await connections.execute_query(
+        results = await connection.execute_query(
             a, [search, params.size, params.size * (params.page - 1)]
         )
         count = 0
