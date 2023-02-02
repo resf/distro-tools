@@ -1,0 +1,23 @@
+{{- if .Values.istio.enabled -}}
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  annotations:
+    {{- if .Values.istio.externalDnsTarget }}
+    external-dns.alpha.kubernetes.io/target: {{ .Values.istio.externalDnsTarget }}
+    {{- end}}
+  labels:
+    {{- include "apollo-server.selectorLabels" . | nindent 4 }}
+  name: {{ include "apollo-server.fullname" . }}-virtual-service
+spec:
+  gateways:
+  - {{ .Values.istio.gateway }}
+  hosts:
+  - {{ .Values.istio.host }}
+  http:
+  - route:
+    - destination:
+        host: {{ include "apollo-server.fullname" . }}
+        port:
+          number: 8000
+{{- end }}
