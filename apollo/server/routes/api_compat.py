@@ -230,6 +230,9 @@ async def fetch_advisories_compat(
         limit (select size from vars) offset (select page_offset from vars)
         """
 
+    if kind:
+        kind = f"TYPE_{kind.upper()}"
+
     connection = connections.get("default")
     results = await connection.execute_query(
         a, [
@@ -242,7 +245,7 @@ async def fetch_advisories_compat(
             cve,
             synopsis,
             severity,
-            f"TYPE_{kind.upper()}",
+            kind,
         ]
     )
 
