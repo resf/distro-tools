@@ -133,8 +133,11 @@ def v3_advisory_to_v2(
                 rpms[name].append(pkg.nevra)
 
     rpms_res = {}
-    for product, rpms in rpms.items():
-        rpms_res[product] = [Advisory_Pydantic_V2_RPM(nevra=x) for x in rpms]
+    if include_rpms:
+        for product, rpms in rpms.items():
+            rpms_res[product] = [
+                Advisory_Pydantic_V2_RPM(nevra=x) for x in rpms
+            ]
 
     published_at = advisory.published_at.isoformat("T"
                                                   ).replace("+00:00", "") + "Z"
@@ -153,7 +156,7 @@ def v3_advisory_to_v2(
         shortCode=advisory.name[0:2],
         topic=advisory.topic if advisory.topic else "",
         solution=None,
-        rpms=rpms,
+        rpms=rpms_res,
         affectedProducts=affected_products,
         references=[],
         rebootSuggested=False,
