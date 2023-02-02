@@ -26,8 +26,9 @@ def parse_red_hat_date(rhdate: str) -> datetime.datetime:
 async def get_last_indexed_date() -> Optional[str]:
     state = await RedHatIndexState.get_or_none()
     return re.sub(
-        r"\+\d\d:\d\d", "",
-        state.last_indexed_at.isoformat("T") + "Z"
+        r"\+\d\d:\d\d",
+        "",
+        state.last_indexed_at.isoformat("T") + "Z",
     ) if state else None
 
 

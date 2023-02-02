@@ -1,4 +1,5 @@
 import datetime
+import re
 from dataclasses import dataclass
 from xml.etree import ElementTree as ET
 
@@ -10,6 +11,8 @@ from apollo.db import RedHatAdvisory, Advisory, AdvisoryAffectedProduct, Advisor
 from apollo.rpmworker import repomd
 
 from common.logger import Logger
+
+RHEL_CONTAINER_RE = re.compile(r"rhel(?:\d|)\/")
 
 
 @dataclass
@@ -157,6 +160,7 @@ async def clone_advisory(
             "Red Hat Enterprise Linux", product.name
         )
         synopsis = synopsis.replace("RHEL", product.name)
+        synopsis = RHEL_CONTAINER_RE.sub("", synopsis)
         synopsis = synopsis.replace("rhel", product.name)
         synopsis = synopsis.replace("Red Hat", product.vendor)
         synopsis = synopsis.replace(advisory.name, name)
@@ -164,7 +168,7 @@ async def clone_advisory(
             "Red Hat Enterprise Linux", product.name
         )
         description = description.replace("RHEL", product.name)
-        description = description.replace("rhel", product.name)
+        description = RHEL_CONTAINER_RE.sub("", description)
         description = description.replace("Red Hat", product.vendor)
         description = description.replace(advisory.name, name)
 
