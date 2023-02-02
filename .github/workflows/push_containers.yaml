@@ -18,10 +18,21 @@ jobs:
       with:
         path: "~/.cache/bazel"
         key: bazel
-    - name: Log into GCR
+    - name: Log into GHCR
       run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
     - name: Push containers
       run: |
-        bazel run //apollo/server:server.push
-        bazel run //apollo/rpmworker:rpmworker.push
-        bazel run //apollo/rhworker:rhworker.push
+        export BUILD_TAG="${GIT_COMMIT:-$(git describe --tags --long --always)}"
+
+        bazel build //apollo/server/static
+        rm -rf apollo/server/static/*
+        cp bazel-bin/apollo/server/static/*.css apollo/server/static/
+        cp bazel-bin/apollo/server/static/*.js apollo/server/static/
+        cp bazel-bin/apollo/server/static/*.map apollo/server/static/
+
+        docker build -t ghcr.io/resf/apollo-server:$BUILD_TAG -f apollo/server/Dockerfile .
+        docker build -t ghcr.io/resf/apollo-rpmworker:$BUILD_TAG -f apollo/rpmworker/Dockerfile .
+        docker build -t ghcr.io/resf/apollo-rhworker:$BUILD_TAG -f apollo/rhworker/Dockerfile .
+        docker push ghcr.io/resf/apollo-server:$BUILD_TAG
+        docker push ghcr.io/resf/apollo-rpmworker:$BUILD_TAG
+        docker push ghcr.io/resf/apollo-rhworker:$BUILD_TAG
