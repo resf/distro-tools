@@ -9,7 +9,7 @@ def get_env():
 
 
 def is_prod():
-    return get_env() == "1"
+    return get_env() == "production"
 
 
 def is_k8s():
