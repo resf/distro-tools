@@ -187,6 +187,15 @@ async def fetch_advisories_compat(
     except:
         raise RenderErrorTemplateException("Invalid after date", 400)  # noqa # pylint: disable=raise-missing-from
 
+    q_kind = kind
+    if q_kind:
+        if q_kind == "TYPE_BUGFIX":
+            q_kind = "Bug Fix"
+        elif q_kind == "TYPE_ENHANCEMENT":
+            q_kind = "Enhancement"
+        elif q_kind == "TYPE_SECURITY":
+            q_kind = "Security"
+
     a = """
         with vars (search, size, page_offset, product, before, after, cve, synopsis, severity, kind) as (
             values ($1 :: text, $2 :: bigint, $3 :: bigint, $4 :: text, $5 :: timestamp, $6 :: timestamp, $7 :: text, $8 :: text, $9 :: text, $10 :: text)
@@ -242,7 +251,7 @@ async def fetch_advisories_compat(
             cve,
             synopsis,
             severity,
-            kind.upper() if kind else kind,
+            q_kind,
         ]
     )
 
