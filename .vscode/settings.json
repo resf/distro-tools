@@ -14,5 +14,8 @@
   "editor.formatOnSave": true,
   "[python]": {
     "editor.tabSize": 4
+  },
+  "[xml]": {
+    "editor.formatOnSave": false
   }
 }

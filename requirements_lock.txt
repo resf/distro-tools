@@ -159,6 +159,7 @@ attrs==22.2.0 \
     # via
     #   aiohttp
     #   openapi-python-client
+    #   pytest
 autoflake==2.0.0 \
     --hash=sha256:7185b596e70d8970c6d4106c112ef41921e472bd26abf3613db99eca88cc8c2a \
     --hash=sha256:d58ed4187c6b4f623a942b9a90c43ff84bf6a266f3682f407b42ca52073c9678
@@ -229,6 +230,10 @@ dill==0.3.6 \
     --hash=sha256:a07ffd2351b8c678dfc4a856a3005f8067aea51d6ba6c700796a4d9e280f39f0 \
     --hash=sha256:e5db55f3687856d8fbdab002ed78544e1c4559a130302693d839dfe8f93f2373
     # via pylint
+exceptiongroup==1.1.0 \
+    --hash=sha256:327cbda3da756e2de031a3107b81ab7b3770a602c4d16ca618298c526f4bec1e \
+    --hash=sha256:bcb67d800a4497e1b404c2dd44fca47d3b7a5e5433dbab67f96c1a685cdfdf23
+    # via pytest
 fastapi==0.89.1 \
     --hash=sha256:15d9271ee52b572a015ca2ae5c72e1ce4241dd8532a534ad4f7ec70c376a580f \
     --hash=sha256:f9773ea22290635b2f48b4275b2bf69a8fa721fda2e38228bed47139839dc877
@@ -355,6 +360,10 @@ idna==3.4 \
     #   anyio
     #   rfc3986
     #   yarl
+iniconfig==2.0.0 \
+    --hash=sha256:2d91e135bf72d31a410b17c16da610a82cb55f6b0477d1a902134b24a455b8b3 \
+    --hash=sha256:b6a85871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374
+    # via pytest
 iso8601==1.1.0 \
     --hash=sha256:32811e7b81deee2063ea6d2e94f8819a86d1f3811e49d23623a41fa832bef03f \
     --hash=sha256:8400e90141bf792bce2634df533dc57e3bee19ea120a87bebcd3da89a58ad73f
@@ -555,6 +564,10 @@ openapi-python-client==0.13.1 \
     --hash=sha256:43bcd2e43e39dc31decba76ec09cbaeb6faad8709ce4684aec9b0228cd1bf3b5 \
     --hash=sha256:adb5d886946cae2ff654f26396bd4d3f497234d5a9dafee805ee19587acbfdce
     # via -r ./requirements.txt
+packaging==23.0 \
+    --hash=sha256:714ac14496c3e68c99c29b00845f7a2b85f3bb6f1078fd9f72fd20f0570002b2 \
+    --hash=sha256:b6ad297f8907de0fa2fe1ccbd26fdaf387f5f47c7275fedf8cce89f99446cf97
+    # via pytest
 passlib[bcrypt]==1.7.4 \
     --hash=sha256:aa6bca462b8d8bda89c70b382f0c298a20b5560af6cbfa2dce410c0a2fb669f1 \
     --hash=sha256:defd50f72b65c5402ab2c573830a6978e5f202ad0d984793c8dde2c4152ebe04
@@ -569,6 +582,10 @@ platformdirs==2.6.2 \
     # via
     #   black
     #   pylint
+pluggy==1.0.0 \
+    --hash=sha256:4224373bacce55f955a878bf9cfa763c1e360858e330072059e10bad68531159 \
+    --hash=sha256:74134bbf457f031a36d68416e1509f34bd5ccc019f0bcc952c7b909d06b37bd3
+    # via pytest
 priority==2.0.0 \
     --hash=sha256:6f8eefce5f3ad59baf2c080a664037bb4725cd0a790d53d59ab4059288faf6aa \
     --hash=sha256:c965d54f1b8d0d0b19479db3924c7c36cf672dbf2aec92d43fbdaf4492ba18c0
@@ -643,6 +660,21 @@ pypika-tortoise==0.1.6 \
     --hash=sha256:2d68bbb7e377673743cff42aa1059f3a80228d411fbcae591e4465e173109fd8 \
     --hash=sha256:d802868f479a708e3263724c7b5719a26ad79399b2a70cea065f4a4cadbebf36
     # via tortoise-orm
+pytest==7.2.1 \
+    --hash=sha256:c7c6ca206e93355074ae32f7403e8ea12163b1163c976fee7d4d84027c162be5 \
+    --hash=sha256:d45e0952f3727241918b8fd0f376f5ff6b301cc0777c6f9a556935c92d8a7d42
+    # via
+    #   -r ./requirements.txt
+    #   pytest-asyncio
+    #   pytest-mock
+pytest-asyncio==0.20.3 \
+    --hash=sha256:83cbf01169ce3e8eb71c6c278ccb0574d1a7a3bb8eaaf5e50e0ad342afb33b36 \
+    --hash=sha256:f129998b209d04fcc65c96fc85c11e5316738358909a8399e93be553d7656442
+    # via -r ./requirements.txt
+pytest-mock==3.10.0 \
+    --hash=sha256:f4c973eeae0282963eb293eb173ce91b091a79c1334455acfac9ddee8a1c784b \
+    --hash=sha256:fbbdb085ef7c252a326fd8cdcac0aa3b1333d8811f131bdcc701002e1be7ed4f
+    # via -r ./requirements.txt
 python-dateutil==2.8.2 \
     --hash=sha256:0123cacc1627ae19ddf3c27a5de5bd67ee4586fbdd6440d9748f8abb483d3e86 \
     --hash=sha256:961d03dc3453ebbc59dbdea9e4e11c5651520a876d0f4db161e8674aae935da9
@@ -765,6 +797,7 @@ tomli==2.0.1 \
     #   autoflake
     #   black
     #   pylint
+    #   pytest
 tomlkit==0.11.6 \
     --hash=sha256:07de26b0d8cfc18f871aec595fda24d95b08fef89d147caa861939f37230bf4b \
     --hash=sha256:71b952e5721688937fb02cf9d354dbcf0785066149d2855e44531ebdd2b65d73

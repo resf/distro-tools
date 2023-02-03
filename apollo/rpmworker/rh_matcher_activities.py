@@ -111,7 +111,7 @@ async def clone_advisory(
     logger = Logger()
     logger.info("Cloning advisory %s to %s", advisory.name, product.name)
 
-    acceptable_arches = list(set([x.match_arch for x in mirrors]))
+    acceptable_arches = list({x.match_arch for x in mirrors})
     acceptable_arches.extend(["src", "noarch"])
     for mirror in mirrors:
         if mirror.match_arch == "x86_64":
@@ -377,14 +377,12 @@ async def clone_advisory(
 
         # Check if topic is empty, if so construct it
         if not new_advisory.topic:
-            package_names = list(set([p.package_name for p in new_pkgs]))
+            package_names = list({p.package_name for p in new_pkgs})
             affected_products = list(
-                set(
-                    [
-                        f"{product.name} {mirror.match_major_version}"
-                        for mirror in mirrors
-                    ]
-                )
+                {
+                    f"{product.name} {mirror.match_major_version}"
+                    for mirror in mirrors
+                }
             )
             topic = f"""An update is available for {', '.join(package_names)}.
 This update affects {', '.join(affected_products)}.

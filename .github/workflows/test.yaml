@@ -1,0 +1,18 @@
+name: Lint and test
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Lint
+      run: ./build/scripts/pylint.bash
+    - name: Test
+      run: ./build/scripts/test.bash

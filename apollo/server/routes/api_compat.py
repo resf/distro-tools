@@ -90,12 +90,10 @@ def v3_advisory_to_v2(
         kind = "TYPE_ENHANCEMENT"
 
     affected_products = list(
-        set(
-            [
-                f"{ap.variant} {ap.major_version}"
-                for ap in advisory.affected_products
-            ]
-        )
+        {
+            f"{ap.variant} {ap.major_version}"
+            for ap in advisory.affected_products
+        }
     )
 
     cves = []

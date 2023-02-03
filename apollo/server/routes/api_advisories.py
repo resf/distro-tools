@@ -1,6 +1,6 @@
 from typing import TypeVar, Generic
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter
 from fastapi.exceptions import HTTPException
 from fastapi_pagination.links import Page
 from fastapi_pagination.ext.tortoise import paginate

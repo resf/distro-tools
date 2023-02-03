@@ -8,8 +8,6 @@ from os import path
 import aiohttp
 import yaml
 
-from common.logger import Logger
-
 NVRA_RE = re.compile(
     r"^(\S+)-([\w~%.+]+)-(\w+(?:\.[\w~%+]+)+?)(?:\.(\w+))?(?:\.rpm)?$"
 )

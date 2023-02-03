@@ -362,6 +362,7 @@ manifest:
     dill.tests.test_source: dill
     dill.tests.test_temp: dill
     dill.tests.test_weakref: dill
+    exceptiongroup: exceptiongroup
     fastapi: fastapi
     fastapi.applications: fastapi
     fastapi.background: fastapi
@@ -594,6 +595,8 @@ manifest:
     idna.intranges: idna
     idna.package_data: idna
     idna.uts46data: idna
+    iniconfig: iniconfig
+    iniconfig.exceptions: iniconfig
     iso8601: iso8601
     iso8601.iso8601: iso8601
     iso8601.test_iso8601: iso8601
@@ -731,6 +734,13 @@ manifest:
     openapi_python_client.schema.openapi_schema_pydantic.xml: openapi_python_client
     openapi_python_client.schema.parameter_location: openapi_python_client
     openapi_python_client.utils: openapi_python_client
+    packaging: packaging
+    packaging.markers: packaging
+    packaging.requirements: packaging
+    packaging.specifiers: packaging
+    packaging.tags: packaging
+    packaging.utils: packaging
+    packaging.version: packaging
     passlib: passlib
     passlib.apache: passlib
     passlib.apps: passlib
@@ -830,8 +840,10 @@ manifest:
     platformdirs.unix: platformdirs
     platformdirs.version: platformdirs
     platformdirs.windows: platformdirs
+    pluggy: pluggy
     priority: priority
     priority.priority: priority
+    py: pytest
     pydantic: pydantic
     pydantic.annotated_types: pydantic
     pydantic.class_validators: pydantic
@@ -1051,6 +1063,11 @@ manifest:
     pypika.queries: pypika_tortoise
     pypika.terms: pypika_tortoise
     pypika.utils: pypika_tortoise
+    pytest: pytest
+    pytest_asyncio: pytest_asyncio
+    pytest_asyncio.plugin: pytest_asyncio
+    pytest_mock: pytest_mock
+    pytest_mock.plugin: pytest_mock
     pytz: pytz
     pytz.exceptions: pytz
     pytz.lazy: pytz
@@ -1507,4 +1524,4 @@ manifest:
     yarl: yarl
   pip_repository:
     name: pypi
-integrity: 8d848d11c467949c981e296a23211f42a009566f0d2ab5fe11ceb59ade4cb74e
+integrity: f886dabbf1a9923a165d6ef2ef657ca51f835c91992272bb8c12e9f78c128101

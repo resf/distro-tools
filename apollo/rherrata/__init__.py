@@ -126,7 +126,11 @@ class Advisory(JSONWizard):
     Returns whether this advisory affects the given RHEL version and architecture.
     """
         for product in self.get_products():
-            if product.variant == "Red Hat Enterprise Linux" and product.major_version == major_version and product.minor_version == minor_version and product.arch == arch.value:
+            is_variant = product.variant == "Red Hat Enterprise Linux"
+            is_major_version = product.major_version == major_version
+            is_minor_version = product.minor_version == minor_version
+            is_arch = product.arch == arch.value
+            if is_variant and is_major_version and is_minor_version and is_arch:
                 return True
 
         return False

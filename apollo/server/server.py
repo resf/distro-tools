@@ -67,7 +67,7 @@ async def health():
 
 
 @app.exception_handler(404)
-async def not_found_handler(request, exc):
+async def not_found_handler(request, exc):  # pylint: disable=unused-argument
     if request.url.path.startswith("/api"
                                   ) or request.url.path.startswith("/v2"):
         return JSONResponse({"error": "Not found"}, status_code=404)
