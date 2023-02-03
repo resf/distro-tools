@@ -207,7 +207,8 @@ async def get_updateinfo(
                         "module_version": pkg.module_version,
                     }
                     no_default_collection = True
-                collections[collection_short]["packages"].append(pkg)
+                if pkg not in collections[collection_short]["packages"]:
+                    collections[collection_short]["packages"].append(pkg)
             else:
                 if no_default_collection:
                     continue
@@ -215,7 +216,10 @@ async def get_updateinfo(
                     collections[default_collection_short] = {
                         "packages": [],
                     }
-                collections[default_collection_short]["packages"].append(pkg)
+                if pkg not in collections[default_collection_short]["packages"]:
+                    collections[default_collection_short]["packages"].append(
+                        pkg
+                    )
 
         if no_default_collection and default_collection_short in collections:
             del collections[default_collection_short]
