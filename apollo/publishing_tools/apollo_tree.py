@@ -270,14 +270,40 @@ async def update_repomd_xml(repomd_xml_path: str, updateinfo: dict):
         os.remove(existing_updateinfo_path)
 
 
-async def main(args):
-    base_paths = await scan_path(
-        args.path,
-        args.base_format,
-        args.ignore,
-    )
-    print(args)
-    pass
+async def run_apollo_tree(
+    base_format: str,
+    manual: bool,
+    auto_scan: bool,
+    path: str,
+    ignore: list,
+    product_name: str,
+):
+    if manual:
+        raise Exception("Manual mode not implemented yet")
+
+    if auto_scan:
+        repos = await scan_path(
+            path,
+            base_format,
+            ignore,
+        )
+
+        for _, repo_variants in repos.items():
+            for repo in repo_variants:
+                updateinfo = await fetch_updateinfo_from_apollo(
+                    repo,
+                    product_name,
+                )
+
+                gzipped = await gzip_updateinfo(updateinfo)
+                await write_updateinfo_to_file(
+                    repo["found_path"],
+                    gzipped,
+                )
+                await update_repomd_xml(
+                    repo["found_path"],
+                    gzipped,
+                )
 
 
 if __name__ == "__main__":
@@ -343,4 +369,13 @@ if __name__ == "__main__":
     if p_args.auto_scan and not p_args.path:
         parser.error("Must specify path to scan for repos in auto-scan mode")
 
-    asyncio.run(main(p_args))
+    asyncio.run(
+        run_apollo_tree(
+            p_args.base_format,
+            p_args.manual,
+            p_args.auto_scan,
+            p_args.path,
+            p_args.ignore,
+            p_args.product_name,
+        )
+    )
