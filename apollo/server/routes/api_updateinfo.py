@@ -165,15 +165,21 @@ async def get_updateinfo(
 
         pkg_name_map = {}
         for pkg in advisory.packages:
-            if pkg.package_name not in pkg_name_map:
-                pkg_name_map[pkg.package_name] = []
+            name = pkg.package_name
+            if pkg.module_name:
+                name = f"{pkg.module_name}:{pkg.package_name}:{pkg.module_stream}"
+            if name not in pkg_name_map:
+                pkg_name_map[name] = []
 
-            pkg_name_map[pkg.package_name].append(pkg)
+            pkg_name_map[name].append(pkg)
 
         pkg_src_rpm = {}
         for top_pkg in advisory.packages:
             if top_pkg.package_name not in pkg_src_rpm:
-                for pkg in pkg_name_map[top_pkg.package_name]:
+                name = top_pkg.package_name
+                if top_pkg.module_name:
+                    name = f"{top_pkg.module_name}:{top_pkg.package_name}:{top_pkg.module_stream}"
+                for pkg in pkg_name_map[name]:
                     nvra_no_epoch = EPOCH_RE.sub("", pkg.nevra)
                     nvra = NVRA_RE.search(nvra_no_epoch)
                     if nvra:
@@ -261,7 +267,11 @@ async def get_updateinfo(
                 else:
                     continue
 
-                if pkg.package_name not in pkg_src_rpm:
+                p_name = pkg.package_name
+                if pkg.module_name:
+                    p_name = f"{pkg.module_name}:{pkg.package_name}:{pkg.module_stream}"
+
+                if p_name not in pkg_src_rpm:
                     continue
                 if arch != product_arch:
                     continue
@@ -280,7 +290,7 @@ async def get_updateinfo(
                 package.set("epoch", epoch)
                 package.set("version", version)
                 package.set("release", release)
-                package.set("src", pkg_src_rpm[pkg.package_name])
+                package.set("src", pkg_src_rpm[p_name])
 
                 # Add filename element
                 ET.SubElement(package,
