@@ -196,6 +196,8 @@ async def get_updateinfo(
         for pkg in advisory.packages:
             if pkg.product_name != product_name:
                 continue
+            if pkg.repo != repo:
+                continue
             if pkg.module_name:
                 collection_short = f"{default_collection_short}__{pkg.module_name}"
                 if collection_short not in collections:
