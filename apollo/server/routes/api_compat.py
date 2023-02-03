@@ -106,9 +106,9 @@ def v3_advisory_to_v2(
                 cvss3ScoringVector=cve.cvss3_scoring_vector,
                 cvss3BaseScore=cve.cvss3_base_score,
                 cwe=cve.cwe,
-                sourceBy="Red Hat",
+                sourceBy="MITRE",
                 sourceLink=
-                f"https://access.redhat.com/hydra/rest/securitydata/cve/{cve.cve}.json",
+                f"https://cve.mitre.org/cgi-bin/cvename.cgi?name={cve.cve}",
             )
         )
 
