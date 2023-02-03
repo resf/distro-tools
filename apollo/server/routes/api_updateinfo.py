@@ -194,6 +194,8 @@ async def get_updateinfo(
         # collections, and module RPMs need to go into their own collection based on
         # module name, while non-module RPMs go into the main collection (if any)
         for pkg in advisory.packages:
+            if pkg.repo_name != repo:
+                continue
             if pkg.module_name:
                 collection_short = f"{default_collection_short}__{pkg.module_name}"
                 if collection_short not in collections:
@@ -209,11 +211,11 @@ async def get_updateinfo(
             else:
                 if no_default_collection:
                     continue
-                if collection_short not in collections:
-                    collections[collection_short] = {
+                if default_collection_short not in collections:
+                    collections[default_collection_short] = {
                         "packages": [],
                     }
-                collections[collection_short]["packages"].append(pkg)
+                collections[default_collection_short]["packages"].append(pkg)
 
         if no_default_collection and default_collection_short in collections:
             del collections[default_collection_short]
