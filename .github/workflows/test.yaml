@@ -6,12 +6,13 @@ on:
 
 jobs:
 
-  build:
-
+  lint_test:
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v3
+    - name: Setup
+      run: ./build/scripts/setup.bash
     - name: Lint
       run: ./build/scripts/pylint.bash
     - name: Test
