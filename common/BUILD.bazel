@@ -9,11 +9,13 @@ py_library(
         "info.py",
         "logger.py",
         "temporal.py",
+        "testing.py",
     ],
     imports = [".."],
     visibility = ["//:__subpackages__"],
     deps = [
         "@pypi_fastapi//:pkg",
+        "@pypi_pydantic//:pkg",
         "@pypi_temporalio//:pkg",
         "@pypi_tortoise_orm//:pkg",
     ],

@@ -5,8 +5,6 @@ This module implements the compatibility API for Apollo V2 advisories
 import datetime
 from typing import TypeVar, Generic, Optional, Any, Sequence
 
-from tortoise import connections
-
 from fastapi import APIRouter, Depends, Query, Response
 from fastapi.exceptions import HTTPException
 from fastapi_pagination import pagination_ctx
@@ -20,10 +18,11 @@ from pydantic import BaseModel
 from rssgen.feed import RssGenerator
 
 from apollo.db import Advisory, RedHatIndexState
+from apollo.db.advisory import fetch_advisories
 from apollo.db.serialize import Advisory_Pydantic_V2, Advisory_Pydantic_V2_CVE, Advisory_Pydantic_V2_Fix, Advisory_Pydantic_V2_RPMs
 from apollo.server.settings import UI_URL, COMPANY_NAME, MANAGING_EDITOR, get_setting
 
-from common.fastapi import RenderErrorTemplateException
+from common.fastapi import RenderErrorTemplateException, parse_rfc3339_date
 
 router = APIRouter(tags=["v2_compat"])
 
@@ -124,7 +123,7 @@ def v3_advisory_to_v2(
     rpms = {}
     if include_rpms:
         for pkg in advisory.packages:
-            name = f"{pkg.supported_product.variant} {pkg.supported_products_rh_mirror.match_major_version}"
+            name = f"{pkg.supported_product.name} {pkg.supported_products_rh_mirror.match_major_version}"
             if name not in rpms:
                 rpms[name] = Advisory_Pydantic_V2_RPMs(nvras=[])
             if pkg.nevra not in rpms[name].nvras:
@@ -159,31 +158,25 @@ def v3_advisory_to_v2(
 
 async def fetch_advisories_compat(
     params: CompatParams,
-    product: str,
-    before_raw: str,
-    after_raw: str,
-    cve: str,
-    synopsis: str,
-    keyword: str,
-    severity: str,
-    kind: str,
+    product: Optional[str] = None,
+    before_raw: Optional[str] = None,
+    after_raw: Optional[str] = None,
+    cve: Optional[str] = None,
+    synopsis: Optional[str] = None,
+    keyword: Optional[str] = None,
+    severity: Optional[str] = None,
+    kind: Optional[str] = None,
 ):
     before = None
     after = None
-
-    try:
-        if before_raw:
-            before = datetime.datetime.fromisoformat(
-                before_raw.removesuffix("Z")
-            )
-    except:
-        raise RenderErrorTemplateException("Invalid before date", 400)  # noqa # pylint: disable=raise-missing-from
-
-    try:
-        if after_raw:
-            after = datetime.datetime.fromisoformat(after_raw.removesuffix("Z"))
-    except:
-        raise RenderErrorTemplateException("Invalid after date", 400)  # noqa # pylint: disable=raise-missing-from
+    if before_raw:
+        before = parse_rfc3339_date(before_raw)
+        if not before:
+            raise RenderErrorTemplateException("Invalid before date", 400)  # noqa # pylint: disable=raise-missing-from
+    if after_raw:
+        after = parse_rfc3339_date(after_raw)
+        if not after:
+            raise RenderErrorTemplateException("Invalid after date", 400)  # noqa # pylint: disable=raise-missing-from
 
     q_kind = kind
     if q_kind:
@@ -205,74 +198,18 @@ async def fetch_advisories_compat(
         elif q_severity == "SEVERITY_CRITICAL":
             q_severity = "Critical"
 
-    a = """
-        with vars (search, size, page_offset, product, before, after, cve, synopsis, severity, kind) as (
-            values ($1 :: text, $2 :: bigint, $3 :: bigint, $4 :: text, $5 :: timestamp, $6 :: timestamp, $7 :: text, $8 :: text, $9 :: text, $10 :: text)
-        )
-        select
-            a.id,
-            a.created_at,
-            a.updated_at,
-            a.published_at,
-            a.name,
-            a.synopsis,
-            a.description,
-            a.kind,
-            a.severity,
-            a.topic,
-            a.red_hat_advisory_id,
-            count(a.*) over () as total
-        from
-            advisories a
-        left outer join advisory_affected_products ap on ap.advisory_id = a.id
-        left outer join advisory_cves c on c.advisory_id = a.id
-        left outer join advisory_fixes f on f.advisory_id = a.id
-        where
-            ((select product from vars) is null or exists (select name from advisory_affected_products where advisory_id = a.id and name like '%' || (select product from vars) || '%'))
-            and ((select before from vars) is null or a.published_at < (select before from vars))
-            and ((select after from vars) is null or a.published_at > (select after from vars))
-            and (a.published_at is not null)
-            and ((select cve from vars) is null or exists (select cve from advisory_cves where advisory_id = a.id and cve ilike '%' || (select cve from vars) || '%'))
-            and ((select synopsis from vars) is null or a.synopsis ilike '%' || (select synopsis from vars) || '%')
-            and ((select severity from vars) is null or a.severity = (select severity from vars))
-            and ((select kind from vars) is null or a.kind = (select kind from vars))
-            and ((select search from vars) is null or
-            ap.name like '%' || (select product from vars) || '%' or
-            a.synopsis ilike '%' || (select search from vars) || '%' or
-            a.description ilike '%' || (select search from vars) || '%' or
-            exists (select cve from advisory_cves where advisory_id = a.id and cve ilike '%' || (select search from vars) || '%') or
-            exists (select ticket_id from advisory_fixes where advisory_id = a.id and ticket_id ilike '%' || (select search from vars) || '%') or
-            a.name ilike '%' || (select search from vars) || '%')
-        group by a.id
-        order by a.published_at desc
-        limit (select size from vars) offset (select page_offset from vars)
-        """
-
-    connection = connections.get("default")
-    results = await connection.execute_query(
-        a, [
-            keyword,
-            params.get_size(),
-            params.get_offset(),
-            product,
-            before,
-            after,
-            cve,
-            synopsis,
-            q_severity,
-            q_kind,
-        ]
-    )
-
-    count = 0
-    if results:
-        if results[1]:
-            count = results[1][0]["total"]
-
-    advisories = [Advisory(**x) for x in results[1]]
-    return (
-        count,
-        advisories,
+    return await fetch_advisories(
+        params.get_size(),
+        params.get_offset(),
+        keyword,
+        product,
+        before,
+        after,
+        cve,
+        synopsis,
+        q_severity,
+        q_kind,
+        fetch_related=True,
     )
 
 
@@ -308,23 +245,11 @@ async def list_advisories_compat_v2(
         kind,
     )
     count = fetch_adv[0]
+    advisories = fetch_adv[1]
 
-    advisories = []
-    for adv in fetch_adv[1]:
-        await adv.fetch_related(
-            "packages",
-            "cves",
-            "fixes",
-            "affected_products",
-            "packages",
-            "packages__supported_product",
-            "packages__supported_products_rh_mirror",
-        )
-        advisories.append(adv)
-
-    v2_advisories: list[Advisory_Pydantic_V2] = []
-    for advisory in advisories:
-        v2_advisories.append(v3_advisory_to_v2(advisory))
+    v2_advisories: list[Advisory_Pydantic_V2] = [
+        v3_advisory_to_v2(x) for x in advisories
+    ]
 
     page = create_page(v2_advisories, count, params)
     page.lastUpdated = state.last_indexed_at.isoformat("T").replace(

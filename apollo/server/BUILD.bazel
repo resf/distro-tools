@@ -9,6 +9,7 @@ py_library(
         "routes/advisories.py",
         "routes/api_advisories.py",
         "routes/api_compat.py",
+        "routes/api_osv.py",
         "routes/api_red_hat.py",
         "routes/api_updateinfo.py",
         "routes/login.py",

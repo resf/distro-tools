@@ -1,12 +1,14 @@
-from typing import TypeVar, Generic
+from typing import TypeVar, Generic, Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.exceptions import HTTPException
+from fastapi_pagination import Params
 from fastapi_pagination.links import Page
 from fastapi_pagination.ext.tortoise import paginate
 
 from apollo.db import Advisory
 from apollo.db.serialize import Advisory_Pydantic
+from apollo.db.advisory import fetch_advisories
 
 router = APIRouter(tags=["advisories"])
 
@@ -23,7 +25,17 @@ class Pagination(Page[T], Generic[T]):
     "/",
     response_model=Pagination[Advisory_Pydantic],
 )
-async def list_advisories():
+async def list_advisories(
+    params: Params = Depends(),
+    product: Optional[str] = None,
+    before_raw: Optional[str] = None,
+    after_raw: Optional[str] = None,
+    cve: Optional[str] = None,
+    synopsis: Optional[str] = None,
+    keyword: Optional[str] = None,
+    severity: Optional[str] = None,
+    kind: Optional[str] = None,
+):
     advisories = await paginate(
         Advisory.all().prefetch_related(
             "red_hat_advisory",
@@ -47,8 +59,10 @@ async def get_advisory(advisory_name: str):
         "cves",
         "fixes",
         "affected_products",
-        "red_hat_advisory",
-    ).first()
+        "packages",
+        "packages__supported_product",
+        "packages__supported_products_rh_mirror",
+    ).get_or_none()
 
     if advisory is None:
         raise HTTPException(404)
