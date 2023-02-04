@@ -87,6 +87,10 @@ async def scan_path(
 
         logger.warning("Searching for arches in %s", repo_base)
 
+        if not os.path.isdir(repo_base):
+            logger.warning("Path is not a directory: %s, skipping", repo_base)
+            continue
+
         # All dirs in repo_base is an architecture
         for arch_ in os.listdir(repo_base):
             if repo_first:
@@ -260,12 +264,14 @@ async def update_repomd_xml(repomd_xml_path: str, updateinfo: dict):
     )
 
     # Write to repomd.xml
+    logger.info("Writing to %s", repomd_xml_path)
     with open(repomd_xml_path, "w", encoding="utf-8") as f:
         f.write(xml_str)
 
     # Delete old updateinfo file
     if existing_updateinfo_path:
         try:
+            logger.info("Deleting %s", existing_updateinfo_path)
             os.remove(existing_updateinfo_path)
         except FileNotFoundError:
             logger.warning("File %s not found", existing_updateinfo_path)
