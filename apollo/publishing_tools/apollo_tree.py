@@ -126,14 +126,13 @@ async def scan_path(
 async def fetch_updateinfo_from_apollo(
     repo: dict,
     product_name: str,
-    arch: str = None,
     api_base: str = None,
 ) -> str:
+    pname_arch = product_name.replace("$arch", repo["arch"])
     if not api_base:
         api_base = "https://apollo.build.resf.org/api/v3/updateinfo"
-    api_url = f"{api_base}/{quote(product_name)}/{quote(repo['name'])}/updateinfo.xml"
-    if arch:
-        api_url += f"?req_arch={arch}"
+    api_url = f"{api_base}/{quote(pname_arch)}/{quote(repo['name'])}/updateinfo.xml"
+    api_url += f"?req_arch={repo['arch']}"
 
     logger.info("Fetching updateinfo from %s", api_url)
     async with aiohttp.ClientSession() as session:

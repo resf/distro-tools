@@ -540,3 +540,51 @@ async def test_run_apollo_tree(mocker):
                     actual_repomd_xml = f.read()
 
                 assert actual_repomd_xml == expected_repomd_xml
+
+
+@pytest.mark.asyncio
+async def test_run_apollo_tree_arch_in_product(mocker):
+    with tempfile.TemporaryDirectory() as directory:
+        repos = await _setup_test_baseos(directory)
+
+        # Read data/updateinfo__test__1.xml
+        with open(
+            path.join(
+                path.dirname(__file__), "data", "updateinfo__test__1.xml"
+            ),
+            "r",
+            encoding="utf-8",
+        ) as f:
+            updateinfo_xml = f.read()
+
+        resp = MockResponse(updateinfo_xml, 200)
+        mocker.patch("aiohttp.ClientSession.get", return_value=resp)
+
+        mocker.patch("time.time", return_value=1674284973)
+        await apollo_tree.run_apollo_tree(
+            "$reponame/$arch/os/repodata/repomd.xml",
+            False,
+            True,
+            directory,
+            [],
+            "Rocky Linux 8 $arch",
+        )
+
+        for _, repo_variants in repos.items():
+            for repo in repo_variants:
+                # Check that the repomd.xml file matches baseos__base__repomd__x86_64_with_updateinfo.xml from data
+                with open(
+                    path.join(
+                        path.dirname(__file__),
+                        "data",
+                        "baseos__base__repomd__x86_64_with_updateinfo.xml",
+                    ),
+                    "r",
+                    encoding="utf-8",
+                ) as f:
+                    expected_repomd_xml = f.read()
+
+                with open(repo["found_path"], "r", encoding="utf-8") as f:
+                    actual_repomd_xml = f.read()
+
+                assert actual_repomd_xml == expected_repomd_xml
