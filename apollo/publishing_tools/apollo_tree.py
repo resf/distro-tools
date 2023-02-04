@@ -106,8 +106,14 @@ async def scan_path(
                 repo_name = arch_
             # Now append each combination + rest of parts as repo_info
             if repo_first:
+                if arch in ignore_arches:
+                    logger.info("Ignoring arch: %s", arch)
+                    continue
                 logger.info("Found arch: %s", arch)
             else:
+                if repo_name in ignore_repos:
+                    logger.info("Ignoring repo: %s", repo_name)
+                    continue
                 logger.info("Found repo: %s", repo_name)
 
             if repo_first:
