@@ -34,6 +34,7 @@ async def scan_path(
     base_path: str,
     fmt: str,
     ignore_repos: list[str],
+    ignore_arches: list[str],
 ):
     """
     Scan base path for repositories
@@ -68,9 +69,15 @@ async def scan_path(
         current_parts = parts
         if repo_first:
             repo_name = directory
+            if repo_name in ignore_repos:
+                logger.info("Ignoring repo: %s", repo_name)
+                continue
             logger.info("Found repo: %s", repo_name)
         else:
             arch = directory
+            if arch in ignore_arches:
+                logger.info("Ignoring arch: %s", arch)
+                continue
             logger.info("Found arch: %s", arch)
         repo_base = os.path.join(root, directory)
 
@@ -120,8 +127,6 @@ async def scan_path(
             }
             if repo_name not in repos:
                 repos[repo_name] = []
-            if repo_name not in ignore_repos:
-                repos[repo_name].append(repo)
 
     return repos
 
@@ -140,9 +145,13 @@ async def fetch_updateinfo_from_apollo(
     logger.info("Fetching updateinfo from %s", api_url)
     async with aiohttp.ClientSession() as session:
         async with session.get(api_url) as resp:
-            if resp.status != 200:
-                logger.error("Failed to fetch updateinfo from %s", api_url)
+            if resp.status != 200 and resp.status != 404:
+                logger.warning(
+                    "Failed to fetch updateinfo from %s, skipping", api_url
+                )
                 return None
+            if resp.status != 200:
+                raise Exception(f"Failed to fetch updateinfo from {api_url}")
             return await resp.text()
 
 
@@ -284,6 +293,7 @@ async def run_apollo_tree(
     auto_scan: bool,
     path: str,
     ignore: list[str],
+    ignore_arch: list[str],
     product_name: str,
 ):
     if manual:
@@ -294,6 +304,7 @@ async def run_apollo_tree(
             path,
             base_format,
             ignore,
+            ignore_arch,
         )
 
         for _, repo_variants in repos.items():
@@ -302,6 +313,9 @@ async def run_apollo_tree(
                     repo,
                     product_name,
                 )
+                if not updateinfo:
+                    logger.warning("No updateinfo found for %s", repo["name"])
+                    continue
 
                 gzipped = await gzip_updateinfo(updateinfo)
                 await write_updateinfo_to_file(
@@ -361,6 +375,14 @@ if __name__ == "__main__":
         help="Repos to ignore in auto-scan mode",
     )
     parser.add_argument(
+        "-x",
+        "--ignore-arch",
+        nargs="+",
+        action="append",
+        default=[],
+        help="Arches to ignore in auto-scan mode",
+    )
+    parser.add_argument(
         "-n",
         "--product-name",
         required=True,
@@ -384,6 +406,7 @@ if __name__ == "__main__":
             p_args.auto_scan,
             p_args.path,
             [y for x in p_args.ignore for y in x],
+            [y for x in p_args.ignore_arch for y in x],
             p_args.product_name,
         )
     )
