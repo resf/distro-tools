@@ -199,7 +199,10 @@ async def update_repomd_xml(repomd_xml_path: str, updateinfo: dict):
         if data_type == "updateinfo":
             # Get the location of the updateinfo file
             location = data.find("location", NS)
-            existing_updateinfo_path = location.attrib["href"]
+            location_href = location.attrib["href"]
+            existing_updateinfo_path = os.path.join(
+                repomd_xml_path, "../..", location_href
+            )
 
             # Delete the data element
             repomd_xml.remove(data)
