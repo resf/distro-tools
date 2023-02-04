@@ -93,9 +93,12 @@ async def get_matching_rh_advisories(
 
     # Remove all advisories without packages and blocked advisories
     final = []
+    final_ids = []
     for advisory in advisories:
         if advisory.packages and advisory.id not in blocked_ids:
-            final.append(advisory)
+            if advisory.id not in final_ids:
+                final.append(advisory)
+                final_ids.append(advisory.id)
 
     return final
 
@@ -143,23 +146,39 @@ async def clone_advisory(
             ],
             ignore_conflicts=True,
         )
-        overrides = await SupportedProductsRpmRhOverride.filter(
-            supported_products_rh_mirror_id__in=[x.id for x in mirrors],
-            red_hat_advisory_id=advisory.id,
-        ).all()
-        if overrides:
-            for override in overrides:
-                await override.delete()
         return
 
     pkg_nvras = {}
+    pkg_name_map = {}
     for pkgs in all_pkgs:
         for pkg in pkgs:
             cleaned = repomd.clean_nvra_pkg(pkg)
+            name = repomd.NVRA_RE.search(cleaned).group(1)
             if cleaned not in pkg_nvras:
                 pkg_nvras[cleaned] = [pkg]
             else:
                 pkg_nvras[cleaned].append(pkg)
+
+            if name not in pkg_name_map:
+                pkg_name_map[name] = []
+            pkg_name_map[name].append(cleaned)
+
+    nvra_alias = {}
+    for advisory_nvra, _ in clean_advisory_nvras.items():
+        name = repomd.NVRA_RE.search(advisory_nvra).group(1)
+        name_pkgs = pkg_name_map.get(name, [])
+        for pkg_nvra in name_pkgs:
+            pkg_nvra_rs = pkg_nvra.rsplit(".", 1)
+            cleaned_rs = advisory_nvra.rsplit(".", 1)
+            pkg_arch = pkg_nvra_rs[1]
+            cleaned_arch = cleaned_rs[1]
+
+            pkg_nvr = pkg_nvra_rs[0]
+            cleaned_nvr = cleaned_rs[0]
+
+            if pkg_nvr.startswith(cleaned_nvr) and pkg_arch == cleaned_arch:
+                nvra_alias[advisory_nvra] = pkg_nvra
+                break
 
     async with in_transaction():
         # Create advisory
@@ -199,7 +218,12 @@ async def clone_advisory(
         new_pkgs = []
         for advisory_nvra, _ in clean_advisory_nvras.items():
             if advisory_nvra not in pkg_nvras:
-                continue
+                print(advisory_nvra)
+                print(nvra_alias)
+                if advisory_nvra in nvra_alias:
+                    advisory_nvra = nvra_alias[advisory_nvra]
+                else:
+                    continue
 
             pkgs_to_process = pkg_nvras[advisory_nvra]
             for pkg in pkgs_to_process:
@@ -288,13 +312,6 @@ async def clone_advisory(
                 ],
                 ignore_conflicts=True,
             )
-            overrides = await SupportedProductsRpmRhOverride.filter(
-                supported_products_rh_mirror_id__in=[x.id for x in mirrors],
-                red_hat_advisory_id=advisory.id,
-            ).all()
-            if overrides:
-                for override in overrides:
-                    await override.delete()
             return
 
         await AdvisoryPackage.bulk_create(
@@ -459,11 +476,17 @@ async def process_repomd(
     ret = {}
 
     pkg_nvras = {}
+    pkg_name_map = {}
     for pkg in all_pkgs:
         cleaned = repomd.clean_nvra_pkg(pkg)
         if cleaned not in pkg_nvras:
+            name = repomd.NVRA_RE.search(cleaned).group(1)
+            if name not in pkg_name_map:
+                pkg_name_map[name] = []
+            pkg_name_map[name].append(cleaned)
             pkg_nvras[cleaned] = pkg
 
+    nvra_alias = {}
     check_pkgs = []
 
     # Now check against advisories, and see if we're matching any
@@ -474,6 +497,26 @@ async def process_repomd(
         for advisory_pkg in advisory.packages:
             cleaned = repomd.clean_nvra(advisory_pkg.nevra)
             if cleaned not in clean_advisory_nvras:
+                if not cleaned in pkg_nvras:
+                    # Check if we can match the prefix instead
+                    # First let's fetch the name matching NVRAs
+                    # To cut down on the number of checks
+                    name = repomd.NVRA_RE.search(advisory_pkg.nevra).group(1)
+                    name_pkgs = pkg_name_map.get(name, [])
+                    for pkg_nvra in name_pkgs:
+                        pkg_nvra_rs = pkg_nvra.rsplit(".", 1)
+                        cleaned_rs = cleaned.rsplit(".", 1)
+                        pkg_arch = pkg_nvra_rs[1]
+                        cleaned_arch = cleaned_rs[1]
+
+                        pkg_nvr = pkg_nvra_rs[0]
+                        cleaned_nvr = cleaned_rs[0]
+
+                        if pkg_nvr.startswith(
+                            cleaned_nvr
+                        ) and pkg_arch == cleaned_arch:
+                            nvra_alias[cleaned] = pkg_nvra
+                            break
                 clean_advisory_nvras[cleaned] = True
 
         if not clean_advisory_nvras:
@@ -482,8 +525,13 @@ async def process_repomd(
         did_match_any = False
 
         for nevra, _ in clean_advisory_nvras.items():
+            pkg = None
             if nevra in pkg_nvras:
                 pkg = pkg_nvras[nevra]
+            elif nevra in nvra_alias:
+                pkg = pkg_nvras[nvra_alias[nevra]]
+
+            if pkg:
                 # Set repo name as an attribute to packages
                 pkg.set("repo_name", rpm_repomd.repo_name)
                 pkg.set("mirror_id", str(mirror.id))

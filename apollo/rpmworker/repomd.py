@@ -30,7 +30,12 @@ def clean_nvra_pkg(matching_pkg: ET.Element) -> str:
     arch = matching_pkg.find("{http://linux.duke.edu/metadata/common}arch").text
 
     clean_release = MODULE_DIST_RE.sub("", DIST_RE.sub("", release))
-    return f"{name}-{version}-{clean_release}.{arch}"
+
+    cleaned = f"{name}-{version}-{clean_release}.{arch}"
+    if ".module+" in release:
+        cleaned = f"module.{cleaned}"
+
+    return cleaned
 
 
 def clean_nvra(nvra_raw: str) -> str:
@@ -41,7 +46,12 @@ def clean_nvra(nvra_raw: str) -> str:
     arch = nvra.group(4)
 
     clean_release = MODULE_DIST_RE.sub("", DIST_RE.sub("", release))
-    return f"{name}-{version}-{clean_release}.{arch}"
+
+    cleaned = f"{name}-{version}-{clean_release}.{arch}"
+    if ".module+" in release:
+        cleaned = f"module.{cleaned}"
+
+    return cleaned
 
 
 async def download_xml(
