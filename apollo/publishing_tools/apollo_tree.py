@@ -187,7 +187,6 @@ async def update_repomd_xml(repomd_xml_path: str, updateinfo: dict):
 
     # Parse repomd.xml
     ET.register_namespace("", NS[""])
-    ET.register_namespace("rpm", NS["rpm"])
     repomd_xml = ET.parse(repomd_xml_path).getroot()
 
     # Iterate over data and find type="updateinfo" and delete it
@@ -198,15 +197,13 @@ async def update_repomd_xml(repomd_xml_path: str, updateinfo: dict):
             logger.warning("No type found in data, skipping")
             continue
         if data_type == "updateinfo":
+            # Get the location of the updateinfo file
+            location = data.find("location", NS)
+            existing_updateinfo_path = location.attrib["href"]
+
             # Delete the data element
             repomd_xml.remove(data)
 
-            # Get the location of the updateinfo file
-            location = data.find("location", NS)
-            if not location:
-                logger.warning("No location found in data, skipping")
-                continue
-            existing_updateinfo_path = location.attrib["href"]
             break
 
     # Create new data element and set type to updateinfo
@@ -266,7 +263,10 @@ async def update_repomd_xml(repomd_xml_path: str, updateinfo: dict):
 
     # Delete old updateinfo file
     if existing_updateinfo_path:
-        os.remove(existing_updateinfo_path)
+        try:
+            os.remove(existing_updateinfo_path)
+        except FileNotFoundError:
+            logger.warning("File %s not found", existing_updateinfo_path)
 
 
 async def run_apollo_tree(
