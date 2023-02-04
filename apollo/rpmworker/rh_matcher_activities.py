@@ -218,8 +218,6 @@ async def clone_advisory(
         new_pkgs = []
         for advisory_nvra, _ in clean_advisory_nvras.items():
             if advisory_nvra not in pkg_nvras:
-                print(advisory_nvra)
-                print(nvra_alias)
                 if advisory_nvra in nvra_alias:
                     advisory_nvra = nvra_alias[advisory_nvra]
                 else:
