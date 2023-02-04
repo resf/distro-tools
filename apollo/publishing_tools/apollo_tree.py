@@ -269,7 +269,8 @@ async def update_repomd_xml(repomd_xml_path: str, updateinfo: dict):
         f.write(xml_str)
 
     # Delete old updateinfo file if not the same as the new one
-    if existing_updateinfo_path and existing_updateinfo_path != updateinfo_path:
+    updinfo_base = os.path.basename(existing_updateinfo_path)
+    if existing_updateinfo_path and updinfo_base != updateinfo_path:
         try:
             logger.info("Deleting %s", existing_updateinfo_path)
             os.remove(existing_updateinfo_path)
