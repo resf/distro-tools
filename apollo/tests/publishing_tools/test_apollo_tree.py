@@ -35,6 +35,7 @@ async def _setup_test_baseos(directory: str):
         directory,
         "$reponame/$arch/os/repodata/repomd.xml",
         [],
+        [],
     )
 
     return repos
@@ -62,6 +63,7 @@ async def test_scan_path_valid_structure():
         repos = await apollo_tree.scan_path(
             directory,
             "$reponame/$arch/os/repodata/repomd.xml",
+            [],
             [],
         )
 
@@ -127,6 +129,7 @@ async def test_scan_path_multiple_formats():
             directory,
             "$reponame/$arch/os/repodata/repomd.xml",
             [],
+            [],
         )
 
         assert "baseos" in repos
@@ -158,6 +161,7 @@ async def test_scan_path_multiple_formats():
         repos = await apollo_tree.scan_path(
             directory,
             "$reponame/source/tree/repodata/repomd.xml",
+            [],
             [],
         )
 
@@ -197,6 +201,7 @@ async def test_scan_path_valid_structure_arch_first():
         repos = await apollo_tree.scan_path(
             directory,
             "$arch/$reponame/os/repodata/repomd.xml",
+            [],
             [],
         )
 
@@ -250,6 +255,7 @@ async def test_fetch_updateinfo_from_apollo_live():
             directory,
             "$reponame/$arch/os/repodata/repomd.xml",
             [],
+            [],
         )
 
         assert "BaseOS" in repos
@@ -291,6 +297,7 @@ async def test_fetch_updateinfo_from_apollo_live_no_updateinfo():
         repos = await apollo_tree.scan_path(
             directory,
             "$reponame/$arch/os/repodata/repomd.xml",
+            [],
             [],
         )
 
@@ -519,6 +526,7 @@ async def test_run_apollo_tree(mocker):
             True,
             directory,
             [],
+            [],
             "Rocky Linux 8 x86_64",
         )
 
@@ -566,6 +574,7 @@ async def test_run_apollo_tree_arch_in_product(mocker):
             False,
             True,
             directory,
+            [],
             [],
             "Rocky Linux 8 $arch",
         )

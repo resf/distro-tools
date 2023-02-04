@@ -127,6 +127,7 @@ async def scan_path(
             }
             if repo_name not in repos:
                 repos[repo_name] = []
+            repos[repo_name].append(repo)
 
     return repos
 
