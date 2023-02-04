@@ -1,6 +1,7 @@
 from typing import TypeVar, Generic, Optional
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends
+from fastapi.exceptions import HTTPException
 from fastapi_pagination import create_page
 from fastapi_pagination.links import Page
 from pydantic import BaseModel
@@ -8,8 +9,8 @@ from slugify import slugify
 
 from apollo.db import Advisory
 from apollo.db.advisory import fetch_advisories
-
 from apollo.rpmworker.repomd import EPOCH_RE, NVRA_RE
+from apollo.server.settings import UI_URL, get_setting
 
 from common.fastapi import Params, to_rfc3339_date
 
@@ -76,7 +77,7 @@ class OSVReference(BaseModel):
 
 class OSVCredit(BaseModel):
     name: str
-    contact: list[str]
+    contact: list[str] = None
 
 
 class OSVDatabaseSpecific(BaseModel):
@@ -100,7 +101,7 @@ class OSVAdvisory(BaseModel):
     database_specific: OSVDatabaseSpecific
 
 
-def to_osv_advisory(advisory: Advisory) -> OSVAdvisory:
+def to_osv_advisory(ui_url: str, advisory: Advisory) -> OSVAdvisory:
     affected_pkgs = []
 
     pkg_name_map = {}
@@ -116,6 +117,7 @@ def to_osv_advisory(advisory: Advisory) -> OSVAdvisory:
 
         pkg_name_map[pkg.package_name][product_name].append(pkg)
 
+    vendors = []
     for pkg_name, affected_products in pkg_name_map.items():
         for product_name, affected_packages in affected_products.items():
             if not affected_packages:
@@ -127,6 +129,8 @@ def to_osv_advisory(advisory: Advisory) -> OSVAdvisory:
             nvra = None
             ver_rel = None
             for x in affected_packages:
+                if x.supported_product.vendor not in vendors:
+                    vendors.append(x.supported_product.vendor)
                 nvra = NVRA_RE.search(EPOCH_RE.sub("", x.nevra))
                 if not nvra:
                     continue
@@ -190,6 +194,16 @@ def to_osv_advisory(advisory: Advisory) -> OSVAdvisory:
 
             affected_pkgs.append(affected)
 
+    references = [
+        OSVReference(type="ADVISORY", url=f"{ui_url}/{advisory.name}"),
+    ]
+    for fix in advisory.fixes:
+        references.append(OSVReference(type="REPORT", url=fix.source))
+
+    osv_credits = [OSVCredit(name=x) for x in vendors]
+    if advisory.red_hat_advisory:
+        osv_credits.append(OSVCredit(name="Red Hat"))
+
     return OSVAdvisory(
         id=advisory.name,
         modified=to_rfc3339_date(advisory.updated_at),
@@ -204,8 +218,8 @@ def to_osv_advisory(advisory: Advisory) -> OSVAdvisory:
             for x in advisory.cves
         ],
         affected=affected_pkgs,
-        references=[],
-        credits=[],
+        references=references,
+        credits=osv_credits,
         database_specific=OSVDatabaseSpecific(),
     )
 
@@ -238,5 +252,25 @@ async def get_advisories_osv(
     count = fetch_adv[0]
     advisories = fetch_adv[1]
 
-    osv_advisories = [to_osv_advisory(x) for x in advisories]
+    ui_url = await get_setting(UI_URL)
+    osv_advisories = [to_osv_advisory(ui_url, x) for x in advisories]
     return create_page(osv_advisories, count, params)
+
+
+@router.get("/{advisory_id}", response_model=OSVAdvisory)
+async def get_advisory_osv(advisory_id: str):
+    advisory = await Advisory.filter(name=advisory_id).prefetch_related(
+        "packages",
+        "cves",
+        "fixes",
+        "affected_products",
+        "packages",
+        "packages__supported_product",
+        "packages__supported_products_rh_mirror",
+    ).get_or_none()
+
+    if not advisory:
+        raise HTTPException(404)
+
+    ui_url = await get_setting(UI_URL)
+    return to_osv_advisory(ui_url, advisory)
