@@ -95,10 +95,10 @@ async def get_updateinfo(
 
         # Add time
         time_format = "%Y-%m-%d %H:%M:%S"
-        ET.SubElement(update, "issued"
-                     ).text = advisory.published_at.strftime(time_format)
-        ET.SubElement(update, "updated"
-                     ).text = advisory.updated_at.strftime(time_format)
+        issued = ET.SubElement(update, "issued")
+        issued.set("date", advisory.published_at.strftime(time_format))
+        updated = ET.SubElement(update, "updated")
+        updated.set("date", advisory.updated_at.strftime(time_format))
 
         # Add rights
         now = datetime.datetime.utcnow()
@@ -313,6 +313,11 @@ async def get_updateinfo(
             tree.remove(update)
 
     ET.indent(tree)
-    xml_str = ET.tostring(tree, encoding="unicode", method="xml")
+    xml_str = ET.tostring(
+        tree,
+        encoding="unicode",
+        method="xml",
+        short_empty_elements=True,
+    )
 
     return Response(content=xml_str, media_type="application/xml")
