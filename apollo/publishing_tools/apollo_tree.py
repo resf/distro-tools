@@ -285,13 +285,14 @@ async def update_repomd_xml(repomd_xml_path: str, updateinfo: dict):
         f.write(xml_str)
 
     # Delete old updateinfo file if not the same as the new one
-    updinfo_base = os.path.basename(existing_updateinfo_path)
-    if existing_updateinfo_path and updinfo_base != updateinfo_path:
-        try:
-            logger.info("Deleting %s", existing_updateinfo_path)
-            os.remove(existing_updateinfo_path)
-        except FileNotFoundError:
-            logger.warning("File %s not found", existing_updateinfo_path)
+    if existing_updateinfo_path:
+        updinfo_base = os.path.basename(existing_updateinfo_path)
+        if updinfo_base != updateinfo_path:
+            try:
+                logger.info("Deleting %s", existing_updateinfo_path)
+                os.remove(existing_updateinfo_path)
+            except FileNotFoundError:
+                logger.warning("File %s not found", existing_updateinfo_path)
 
 
 async def run_apollo_tree(
