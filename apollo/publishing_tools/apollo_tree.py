@@ -274,7 +274,7 @@ async def run_apollo_tree(
     manual: bool,
     auto_scan: bool,
     path: str,
-    ignore: list,
+    ignore: list[str],
     product_name: str,
 ):
     if manual:
@@ -374,7 +374,7 @@ if __name__ == "__main__":
             p_args.manual,
             p_args.auto_scan,
             p_args.path,
-            p_args.ignore,
+            [y for x in p_args.ignore for y in x],
             p_args.product_name,
         )
     )
