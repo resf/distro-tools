@@ -175,21 +175,21 @@ async def get_updateinfo(
 
         pkg_src_rpm = {}
         for top_pkg in advisory.packages:
-            if top_pkg.package_name not in pkg_src_rpm:
-                name = top_pkg.package_name
-                if top_pkg.module_name:
-                    name = f"{top_pkg.module_name}:{top_pkg.package_name}:{top_pkg.module_stream}"
+            name = top_pkg.package_name
+            if top_pkg.module_name:
+                name = f"{top_pkg.module_name}:{top_pkg.package_name}:{top_pkg.module_stream}"
+            if name not in pkg_src_rpm:
                 for pkg in pkg_name_map[name]:
                     nvra_no_epoch = EPOCH_RE.sub("", pkg.nevra)
                     nvra = NVRA_RE.search(nvra_no_epoch)
                     if nvra:
-                        name = nvra.group(1)
-                        arch = nvra.group(4)
-                        if pkg.package_name == name and arch == "src":
+                        nvr_name = nvra.group(1)
+                        nvr_arch = nvra.group(4)
+                        if pkg.package_name == nvr_name and nvr_arch == "src":
                             src_rpm = nvra_no_epoch
                             if not src_rpm.endswith(".rpm"):
                                 src_rpm += ".rpm"
-                            pkg_src_rpm[pkg.package_name] = src_rpm
+                            pkg_src_rpm[name] = src_rpm
 
         # Collection list, may be more than one if module RPMs are involved
         collections = {}
@@ -227,6 +227,8 @@ async def get_updateinfo(
 
         if no_default_collection and default_collection_short in collections:
             del collections[default_collection_short]
+
+        collections_added = 0
 
         for collection_short, info in collections.items():
             # Create collection
@@ -305,6 +307,10 @@ async def get_updateinfo(
 
             if added_pkg_count > 0:
                 packages.append(collection)
+                collections_added += 1
+
+        if collections_added == 0:
+            tree.remove(update)
 
     ET.indent(tree)
     xml_str = ET.tostring(tree, encoding="unicode", method="xml")
