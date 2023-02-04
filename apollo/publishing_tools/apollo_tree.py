@@ -33,7 +33,7 @@ class Repository:
 async def scan_path(
     base_path: str,
     fmt: str,
-    ignore_dirs: list[str],
+    ignore_repos: list[str],
 ):
     """
     Scan base path for repositories
@@ -65,8 +65,6 @@ async def scan_path(
 
     # Walk the base path
     for directory in os.listdir(root):
-        if directory in ignore_dirs:
-            continue
         current_parts = parts
         if repo_first:
             repo_name = directory
@@ -118,7 +116,8 @@ async def scan_path(
             }
             if repo_name not in repos:
                 repos[repo_name] = []
-            repos[repo_name].append(repo)
+            if repo_name not in ignore_repos:
+                repos[repo_name].append(repo)
 
     return repos
 
@@ -352,7 +351,7 @@ if __name__ == "__main__":
         nargs="+",
         action="append",
         default=[],
-        help="Directories in base path to ignore in auto-scan mode",
+        help="Repos to ignore in auto-scan mode",
     )
     parser.add_argument(
         "-n",
