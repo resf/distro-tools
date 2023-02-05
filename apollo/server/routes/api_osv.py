@@ -106,20 +106,20 @@ def to_osv_advisory(ui_url: str, advisory: Advisory) -> OSVAdvisory:
 
     pkg_name_map = {}
     for pkg in advisory.packages:
-        if pkg.package_name not in pkg_name_map:
-            pkg_name_map[pkg.package_name] = {}
-
-        product_name = pkg.product_name
+        product_name = slugify(pkg.product_name)
         if pkg.supported_products_rh_mirror:
-            product_name = f"{pkg.supported_product.variant}:{pkg.supported_products_rh_mirror.match_major_version}"
-        if product_name not in pkg_name_map[pkg.package_name]:
-            pkg_name_map[pkg.package_name][product_name] = []
+            product_name = f"{slugify(pkg.supported_product.variant)}:{pkg.supported_products_rh_mirror.match_major_version}"
 
-        pkg_name_map[pkg.package_name][product_name].append(pkg)
+        if product_name not in pkg_name_map:
+            pkg_name_map[product_name] = {}
+        if pkg.package_name not in pkg_name_map[product_name]:
+            pkg_name_map[product_name][pkg.package_name] = []
+
+        pkg_name_map[product_name][pkg.package_name].append(pkg)
 
     vendors = []
-    for pkg_name, affected_products in pkg_name_map.items():
-        for product_name, affected_packages in affected_products.items():
+    for product_name, pkgs in pkg_name_map.items():
+        for pkg_name, affected_packages in pkgs.items():
             if not affected_packages:
                 continue
 
