@@ -84,16 +84,17 @@ async def fetch_advisories(
             count = results[1][0]["total"]
 
     advisories = [Advisory(**x) for x in results[1]]
-    for advisory in advisories:
-        await advisory.fetch_related(
-            "packages",
-            "cves",
-            "fixes",
-            "affected_products",
-            "packages",
-            "packages__supported_product",
-            "packages__supported_products_rh_mirror",
-        )
+    if fetch_related:
+        for advisory in advisories:
+            await advisory.fetch_related(
+                "packages",
+                "cves",
+                "fixes",
+                "affected_products",
+                "packages",
+                "packages__supported_product",
+                "packages__supported_products_rh_mirror",
+            )
     return (
         count,
         advisories,
