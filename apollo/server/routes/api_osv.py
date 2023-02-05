@@ -9,7 +9,7 @@ from slugify import slugify
 
 from apollo.db import Advisory
 from apollo.db.advisory import fetch_advisories
-from apollo.rpmworker.repomd import EPOCH_RE, NVRA_RE
+from apollo.rpmworker.repomd import EPOCH_RE, NEVRA_RE
 from apollo.server.settings import UI_URL, get_setting
 
 from common.fastapi import Params, to_rfc3339_date
@@ -104,95 +104,75 @@ class OSVAdvisory(BaseModel):
 def to_osv_advisory(ui_url: str, advisory: Advisory) -> OSVAdvisory:
     affected_pkgs = []
 
+    vendors = []
     pkg_name_map = {}
     for pkg in advisory.packages:
+        if pkg.supported_product.vendor not in vendors:
+            vendors.append(pkg.supported_product.vendor)
+
+        nevra = NEVRA_RE.search(pkg.nevra)
+        name = nevra.group(1)
+        arch = nevra.group(5).lower()
+
         product_name = slugify(pkg.product_name)
         if pkg.supported_products_rh_mirror:
             product_name = f"{slugify(pkg.supported_product.variant)}:{pkg.supported_products_rh_mirror.match_major_version}"
 
         if product_name not in pkg_name_map:
             pkg_name_map[product_name] = {}
-        if pkg.package_name not in pkg_name_map[product_name]:
-            pkg_name_map[product_name][pkg.package_name] = []
+        if arch not in pkg_name_map[product_name]:
+            pkg_name_map[product_name][arch] = {}
+        if name not in pkg_name_map[product_name][arch]:
+            pkg_name_map[product_name][arch][name] = []
 
-        pkg_name_map[product_name][pkg.package_name].append(pkg)
+        pkg_name_map[product_name][arch][name].append((pkg, nevra))
 
-    vendors = []
-    for product_name, pkgs in pkg_name_map.items():
-        for pkg_name, affected_packages in pkgs.items():
-            if not affected_packages:
+    for product_name, arches in pkg_name_map.items():
+        for arch, affected_arches in arches.items():
+            if not affected_arches:
                 continue
 
-            first_pkg = None
-            noarch_pkg = None
-            arch = None
-            nvra = None
-            ver_rel = None
-            for x in affected_packages:
-                if x.supported_product.vendor not in vendors:
-                    vendors.append(x.supported_product.vendor)
-                nvra = NVRA_RE.search(EPOCH_RE.sub("", x.nevra))
-                if not nvra:
-                    continue
-                ver_rel = f"{nvra.group(2)}-{nvra.group(3)}"
-                if x.supported_products_rh_mirror:
-                    first_pkg = x
-                    arch = x.supported_products_rh_mirror.match_arch
-                    break
-                arch = nvra.group(4).lower()
+            for pkg_name, affected_packages in affected_arches.items():
+                for pkg in affected_packages:
+                    x = pkg[0]
+                    nevra = pkg[1]
 
-                if arch == "src":
-                    continue
+                    ver_rel = f"{nevra.group(3)}-{nevra.group(4)}"
+                    slugified = slugify(x.supported_product.variant)
+                    slugified_distro = slugify(x.product_name)
+                    for arch_, _ in arches.items():
+                        slugified_arch = f"-{slugify(arch_)}"
+                        slugified_distro = slugified_distro.replace(
+                            slugified_arch,
+                            "",
+                        )
+                    epoch = nevra.group(2)
 
-                if arch == "noarch":
-                    noarch_pkg = x
-                    continue
+                    purl = f"pkg:rpm/{slugified}/{pkg_name}@{ver_rel}?arch={arch}&distro={slugified_distro}&epoch={epoch}"
 
-                first_pkg = x
-                break
-
-            if not first_pkg and noarch_pkg:
-                first_pkg = noarch_pkg
-
-            if not ver_rel:
-                continue
-
-            purl = None
-            if first_pkg:
-                slugified = slugify(first_pkg.supported_product.variant)
-                slugified_distro = slugify(first_pkg.product_name)
-                slugified_distro = slugified_distro.replace(
-                    f"-{slugify(arch)}",
-                    "",
-                )
-
-                purl = f"pkg:rpm/{slugified}/{pkg_name}@{ver_rel}?arch={arch}&distro={slugified_distro}"
-            affected = OSVAffected(
-                package=OSVPackage(
-                    ecosystem=product_name,
-                    name=pkg_name,
-                    purl=purl,
-                ),
-                ranges=[],
-                versions=[],
-                ecosystem_specific=OSVEcosystemSpecific(),
-                database_specific=OSVAffectedDatabaseSpecific(),
-            )
-            for x in affected_packages:
-                ranges = [
-                    OSVRange(
-                        type="ECOSYSTEM",
-                        repo=x.repo_name,
-                        events=[
-                            OSVEvent(introduced="0"),
-                            OSVEvent(fixed=ver_rel),
+                    affected = OSVAffected(
+                        package=OSVPackage(
+                            ecosystem=product_name,
+                            name=pkg_name,
+                            purl=purl,
+                        ),
+                        ranges=[
+                            OSVRange(
+                                type="ECOSYSTEM",
+                                repo=x.repo_name,
+                                events=[
+                                    OSVEvent(introduced="0"),
+                                    OSVEvent(fixed=ver_rel),
+                                ],
+                                database_specific=OSVRangeDatabaseSpecific(),
+                            )
                         ],
-                        database_specific=OSVRangeDatabaseSpecific(),
+                        versions=[],
+                        ecosystem_specific=OSVEcosystemSpecific(),
+                        database_specific=OSVAffectedDatabaseSpecific(),
                     )
-                ]
-                affected.ranges.extend(ranges)
 
-            affected_pkgs.append(affected)
+                affected_pkgs.append(affected)
 
     references = [
         OSVReference(type="ADVISORY", url=f"{ui_url}/{advisory.name}"),
