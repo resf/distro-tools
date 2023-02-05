@@ -5,6 +5,7 @@ from tortoise import Tortoise
 Tortoise.init_models(["apollo.db"], "models")  # noqa # pylint: disable=wrong-import-position
 
 from fastapi import FastAPI, Request, Depends
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi_pagination import add_pagination
@@ -56,11 +57,30 @@ app.include_router(api_red_hat_router, prefix="/api/v3/red_hat")
 app.include_router(api_compat_router, prefix="/v2/advisories")
 app.include_router(api_osv_router, prefix="/api/v3/osv")
 
-add_pagination(app)
-
 Info("apollo2")
 Logger()
 Database(True, app, ["apollo.db"])
+
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        title="Peridot Apollo",
+        version="0.1.0",
+        description="Apollo Errata Management",
+        routes=app.routes,
+    )
+    openapi_schema["info"]["x-logo"] = {
+        "url": "https://apollo.build.resf.org/assets/pd-logo-np.svg"
+    }
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+
+app.openapi = custom_openapi
+
+add_pagination(app)
 
 
 @app.get("/_/healthz")
