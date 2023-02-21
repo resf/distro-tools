@@ -34,7 +34,6 @@ class CompatParams(BaseModel):
     limit: int = Query(20, ge=1, le=100, description="Page size")
 
     def get_offset(self) -> int:
-        print(self.limit * self.page)
         return self.limit * self.page
 
     def get_size(self) -> int:
