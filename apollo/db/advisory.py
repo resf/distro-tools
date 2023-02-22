@@ -42,25 +42,62 @@ async def fetch_advisories(
         left outer join advisory_cves c on c.advisory_id = a.id
         left outer join advisory_fixes f on f.advisory_id = a.id
         where
-            ((select product from vars) is null or exists (select name from advisory_affected_products where advisory_id = a.id and name like '%' || (select product from vars) || '%'))
-            and ((select before from vars) is null or a.published_at < (select before from vars))
-            and ((select after from vars) is null or a.published_at > (select after from vars))
-            and (a.published_at is not null)
-            and ((select cve from vars) is null or exists (select cve from advisory_cves where advisory_id = a.id and cve ilike '%' || (select cve from vars) || '%'))
-            and ((select synopsis from vars) is null or a.synopsis ilike '%' || (select synopsis from vars) || '%')
-            and ((select severity from vars) is null or a.severity = (select severity from vars))
-            and ((select kind from vars) is null or a.kind = (select kind from vars))
-            and ((select search from vars) is null or
-            ap.name like '%' || (select product from vars) || '%' or
+            a.published_at is not null
+"""
+
+    where_stmt = ""
+
+    if product:
+        where_stmt += """
+            and exists (select name from advisory_affected_products where advisory_id = a.id and name like '%' || (select product from vars) || '%')
+        """
+
+    if before:
+        where_stmt += """
+            and a.published_at < (select before from vars)
+        """
+
+    if after:
+        where_stmt += """
+            and a.published_at > (select after from vars)
+        """
+
+    if cve:
+        where_stmt += """
+            and exists (select cve from advisory_cves where advisory_id = a.id and cve ilike '%' || (select cve from vars) || '%')
+        """
+
+    if synopsis:
+        where_stmt += """
+            and a.synopsis ilike '%' || (select synopsis from vars) || '%'
+        """
+
+    if severity:
+        where_stmt += """
+            and a.severity = (select severity from vars)
+        """
+
+    if kind:
+        where_stmt += """
+            and a.kind = (select kind from vars)
+        """
+
+    if keyword:
+        where_stmt += """
+            and (ap.name like '%' || (select product from vars) || '%' or
             a.synopsis ilike '%' || (select search from vars) || '%' or
             a.description ilike '%' || (select search from vars) || '%' or
             exists (select cve from advisory_cves where advisory_id = a.id and cve ilike '%' || (select search from vars) || '%') or
             exists (select ticket_id from advisory_fixes where advisory_id = a.id and ticket_id ilike '%' || (select search from vars) || '%') or
             a.name ilike '%' || (select search from vars) || '%')
+        """
+
+    a += where_stmt
+    a += """
         group by a.id
         order by a.published_at desc
         limit (select size from vars) offset (select page_offset from vars)
-        """
+    """
 
     connection = connections.get("default")
     results = await connection.execute_query(
