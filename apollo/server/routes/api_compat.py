@@ -80,6 +80,7 @@ class AdvisoryResponse(BaseModel):
 def v3_advisory_to_v2(
     advisory: Advisory,
     include_rpms=True,
+    fetch_related=True,
 ) -> Advisory_Pydantic_V2:
     kind = "TYPE_SECURITY"
     if advisory.kind == "Bug Fix":
@@ -95,32 +96,34 @@ def v3_advisory_to_v2(
     )
 
     cves = []
-    for cve in advisory.cves:
-        cves.append(
-            Advisory_Pydantic_V2_CVE(
-                name=cve.cve,
-                cvss3ScoringVector=cve.cvss3_scoring_vector,
-                cvss3BaseScore=cve.cvss3_base_score,
-                cwe=cve.cwe,
-                sourceBy="MITRE",
-                sourceLink=
-                f"https://cve.mitre.org/cgi-bin/cvename.cgi?name={cve.cve}",
+    if fetch_related:
+        for cve in advisory.cves:
+            cves.append(
+                Advisory_Pydantic_V2_CVE(
+                    name=cve.cve,
+                    cvss3ScoringVector=cve.cvss3_scoring_vector,
+                    cvss3BaseScore=cve.cvss3_base_score,
+                    cwe=cve.cwe,
+                    sourceBy="MITRE",
+                    sourceLink=
+                    f"https://cve.mitre.org/cgi-bin/cvename.cgi?name={cve.cve}",
+                )
             )
-        )
 
     fixes = []
-    for fix in advisory.fixes:
-        fixes.append(
-            Advisory_Pydantic_V2_Fix(
-                ticket=fix.ticket_id,
-                sourceBy="Red Hat",
-                sourceLink=fix.source,
-                description=fix.description,
+    if fetch_related:
+        for fix in advisory.fixes:
+            fixes.append(
+                Advisory_Pydantic_V2_Fix(
+                    ticket=fix.ticket_id,
+                    sourceBy="Red Hat",
+                    sourceLink=fix.source,
+                    description=fix.description,
+                )
             )
-        )
 
     rpms = {}
-    if include_rpms:
+    if include_rpms and fetch_related:
         for pkg in advisory.packages:
             name = f"{pkg.supported_product.name} {pkg.supported_products_rh_mirror.match_major_version}"
             if name not in rpms:
@@ -165,6 +168,7 @@ async def fetch_advisories_compat(
     keyword: Optional[str] = None,
     severity: Optional[str] = None,
     kind: Optional[str] = None,
+    fetch_related: bool = True,
 ):
     before = None
     after = None
@@ -208,7 +212,7 @@ async def fetch_advisories_compat(
         synopsis,
         q_severity,
         q_kind,
-        fetch_related=True,
+        fetch_related=fetch_related,
     )
 
 
@@ -229,6 +233,7 @@ async def list_advisories_compat_v2(
     keyword: str = Query(default=None, alias="filters.keyword"),
     severity: str = Query(default=None, alias="filters.severity"),
     kind: str = Query(default=None, alias="filters.type"),
+    fetch_related: bool = Query(default=True, alias="filters.fetchRelated"),
 ):
     state = await RedHatIndexState.first()
 
@@ -242,12 +247,17 @@ async def list_advisories_compat_v2(
         keyword,
         severity,
         kind,
+        fetch_related,
     )
     count = fetch_adv[0]
     advisories = fetch_adv[1]
 
+    if not fetch_related:
+        for x in advisories:
+            await x.fetch_related("affected_products")
+
     v2_advisories: list[Advisory_Pydantic_V2] = [
-        v3_advisory_to_v2(x) for x in advisories
+        v3_advisory_to_v2(x, fetch_related=fetch_related) for x in advisories
     ]
 
     page = create_page(v2_advisories, count, params)
@@ -281,6 +291,7 @@ async def list_advisories_compat_v2_rss(
         keyword,
         severity,
         kind,
+        fetch_related=False,
     )
     count = fetch_adv[0]
     advisories = fetch_adv[1]
