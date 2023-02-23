@@ -6,12 +6,56 @@ $feature-flags: (
 @use 'carbon-components/scss/globals/scss/vendor/@carbon/elements/scss/themes/generated/themes';
 @import 'carbon-components/scss/globals/scss/styles.scss';
 
-:root {
-  @include carbon--theme($carbon--theme--g90, true);
+@mixin dark-mode-non-root {
+  a {
+    color: map-get($carbon--theme--g90, 'link-01');
+  }
+
+  #color-switcher-dark {
+    display: var(--display-dark-switcher);
+  }
 }
 
-a {
-  color: map-get($carbon--theme--g90, 'link-01');
+@mixin dark-mode {
+  :root {
+    @include carbon--theme($carbon--theme--g90, true);
+    --display-dark-switcher: none;
+    --display-light-switcher: block;
+  }
+
+  @include dark-mode-non-root;
+}
+
+@mixin light-mode {
+  :root,
+  :root.light {
+    @include carbon--theme($carbon--theme--white, true);
+    --display-light-switcher: none;
+    --display-dark-switcher: block;
+  }
+
+  bx-side-nav {
+    border-right: 1px solid var(--cds-ui-03);
+  }
+
+  #color-switcher-light {
+    display: var(--display-light-switcher);
+  }
+}
+
+@include light-mode;
+
+@media (prefers-color-scheme: dark) {
+  @include dark-mode;
+}
+
+:root.dark {
+  @include carbon--theme($carbon--theme--g90, true);
+
+  @include dark-mode-non-root;
+
+  --display-dark-switcher: none;
+  --display-light-switcher: block;
 }
 
 .bx--inline-notification__text-wrapper {

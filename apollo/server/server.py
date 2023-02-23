@@ -6,7 +6,7 @@ Tortoise.init_models(["apollo.db"], "models")  # noqa # pylint: disable=wrong-im
 
 from fastapi import FastAPI, Request, Depends
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi_pagination import add_pagination
 
@@ -86,6 +86,23 @@ add_pagination(app)
 @app.get("/_/healthz")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/_/set_color")
+async def set_color(request: Request):
+    valid_colors = ["dark", "light"]
+    color = request.query_params.get("color")
+    response = RedirectResponse(
+        request.headers["referer"] if "referer" in request.headers else "/"
+    )
+
+    # First check if the color is valid
+    # If valid, set the color in the cookie, then
+    # redirect back to referrer
+    if color in valid_colors:
+        response.set_cookie("color", color)
+
+    return response
 
 
 @app.exception_handler(404)

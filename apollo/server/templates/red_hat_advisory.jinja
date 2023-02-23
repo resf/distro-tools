@@ -69,19 +69,19 @@
 <div class="bx--grid bx--grid--full-width" style="margin:3rem 0;">
   <div class="bx--row">
     <div class="bx--col-lg-10">
-      <div style="background:var(--cds-ui-02);color:var(--cds-text-01);padding:2rem;">
-        <h3 style="font-weight:600;color:var(--cds-text-04);padding-bottom:0.3rem;">Synopsis</h3>
+      <div style="background:var(--cds-ui-01);color:var(--cds-text-01);padding:2rem;">
+        <h3 style="font-weight:600;color:var(--cds-text-01);padding-bottom:0.3rem;">Synopsis</h3>
         <p>{{ advisory.synopsis }}</p>
         <br /><br />
 
-        <h3 style="font-weight:600;color:var(--cds-text-04);padding-bottom:0.3rem;">Description</h3>
+        <h3 style="font-weight:600;color:var(--cds-text-01);padding-bottom:0.3rem;">Description</h3>
         {% set description = advisory.description.split("\n") %}
         {% for line in description %}
         <p>{{ line }}</p>
         {% endfor %}
         <br /><br />
 
-        <h3 style="font-weight:600;color:var(--cds-text-04);padding-bottom:0.3rem;">Affected products</h3>
+        <h3 style="font-weight:600;color:var(--cds-text-01);padding-bottom:0.3rem;">Affected products</h3>
         <bx-ordered-list>
           {% for product in advisory.affected_products %}
           <bx-list-item style="font-size:var(--cds-body-short-02-font-size)">
@@ -92,7 +92,7 @@
         </bx-ordered-list>
         <br /> <br />
 
-        <h3 style="font-weight:600;color:var(--cds-text-04);padding-bottom:0.3rem;">Fixes</h3>
+        <h3 style="font-weight:600;color:var(--cds-text-01);padding-bottom:0.3rem;">Fixes</h3>
         <bx-ordered-list>
           {% for ticket in advisory.bugzilla_tickets %}
           <bx-list-item style="font-size:var(--cds-body-short-02-font-size)">
@@ -104,7 +104,7 @@
         </bx-ordered-list>
         <br /> <br />
 
-        <h3 style="font-weight:600;color:var(--cds-text-04);padding-bottom:0.3rem;">CVEs</h3>
+        <h3 style="font-weight:600;color:var(--cds-text-01);padding-bottom:0.3rem;">CVEs</h3>
         <bx-ordered-list>
           {% for cve in advisory.cves %}
           <bx-list-item style="font-size:var(--cds-body-short-02-font-size)">
@@ -117,7 +117,7 @@
       </div>
     </div>
     <div class="bx--col-lg-6">
-      <div style="background:var(--cds-ui-02);color:var(--cds-text-01);padding:2rem;">
+      <div style="background:var(--cds-ui-01);color:var(--cds-text-01);padding:2rem;">
         {% set pkg_list = {} %}
         {% for pkg in advisory.packages %}
         {% if pkg.repo_name in pkg_list %}
@@ -127,7 +127,7 @@
         {% endif %}
         {% endfor %}
 
-        <h3 style="font-weight:600;color:var(--cds-text-04);padding-bottom:0.3rem;">Affected packages</h3>
+        <h3 style="font-weight:600;color:var(--cds-text-01);padding-bottom:0.3rem;">Affected packages</h3>
         {% for repo_name, pkg in pkg_list.items() %}
         <h4 style="padding-bottom:0.3rem;font-weight:400;">{{ repo_name }}</h4>
         <bx-ordered-list>

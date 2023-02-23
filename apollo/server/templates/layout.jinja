@@ -1,9 +1,18 @@
 <!DOCTYPE html>
-<html lang="en">
+{% set theme = "" %}
+{% if "color" in request.cookies %}
+{% if request.cookies["color"] == "light" %}
+{% set theme = "light" %}
+{% elif request.cookies["color"] == "dark" %}
+{% set theme = "dark" %}
+{% endif %}
+{% endif %}
+<html lang="en" class="{{theme}}">
 
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="color-scheme" content="dark">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <title>{% block title %}Peridot Apollo{% endblock %}</title>
@@ -25,8 +34,8 @@
 
     .apollo-outer bx-inline-notification {
       margin: 0;
-      color: #ffffff;
-      --cds-inverse-01: #ffffff;
+      color: var(--cds-text-01);
+      --cds-inverse-01: var(--cds-text-01);
       background: var(--cds-button-separator);
     }
 
@@ -95,6 +104,12 @@
       {% endif %}
     </bx-header-nav>
     <bx-header-nav style="margin-left:auto;padding-left:0">
+      <bx-header-nav-item href="/_/set_color?color=light" id="color-switcher-light">
+        {% include "light_icon.jinja" %}
+      </bx-header-nav-item>
+      <bx-header-nav-item href="/_/set_color?color=dark" id="color-switcher-dark">
+        {% include "light_icon.jinja" %}
+      </bx-header-nav-item>
       {% if request.session.get("user.name") %}
       <bx-header-nav-item>{{ request.session.get("user.name") }}</bx-header-nav-item>
       <bx-header-nav-item href="/logout/">Logout</bx-header-nav-item>
