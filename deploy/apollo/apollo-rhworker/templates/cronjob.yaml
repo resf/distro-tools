@@ -1,0 +1,38 @@
+{{- if .Values.cron.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "apollo-rhworker.fullname" . }}
+  labels:
+    {{- include "apollo-rhworker.labels" . | nindent 4 }}
+spec:
+  schedule: '{{ .Values.cron.schedule }}'
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 8 }}
+          {{- end }}
+          serviceAccountName: {{ include "apollo-rhworker.serviceAccountName" . }}
+          securityContext:
+            {{- toYaml .Values.podSecurityContext | indent 8 }}
+          containers:
+          - name: {{ .Chart.Name }}-poll-rh-advisories-workflow
+            image: temporalio/admin-tools:1.10.5
+            securityContext:
+              {{- toYaml .Values.securityContext | indent 12 }}
+            env:
+              - name: TEMPORAL_CLI_ADDRESS
+                value: workflow-temporal-frontend.workflow.svc.cluster.local:7233
+            imagePullPolicy: IfNotPresent
+            command: ["/bin/bash", "-c"]
+            args:
+            - |
+              trap 'curl --max-time 2 -s -f -XPOST http://127.0.0.1:15020/quitquitquit' EXIT
+              while ! curl -s -f http://127.0.0.1:15020/healthz/ready; do sleep 1; done
+              echo "Ready!"
+              tctl wf run --tq v2-rhworker --wt PollRHAdvisoriesWorkflow
+{{- end }}

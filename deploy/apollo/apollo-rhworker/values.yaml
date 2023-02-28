@@ -80,6 +80,10 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
 
+cron:
+  enabled: true
+  schedule: "*/15 * * * *"
+
 nodeSelector: {}
 
 tolerations: []
