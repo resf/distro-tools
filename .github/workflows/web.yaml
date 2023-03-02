@@ -33,6 +33,5 @@ jobs:
         uses: mhausenblas/mkdocs-deploy-gh-pages@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CUSTOM_DOMAIN: distro-tools.rocky.page
           CONFIG_FILE: web/mkdocs.yaml
           REQUIREMENTS: web/requirements.txt
