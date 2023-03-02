@@ -1,0 +1,73 @@
+---
+# Project information
+site_name: Distro Tools
+site_url: https://distro-tools.rocky.page
+site_description: >-
+  Distribution building tools from the RESF. Used to build Rocky Linux
+# Repository
+repo_url: https://github.com/resf/distro-tools
+repo_name: resf/distro-tools
+
+# Copyright
+copyright: Copyright &copy; 2023 Rocky Enterprise Software Foundation
+
+# Configuration
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  highlightjs: true
+  hljs_languages:
+    - bash
+    - perl
+    - python
+    - yaml
+  features:
+    - navigation.expand
+    - navigation.indexes
+    - navigation.instant
+    - navigation.tabs
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - search.suggest
+    - toc.integrate
+  logo: assets/icon-white.svg
+
+# Plugins
+plugins:
+  - autolinks
+  - awesome-pages
+  - git-revision-date
+  - search
+
+# Extensions
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - meta
+  - pymdownx.details # this allows collapsible attributions
+  - pymdownx.emoji:
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
