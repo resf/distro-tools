@@ -98,7 +98,7 @@ class OSVAdvisory(BaseModel):
     affected: list[OSVAffected]
     references: list[OSVReference]
     credits: list[OSVCredit]
-    database_specific: OSVDatabaseSpecific
+    database_specific: Optional[OSVDatabaseSpecific]
 
 
 def to_osv_advisory(ui_url: str, advisory: Advisory) -> OSVAdvisory:
@@ -217,7 +217,7 @@ def to_osv_advisory(ui_url: str, advisory: Advisory) -> OSVAdvisory:
         affected=affected_pkgs,
         references=references,
         credits=osv_credits,
-        database_specific=OSVDatabaseSpecific(),
+        database_specific=None,
     )
 
 
