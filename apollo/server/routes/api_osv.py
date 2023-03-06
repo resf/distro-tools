@@ -127,6 +127,8 @@ def to_osv_advisory(ui_url: str, advisory: Advisory) -> OSVAdvisory:
 
         pkg_name_map[product_name][arch][name].append((pkg, nevra))
 
+    processed_nvra = {}
+
     for product_name, arches in pkg_name_map.items():
         for _, affected_arches in arches.items():
             if not affected_arches:
@@ -139,6 +141,9 @@ def to_osv_advisory(ui_url: str, advisory: Advisory) -> OSVAdvisory:
                     # Only process "src" packages
                     if nevra.group(5) != "src":
                         continue
+                    if x.nevra in processed_nvra:
+                        continue
+                    processed_nvra[x.nevra] = True
 
                     ver_rel = f"{nevra.group(3)}-{nevra.group(4)}"
                     slugified = slugify(x.supported_product.variant)
