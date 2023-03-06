@@ -1,2 +1,3 @@
 ADMIN = "admin"
 ELEVATED = "elevated"
+POSSIBLE_ROLES = [ADMIN, ELEVATED]

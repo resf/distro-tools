@@ -9,22 +9,31 @@ import '@carbon/web-components/es/components/button';
 import '@carbon/web-components/es/components/notification';
 import '@carbon/web-components/es/components/tag';
 import '@carbon/web-components/es/components/list';
+import '@carbon/web-components/es/components/select';
+import '@carbon/web-components/es/components/modal';
 
 function fixForm() {
   const buttons = document.querySelectorAll('bx-btn');
   buttons.forEach((button) => {
-    if (!button.getAttribute('form_id')) {
-      return;
+    let form: any = null;
+    if (button.getAttribute('form_id')) {
+      form = document.querySelector('form#' + button.getAttribute('form_id'));
     }
 
-    const form: any = document.querySelector(
-      'form#' + button.getAttribute('form_id')
-    );
-    if (form) {
-      button.addEventListener('click', () => {
+    // If it has "open_modal" attribute, open the modal
+    const modalId = button.getAttribute('open_modal');
+
+    button.addEventListener('click', () => {
+      if (form) {
         form.submit();
-      });
-    }
+      }
+      if (modalId) {
+        const modal: any = document.querySelector('bx-modal#' + modalId);
+        if (modal) {
+          modal.open = true;
+        }
+      }
+    });
   });
 
   // Also do the same for bx-input and enter key
@@ -62,6 +71,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // Add "active" if location has prefix, e.g. /admin/ -> /admin
   // For / only we need to check if the location is exactly /
   const pathname = window.location.pathname;
+  let currentActive: any = null;
   document.querySelectorAll('bx-side-nav-link').forEach((el) => {
     const href = el.getAttribute('href');
     if (href === '/') {
@@ -70,6 +80,10 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     } else if (pathname.startsWith(href || '')) {
       el.setAttribute('active', '');
+      if (currentActive) {
+        currentActive.removeAttribute('active');
+      }
+      currentActive = el;
     }
   });
 
@@ -89,6 +103,15 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     }
   }
+
+  // For all bx-select, elements, using the "set_value" attribute, set the value
+  // of the select element to the value of the attribute.
+  document.querySelectorAll('bx-select').forEach((el: any) => {
+    const setValue = el.getAttribute('set_value');
+    if (setValue) {
+      el.value = setValue;
+    }
+  });
 
   fixForm();
 });

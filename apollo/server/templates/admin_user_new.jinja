@@ -1,0 +1,42 @@
+{% extends "admin_layout.jinja" %}
+
+{% block admin_content %}
+<h2 style="display:block;margin-bottom:1rem;">Create new user</h2>
+
+{% if not should_hide_form %}
+<form id="new_user_form" action="" method="POST">
+  <bx-form-item>
+    <bx-input required name="name" form_id="new_user_form">
+      <span slot="label-text">Name</span>
+    </bx-input>
+    <bx-input required name="email" type="email" form_id="new_user_form">
+      <span slot="label-text">Email</span>
+    </bx-input>
+    <bx-select label-text="Role" name="role" form_id="new_user_form">
+      <bx-select-item value=""></bx-select-item>
+      <bx-select-item value="admin">Admin</bx-select-item>
+      <bx-select-item value="elevated">Elevated</bx-select-item>
+    </bx-select>
+    <p>A random password will be generated on creation</p>
+    <bx-btn type="submit" style="margin-top:1rem;margin-bottom:1rem;display:block" form_id="new_user_form">
+      Create new user
+    </bx-btn>
+  </bx-form-item>
+</form>
+{% else %}
+{% endif %}
+{% if error %}
+<div style="margin-top:3rem;">
+  <h5 style="color:#fa4d56;border-left:0;margin:0;">
+    {{ error }}
+  </h5>
+</div>
+{% endif %}
+{% if gen_password %}
+<div style="margin-top:3rem;">
+  <h5 style="color:#198038;border-left:0;margin:0;">
+    User {{ email }} successfully created with password {{ gen_password }}
+  </h5>
+</div>
+{% endif %}
+{% endblock %}

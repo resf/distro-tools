@@ -15,6 +15,7 @@ py_library(
     visibility = ["//:__subpackages__"],
     deps = [
         "@pypi_fastapi//:pkg",
+        "@pypi_fastapi_pagination//:pkg",
         "@pypi_pydantic//:pkg",
         "@pypi_temporalio//:pkg",
         "@pypi_tortoise_orm//:pkg",

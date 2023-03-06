@@ -1,0 +1,24 @@
+{% extends "layout.jinja" %}
+
+{% block content %}
+<h2>Profile</h2>
+
+<div style="width:100%;max-width:450px;margin-top:1rem;">
+  <form id="profile_form" action="" method="POST">
+    <bx-form-item>
+      <bx-input required name="current_password" type="password" form_id="profile_form">
+        <span slot="label-text">Current password</span>
+      </bx-input>
+      <bx-input required name="new_password" type="password" form_id="profile_form">
+        <span slot="label-text">New password</span>
+      </bx-input>
+      <bx-input required name="confirm_password" type="password" form_id="profile_form">
+        <span slot="label-text">Confirm new password</span>
+      </bx-input>
+      <bx-btn type="submit" style="margin-left:auto;display:block" form_id="profile_form">
+        Update password
+      </bx-btn>
+    </bx-form-item>
+  </form>
+</div>
+{% endblock %}

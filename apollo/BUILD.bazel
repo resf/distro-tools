@@ -1,0 +1,9 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+
+py_library(
+    name = "apollo_lib",
+    srcs = ["publishing_tools/apollo_tree.py"],
+    imports = [".."],
+    visibility = ["//:__subpackages__"],
+    deps = ["@pypi_aiohttp//:pkg"],
+)

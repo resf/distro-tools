@@ -1,0 +1,60 @@
+{% extends "admin_layout.jinja" %}
+
+{% block admin_content %}
+<h2 style="display:block;margin-bottom:1rem;">Update user</h2>
+
+<form id="edit_user_form" action="" method="POST">
+  <bx-form-item>
+    <bx-input required name="name" value="{{ user.name }}" form_id="edit_user_form">
+      <span slot="label-text">Name</span>
+    </bx-input>
+    <bx-input required name="email" type="email" value="{{ user.email }}" form_id="edit_user_form">
+      <span slot="label-text">Email</span>
+    </bx-input>
+    <bx-select label-text="Role" name="role" set_value="{{ user.role }}" form_id="edit_user_form">
+      <bx-select-item value="admin">Admin</bx-select-item>
+      <bx-select-item value="elevated">Elevated</bx-select-item>
+    </bx-select>
+    <bx-btn type="submit" style="margin-top:1rem;margin-bottom:1rem;display:block" form_id="edit_user_form">
+      Update user
+    </bx-btn>
+  </bx-form-item>
+</form>
+
+<h2 style="display:block;margin-top:2rem;margin-bottom:1rem;">Change password</h2>
+<form id="change_password_form" action="/admin/users/{{ user.id }}/password" method="POST">
+  <bx-form-item>
+    <bx-input required name="new_password" type="password" form_id="change_password_form">
+      <span slot="label-text">New password</span>
+    </bx-input>
+    <bx-input required name="confirm_password" type="password" form_id="change_password_form">
+      <span slot="label-text">Confirm new password</span>
+    </bx-input>
+    <bx-btn type="submit" style="margin-top:1rem;margin-bottom:1rem;display:block" form_id="change_password_form">
+      Change password
+    </bx-btn>
+  </bx-form-item>
+</form>
+
+<h2 style="display:block;margin-top:2rem;margin-bottom:1rem;">Danger zone</h2>
+
+<bx-modal id="delete-user-modal">
+  <bx-modal-header>
+    <bx-modal-close-button></bx-modal-close-button>
+    <bx-modal-heading>Delete user</bx-modal-heading>
+  </bx-modal-header>
+  <bx-modal-body>
+    <p>Are you sure you want to delete {{ user.name }}?</p>
+  </bx-modal-body>
+  <bx-modal-footer>
+    <bx-modal-footer-button kind="secondary" data-modal-close>Cancel</bx-modal-footer-button>
+    <bx-modal-footer-button kind="danger">Delete</bx-modal-footer-button>
+  </bx-modal-footer>
+</bx-modal>
+
+<form id="delete_user_form" action="/admin/users/{{ user.id }}/delete" method="POST">
+</form>
+<bx-btn kind="danger" open_modal="delete-user-modal">
+  Delete user
+</bx-btn>
+{% endblock %}

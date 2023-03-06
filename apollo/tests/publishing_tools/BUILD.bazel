@@ -1,0 +1,12 @@
+load("@rules_python//python:defs.bzl", "py_test")
+
+py_test(
+    name = "test_apollo_tree",
+    srcs = ["test_apollo_tree.py"],
+    imports = ["../../.."],
+    deps = [
+        "//apollo:apollo_lib",
+        "//common:common_lib",
+        "@pypi_pytest//:pkg",
+    ],
+)

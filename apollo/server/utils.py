@@ -42,7 +42,9 @@ async def user_scheme(request: Request, raise_exc=True) -> User:
             )
         else:
             return None
-    return await User.get(id=user_id)
+    user = await User.get(id=user_id)
+    request.state.user = user
+    return user
 
 
 async def is_admin_user(request: Request) -> bool:

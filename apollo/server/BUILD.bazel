@@ -6,6 +6,7 @@ py_library(
     srcs = [
         "roles.py",
         "routes/admin_index.py",
+        "routes/admin_users.py",
         "routes/advisories.py",
         "routes/api_advisories.py",
         "routes/api_compat.py",
@@ -14,6 +15,7 @@ py_library(
         "routes/api_updateinfo.py",
         "routes/login.py",
         "routes/logout.py",
+        "routes/profile.py",
         "routes/red_hat_advisories.py",
         "routes/statistics.py",
         "server.py",

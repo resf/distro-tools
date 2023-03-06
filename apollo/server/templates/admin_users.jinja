@@ -1,0 +1,39 @@
+{% extends "admin_layout.jinja" %}
+
+{% block admin_content %}
+<div style="display:flex;justify-content:space-between;align-items:center">
+  <h2 style="display:block;margin-bottom:1rem;">Users</h2>
+  <bx-btn href="new">Create new user</bx-btn>
+</div>
+
+<bx-pagination page-size="{{ users.size }}" start="{{ (users.page-1) * users.size }}" total="{{ users.total }}">
+  <bx-page-sizes-select slot="page-sizes-select">
+    <option value="50">50</option>
+  </bx-page-sizes-select>
+  <bx-pages-select value="{{ users.page - 1 }}" total="{{ users_pages }}"></bx-pages-select>
+</bx-pagination>
+<bx-data-table>
+  <bx-table>
+    <bx-table-head>
+      <bx-table-header-row>
+        <bx-table-header-cell>ID</bx-table-header-cell>
+        <bx-table-header-cell>Name</bx-table-header-cell>
+        <bx-table-header-cell>Created at</bx-table-header-cell>
+        <bx-table-header-cell>Email</bx-table-header-cell>
+        <bx-table-header-cell>Role</bx-table-header-cell>
+      </bx-table-header-row>
+    </bx-table-head>
+    <bx-table-body>
+      {% for user in users.items -%}
+      <bx-table-row>
+        <bx-table-cell><a href="/admin/users/{{ user.id }}">{{ user.id }}</a></bx-table-cell>
+        <bx-table-cell>{{ user.name }}</bx-table-cell>
+        <bx-table-cell>{{ user.created_at.date() }}</bx-table-cell>
+        <bx-table-cell>{{ user.email }}</bx-table-cell>
+        <bx-table-cell>{{ user.role }}</bx-table-cell>
+      </bx-table-row>
+      {% endfor %}
+    </bx-table-body>
+  </bx-table>
+</bx-data-table>
+{% endblock %}

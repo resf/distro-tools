@@ -14,7 +14,9 @@ from apollo.server.routes.advisories import router as advisories_router
 from apollo.server.routes.statistics import router as statistics_router
 from apollo.server.routes.login import router as login_router
 from apollo.server.routes.logout import router as logout_router
+from apollo.server.routes.profile import router as profile_router
 from apollo.server.routes.admin_index import router as admin_index_router
+from apollo.server.routes.admin_users import router as admin_users_router
 from apollo.server.routes.red_hat_advisories import router as red_hat_advisories_router
 from apollo.server.routes.api_advisories import router as api_advisories_router
 from apollo.server.routes.api_updateinfo import router as api_updateinfo_router
@@ -22,7 +24,7 @@ from apollo.server.routes.api_red_hat import router as api_red_hat_router
 from apollo.server.routes.api_compat import router as api_compat_router
 from apollo.server.routes.api_osv import router as api_osv_router
 from apollo.server.settings import SECRET_KEY, SettingsMiddleware, get_setting
-from apollo.server.utils import admin_user_scheme, templates
+from apollo.server.utils import admin_user_scheme, user_scheme, templates
 from apollo.db import Settings
 
 from common.info import Info
@@ -33,10 +35,14 @@ from common.fastapi import StaticFilesSym, RenderErrorTemplateException
 app = FastAPI()
 
 app.mount(
-    "/static", StaticFilesSym(directory="apollo/server/static"), name="static"
+    "/static",
+    StaticFilesSym(directory="apollo/server/static"),
+    name="static",
 )
 app.mount(
-    "/assets", StaticFilesSym(directory="apollo/server/assets"), name="assets"
+    "/assets",
+    StaticFilesSym(directory="apollo/server/assets"),
+    name="assets",
 )
 
 app.add_middleware(SettingsMiddleware)
@@ -46,8 +52,18 @@ app.include_router(statistics_router, prefix="/statistics")
 app.include_router(login_router, prefix="/login")
 app.include_router(logout_router, prefix="/logout")
 app.include_router(
+    profile_router,
+    prefix="/profile",
+    dependencies=[Depends(user_scheme)],
+)
+app.include_router(
     admin_index_router,
     prefix="/admin",
+    dependencies=[Depends(admin_user_scheme)]
+)
+app.include_router(
+    admin_users_router,
+    prefix="/admin/users",
     dependencies=[Depends(admin_user_scheme)]
 )
 app.include_router(red_hat_advisories_router, prefix="/red_hat")

@@ -56,6 +56,10 @@
     .apollo-outer bx-inline-notification~#apollo-notification-wrapper>bx-inline-notification {
       margin-top: 2rem;
     }
+
+    #apollo-notification-wrapper {
+      margin: 0 3.5rem;
+    }
   </style>
 
   {% if notification %}
@@ -111,7 +115,7 @@
         {% include "light_icon.jinja" %}
       </bx-header-nav-item>
       {% if request.session.get("user.name") %}
-      <bx-header-nav-item>{{ request.session.get("user.name") }}</bx-header-nav-item>
+      <bx-header-nav-item href="/profile/">{{ request.session.get("user.name") }}</bx-header-nav-item>
       <bx-header-nav-item href="/logout/">Logout</bx-header-nav-item>
       {% else %}
       <bx-header-nav-item href="/login/">Login</bx-header-nav-item>
@@ -122,11 +126,12 @@
   <div class="apollo-outer">
     {% block outer_content %}{% endblock %}
     {% if title %}
-    <bx-inline-notification kind="info" title="{{ title }}" hide-close-button>
+    <bx-inline-notification kind="{% if kind %}{{ kind }}{% else %}info{% endif %}" title="{{ title }}"
+      subtitle="{{ subtitle }}" hide-close-button>
     </bx-inline-notification>
     {% endif %}
     {% if notification %}
-    <div id="apollo-notification-wrapper" style="margin:0 3.5rem">
+    <div id="apollo-notification-wrapper">
       <bx-inline-notification class="top-notification" kind="{{ notification.get('kind', 'none') }}"
         title="{{ notification['title'] }}" subtitle="{{ notification['subtitle'] }}"
         hide-close-button></bx-inline-notification>
