@@ -116,7 +116,7 @@ def to_osv_advisory(ui_url: str, advisory: Advisory) -> OSVAdvisory:
 
         product_name = slugify(pkg.product_name)
         if pkg.supported_products_rh_mirror:
-            product_name = f"{slugify(pkg.supported_product.variant)}:{pkg.supported_products_rh_mirror.match_major_version}"
+            product_name = f"{pkg.supported_product.variant}:{pkg.supported_products_rh_mirror.match_major_version}"
 
         if product_name not in pkg_name_map:
             pkg_name_map[product_name] = {}
