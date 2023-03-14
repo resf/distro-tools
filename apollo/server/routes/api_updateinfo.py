@@ -275,7 +275,7 @@ async def get_updateinfo(
 
                 if p_name not in pkg_src_rpm:
                     continue
-                if arch != product_arch:
+                if arch != product_arch and arch != "noarch":
                     continue
 
                 skip = False
