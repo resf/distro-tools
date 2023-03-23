@@ -7,7 +7,7 @@ from fastapi_pagination.links import Page
 from pydantic import BaseModel
 from slugify import slugify
 
-from apollo.db import Advisory
+from apollo.db import Advisory, RedHatIndexState
 from apollo.db.advisory import fetch_advisories
 from apollo.rpmworker.repomd import EPOCH_RE, NEVRA_RE
 from apollo.server.settings import UI_URL, get_setting
@@ -20,6 +20,8 @@ T = TypeVar("T")
 
 
 class Pagination(Page[T], Generic[T]):
+    last_updated_at: Optional[str]
+
     class Config:
         allow_population_by_field_name = True
         fields = {"items": {"alias": "advisories"}}
@@ -226,7 +228,11 @@ def to_osv_advisory(ui_url: str, advisory: Advisory) -> OSVAdvisory:
     )
 
 
-@router.get("/", response_model=Pagination[OSVAdvisory], response_model_exclude_none=True)
+@router.get(
+    "/",
+    response_model=Pagination[OSVAdvisory],
+    response_model_exclude_none=True
+)
 async def get_advisories_osv(
     params: Params = Depends(),
     product: Optional[str] = None,
@@ -255,12 +261,26 @@ async def get_advisories_osv(
 
     ui_url = await get_setting(UI_URL)
     osv_advisories = [to_osv_advisory(ui_url, x) for x in advisories]
-    return create_page(osv_advisories, count, params)
+    page = create_page(osv_advisories, count, params)
+
+    state = await RedHatIndexState.first()
+    page.last_updated_at = state.last_indexed_at.isoformat("T").replace(
+        "+00:00",
+        "",
+    ) + "Z"
+
+    return page
 
 
-@router.get("/{advisory_id}", response_model=OSVAdvisory, response_model_exclude_none=True)
+@router.get(
+    "/{advisory_id}",
+    response_model=OSVAdvisory,
+    response_model_exclude_none=True
+)
 async def get_advisory_osv(advisory_id: str):
-    advisory = await Advisory.filter(name=advisory_id, kind="Security").prefetch_related(
+    advisory = await Advisory.filter(
+        name=advisory_id, kind="Security"
+    ).prefetch_related(
         "packages",
         "cves",
         "fixes",
