@@ -260,7 +260,7 @@ async def get_advisories_osv(
 
 @router.get("/{advisory_id}", response_model=OSVAdvisory, response_model_exclude_none=True)
 async def get_advisory_osv(advisory_id: str):
-    advisory = await Advisory.filter(name=advisory_id, type="Security").prefetch_related(
+    advisory = await Advisory.filter(name=advisory_id, kind="Security").prefetch_related(
         "packages",
         "cves",
         "fixes",
