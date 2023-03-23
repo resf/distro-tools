@@ -6,9 +6,8 @@ from fastapi_pagination import Params
 from fastapi_pagination.links import Page
 from fastapi_pagination.ext.tortoise import paginate
 
-from apollo.db import Advisory
+from apollo.db import Advisory, RedHatIndexState
 from apollo.db.serialize import Advisory_Pydantic
-from apollo.db.advisory import fetch_advisories
 
 router = APIRouter(tags=["advisories"])
 
@@ -16,6 +15,8 @@ T = TypeVar("T")
 
 
 class Pagination(Page[T], Generic[T]):
+    last_updated_at: Optional[str]
+
     class Config:
         allow_population_by_field_name = True
         fields = {"items": {"alias": "advisories"}}
@@ -45,6 +46,12 @@ async def list_advisories(
             "affected_products",
         ).order_by("-published_at"),
     )
+
+    state = await RedHatIndexState.first()
+    advisories.last_updated_at = state.last_indexed_at.isoformat("T").replace(
+        "+00:00",
+        "",
+    ) + "Z"
 
     return advisories
 
