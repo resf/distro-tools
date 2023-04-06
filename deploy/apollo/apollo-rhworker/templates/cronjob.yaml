@@ -19,6 +19,7 @@ spec:
           serviceAccountName: {{ include "apollo-rhworker.serviceAccountName" . }}
           securityContext:
             {{- toYaml .Values.podSecurityContext | indent 8 }}
+          activeDeadlineSeconds: 300
           containers:
           - name: {{ .Chart.Name }}-poll-rh-advisories-workflow
             image: temporalio/admin-tools:1.10.5
