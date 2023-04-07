@@ -31,11 +31,12 @@ spec:
             imagePullPolicy: IfNotPresent
             command: ["/bin/bash", "-c"]
             args:
+            - |
               {{- range $cmd := $.Values.cron.preCommand }}
-              - {{ $cmd }}
+              {{ $cmd }}
               {{- end }}
-              - tctl wf run --tq v2-rhworker --wt PollRHAdvisoriesWorkflow
+              tctl wf run --tq v2-rhworker --wt PollRHAdvisoriesWorkflow
               {{- range $cmd := $.Values.cron.postCommand }}
-              - {{ $cmd }}
+              {{ $cmd }}
               {{- end }}
 {{- end }}
