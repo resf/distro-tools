@@ -84,7 +84,7 @@ async def fetch_advisories(
 
     if keyword:
         where_stmt += """
-            and (ap.name like '%' || (select product from vars) || '%' or
+            and (ap.name like '%' || (select search from vars) || '%' or
             a.synopsis ilike '%' || (select search from vars) || '%' or
             a.description ilike '%' || (select search from vars) || '%' or
             exists (select cve from advisory_cves where advisory_id = a.id and cve ilike '%' || (select search from vars) || '%') or
