@@ -1,3 +1,5 @@
+import datetime
+
 from typing import TypeVar, Generic, Optional
 
 from fastapi import APIRouter, Depends
@@ -236,8 +238,8 @@ def to_osv_advisory(ui_url: str, advisory: Advisory) -> OSVAdvisory:
 async def get_advisories_osv(
     params: Params = Depends(),
     product: Optional[str] = None,
-    before: Optional[str] = None,
-    after: Optional[str] = None,
+    before: Optional[datetime.datetime] = None,
+    after: Optional[datetime.datetime] = None,
     cve: Optional[str] = None,
     synopsis: Optional[str] = None,
     keyword: Optional[str] = None,
