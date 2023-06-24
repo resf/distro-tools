@@ -9,7 +9,11 @@ from temporalio import activity
 from tortoise.transactions import in_transaction
 
 from apollo.db import RedHatIndexState, RedHatAdvisory, RedHatAdvisoryPackage
-from apollo.db import RedHatAdvisoryBugzillaBug, RedHatAdvisoryAffectedProduct, RedHatAdvisoryCVE
+from apollo.db import (
+    RedHatAdvisoryBugzillaBug,
+    RedHatAdvisoryAffectedProduct,
+    RedHatAdvisoryCVE,
+)
 from apollo.rherrata import API
 
 from common.logger import Logger
@@ -25,16 +29,22 @@ def parse_red_hat_date(rhdate: str) -> datetime.datetime:
 @activity.defn
 async def get_last_indexed_date() -> Optional[str]:
     state = await RedHatIndexState.get_or_none()
-    return re.sub(
-        r"\+\d\d:\d\d",
-        "",
-        state.last_indexed_at.isoformat("T") + "Z",
-    ) if state else None
+    return (
+        re.sub(
+            r"\+\d\d:\d\d",
+            "",
+            state.last_indexed_at.isoformat("T") + "Z",
+        )
+        if state
+        else None
+    )
 
 
 async def fetch_mapped_oval() -> dict[str, ET.ElementTree]:
     # Download the oval_url using aiohttp, decompress using bzip and parse
-    oval_url = "https://access.redhat.com/security/data/oval/com.redhat.rhsa-all.xml.bz2"
+    oval_url = (
+        "https://access.redhat.com/security/data/oval/com.redhat.rhsa-all.xml.bz2"
+    )
     async with aiohttp.ClientSession() as session:
         async with session.get(oval_url) as response:
             if response.status == 200:
@@ -58,9 +68,7 @@ async def fetch_mapped_oval() -> dict[str, ET.ElementTree]:
 @activity.defn
 async def get_rh_advisories(from_timestamp: str = None) -> None:
     logger = Logger()
-    advisories = await API().search(
-        from_date=from_timestamp, rows=10000, sort_asc=True
-    )
+    advisories = await API().search(from_date=from_timestamp, rows=999, sort_asc=True)
     oval = await fetch_mapped_oval()
 
     for advisory in advisories:
@@ -73,14 +81,13 @@ async def get_rh_advisories(from_timestamp: str = None) -> None:
                 state.last_indexed_at = advisory_last_indexed_at
                 await state.save()
             else:
-                await RedHatIndexState().create(
-                    last_index_at=advisory_last_indexed_at
-                )
+                await RedHatIndexState().create(last_index_at=advisory_last_indexed_at)
 
             logger.info("Processing advisory %s", advisory.id)
 
-            existing_advisory = await RedHatAdvisory.filter(name=advisory.id
-                                                           ).get_or_none()
+            existing_advisory = await RedHatAdvisory.filter(
+                name=advisory.id
+            ).get_or_none()
             if existing_advisory:
                 logger.info("Advisory %s already exists, skipping", advisory.id)
                 continue
@@ -110,13 +117,11 @@ async def get_rh_advisories(from_timestamp: str = None) -> None:
                 await RedHatAdvisoryPackage.bulk_create(
                     [
                         RedHatAdvisoryPackage(
-                            **{
-                                "red_hat_advisory_id": ra.id,
-                                "nevra": nevra
-                            }
-                        ) for nevra in advisory.portal_package
+                            **{"red_hat_advisory_id": ra.id, "nevra": nevra}
+                        )
+                        for nevra in advisory.portal_package
                     ],
-                    ignore_conflicts=True
+                    ignore_conflicts=True,
                 )
 
             if advisory.portal_CVE:
@@ -147,10 +152,10 @@ async def get_rh_advisories(from_timestamp: str = None) -> None:
                         cvss3 = cve.attrib.get("cvss3")
                         if cvss3:
                             cvss3_raw = cvss3.split("/", 1)
-                            cvss3_scoring_vector = cvss3_raw[
-                                1] if cvss3_raw else "UNKNOWN"
-                            cvss3_base_score = cvss3_raw[
-                                0] if cvss3_raw else "UNKNOWN"
+                            cvss3_scoring_vector = (
+                                cvss3_raw[1] if cvss3_raw else "UNKNOWN"
+                            )
+                            cvss3_base_score = cvss3_raw[0] if cvss3_raw else "UNKNOWN"
 
                         cwe = cve.attrib.get("cwe")
                         if not cwe:
@@ -159,16 +164,11 @@ async def get_rh_advisories(from_timestamp: str = None) -> None:
                         cves_to_save.append(
                             RedHatAdvisoryCVE(
                                 **{
-                                    "red_hat_advisory_id":
-                                        ra.id,
-                                    "cve":
-                                        cve.text,
-                                    "cvss3_scoring_vector":
-                                        cvss3_scoring_vector,
-                                    "cvss3_base_score":
-                                        cvss3_base_score,
-                                    "cwe":
-                                        cwe,
+                                    "red_hat_advisory_id": ra.id,
+                                    "cve": cve.text,
+                                    "cvss3_scoring_vector": cvss3_scoring_vector,
+                                    "cvss3_base_score": cvss3_base_score,
+                                    "cwe": cwe,
                                 }
                             )
                         )
@@ -203,9 +203,10 @@ async def get_rh_advisories(from_timestamp: str = None) -> None:
                                 "bugzilla_bug_id": bugzilla_bug_id,
                                 "description": bz_map.get(bugzilla_bug_id, ""),
                             }
-                        ) for bugzilla_bug_id in advisory.portal_BZ
+                        )
+                        for bugzilla_bug_id in advisory.portal_BZ
                     ],
-                    ignore_conflicts=True
+                    ignore_conflicts=True,
                 )
 
             affected_products = advisory.get_products()
@@ -219,11 +220,12 @@ async def get_rh_advisories(from_timestamp: str = None) -> None:
                                 "name": product.name,
                                 "major_version": product.major_version,
                                 "minor_version": product.minor_version,
-                                "arch": product.arch
+                                "arch": product.arch,
                             }
-                        ) for product in affected_products
+                        )
+                        for product in affected_products
                     ],
-                    ignore_conflicts=True
+                    ignore_conflicts=True,
                 )
 
             logger.info("Processed advisory %s", advisory.id)
