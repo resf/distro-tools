@@ -87,7 +87,7 @@ class Advisory(JSONWizard):
     portal_child_ids: list[str] = None
     portal_product_filter: list[str] = None
     boostProduct: str = None
-    boostVersion: int = None
+    boostVersion: int | list[str] = None
     detectedProducts: list[str] = None
     caseCount: int = None
     caseCount_365: int = None
@@ -208,4 +208,5 @@ class API:
                     raise Exception((await response.text()))
                 elif body.get("response", {}).get("numFound", 0) == 0:
                     return []
-                return Advisory.from_list(list(body["response"]["docs"]))
+                advisory_list = list(body["response"]["docs"])
+                return Advisory.from_list(advisory_list)

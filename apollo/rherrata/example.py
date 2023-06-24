@@ -6,9 +6,9 @@ async def main():
     api = API()
     res = await api.search(
         detected_product="rhel",
-        rows=1000,
+        rows=999,
         from_date="2019-05-05T22:00:00Z",
-        sort_asc=True
+        sort_asc=True,
     )
     contains_9 = 0
     contains_8 = 0
