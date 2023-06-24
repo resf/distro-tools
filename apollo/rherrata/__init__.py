@@ -16,22 +16,25 @@ DEFAULT_URL = "https://access.redhat.com/hydra/rest/search/kcs"
 
 class DocumentKind(str, Enum):
     """
-  The kind of document.
-  """
+    The kind of document.
+    """
+
     ERRATA = "Errata"
 
 
 class Distro(str, Enum):
     """
-  The distribution.
-  """
+    The distribution.
+    """
+
     RHEL = "Red Hat Enterprise Linux"
 
 
 class Architecture(str, Enum):
     """
-  The architecture.
-  """
+    The architecture.
+    """
+
     X86_64 = "x86_64"
     AARCH64 = "aarch64"
     PPC64 = "ppc64"
@@ -42,8 +45,9 @@ class Architecture(str, Enum):
 @dataclass
 class PortalProduct:
     """
-  Red Hat advisory product
-  """
+    Red Hat advisory product
+    """
+
     variant: str
     name: str
     major_version: int
@@ -54,8 +58,9 @@ class PortalProduct:
 @dataclass
 class Advisory(JSONWizard):
     """
-  An advisory.
-  """
+    An advisory.
+    """
+
     documentKind: str = None
     uri: str = None
     view_uri: str = None
@@ -110,9 +115,7 @@ class Advisory(JSONWizard):
                         major_version = int(version)
                         minor_version = None
                     self.__products.append(
-                        PortalProduct(
-                            variant, name, major_version, minor_version, arch
-                        )
+                        PortalProduct(variant, name, major_version, minor_version, arch)
                     )
             except ValueError:
                 pass
@@ -123,8 +126,8 @@ class Advisory(JSONWizard):
         self, major_version: int, minor_version: int | None, arch: Architecture
     ) -> bool:
         """
-    Returns whether this advisory affects the given RHEL version and architecture.
-    """
+        Returns whether this advisory affects the given RHEL version and architecture.
+        """
         for product in self.get_products():
             is_variant = product.variant == "Red Hat Enterprise Linux"
             is_major_version = product.major_version == major_version
@@ -138,8 +141,8 @@ class Advisory(JSONWizard):
 
 class API:
     """
-  The Red Hat Errata API.
-  """
+    The Red Hat Errata API.
+    """
 
     url = None
 
@@ -156,7 +159,7 @@ class API:
         query: str = "*:*",
         distro: str = "Red%5C+Hat%5C+Enterprise%5C+Linux%7C%2A%7C%2A%7C%2A",
         detected_product: str = "rhel",
-        from_date: str = None
+        from_date: str = None,
     ) -> list[Advisory]:
         params = ""
 
@@ -167,7 +170,11 @@ class API:
         params += f"&rows={rows}"
 
         # Set sorting
-        sorting = "portal_publication_date+asc" if sort_asc else "portal_publication_date+desc"
+        sorting = (
+            "portal_publication_date+asc"
+            if sort_asc
+            else "portal_publication_date+desc"
+        )
         params += f"&sort={sorting}"
 
         # Set start
@@ -178,7 +185,9 @@ class API:
 
         # Set from-to
         if from_date:
-            params += f"&fq=portal_publication_date%3A%5B{quote(from_date)}%20TO%20NOW%5D"
+            params += (
+                f"&fq=portal_publication_date%3A%5B{quote(from_date)}%20TO%20NOW%5D"
+            )
 
         # Set document kind
         params += f"&fq=documentKind:{kind.value}"
@@ -189,7 +198,10 @@ class API:
 
         async with aiohttp.ClientSession() as session:
             async with session.get(
-                URL(f"{self.url}?{params}", encoded=True)
+                URL(f"{self.url}?{params}", encoded=True),
+                headers={
+                    "User-Agent": "Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/114.0"
+                },
             ) as response:
                 body = await response.json()
                 if response.status != 200:
