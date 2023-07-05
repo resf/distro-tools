@@ -4,6 +4,10 @@ metadata:
   name: {{ include "apollo-server.fullname" . }}
   labels:
     {{- include "apollo-server.labels" . | nindent 4 }}
+  {{ - with .apollo-server.serviceAnnotations }}
+  annotations:
+    {{ - toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   type: {{ .Values.service.type }}
   ports:
