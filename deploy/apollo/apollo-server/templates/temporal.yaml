@@ -26,8 +26,6 @@ spec:
         app.kubernetes.io/version: {{ .Chart.AppVersion | replace "+" "_" }}
         app.kubernetes.io/component: admintools
         app.kubernetes.io/part-of: {{ .Chart.Name }}
-      annotations:
-        linkerd.io/inject: disabled
     spec:
       restartPolicy: "OnFailure"
       containers:
