@@ -1,0 +1,60 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-temporal-namespace-setup
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}-temporal-namespace-setup
+    helm.sh/chart: {{ .Chart.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion | replace "+" "_" }}
+    app.kubernetes.io/component: admintools
+    app.kubernetes.io/part-of: {{ .Chart.Name }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "-1"
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+spec:
+  backoffLimit: 100
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Release.Name }}-temporal-namespace-setup
+        helm.sh/chart: {{ .Chart.Name }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/version: {{ .Chart.AppVersion | replace "+" "_" }}
+        app.kubernetes.io/component: admintools
+        app.kubernetes.io/part-of: {{ .Chart.Name }}
+    spec:
+      restartPolicy: "OnFailure"
+      containers:
+        - name: {{ $.Release.Name }}-temporal-namespace-setup
+          image: "{{ $.Values.temporal.admintools.image.repository }}:{{ $.Values.temporal.admintools.image.tag }}"
+          imagePullPolicy: {{ $.Values.temporal.admintools.image.pullPolicy }}
+          env:
+            - name: TEMPORAL_CLI_ADDRESS
+              value: {{ .Values.temporal.hostport }}
+            - name: TEMPORAL_CLI_NAMESPACE
+              value: {{ $.Values.temporal.Namespace }}
+          command:
+            - "/bin/sh"
+            - "-c"
+            - "if tctl namespace describe; then echo \"namespace $TEMPORAL_CLI_NAMESPACE exists.\"; exit 0; fi; echo \"creating namespace $TEMPORAL_CLI_NAMESPACE.\"; tctl namespace register --retention 7;"
+      {{- with .Values.temporal.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.temporal.admintools.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.temporal.admintools.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.temporal.admintools.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+

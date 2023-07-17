@@ -89,4 +89,13 @@ tolerations: []
 
 affinity: {}
 
+temporal:
+  admintools:
+    image:
+      repository: temporalio/admin-tools
+      tag: 1.19.1
+      pullPolicy: IfNotPresent
+  Namespace: default
+
 serviceAnnotations: {}
+
