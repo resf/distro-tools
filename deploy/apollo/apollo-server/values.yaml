@@ -96,3 +96,6 @@ temporal:
       tag: 1.19.1
       pullPolicy: IfNotPresent
   Namespace: default
+
+serviceAnnotations: {}
+
