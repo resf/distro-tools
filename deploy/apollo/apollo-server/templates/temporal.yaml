@@ -36,7 +36,7 @@ spec:
             - name: TEMPORAL_CLI_ADDRESS
               value: {{ .Values.temporal.hostport }}
             - name: TEMPORAL_CLI_NAMESPACE
-              value: {{ $.Values.temporal.Namespace }}
+              value: {{ $.Values.temporal.namespace }}
           command:
             - "/bin/sh"
             - "-c"
