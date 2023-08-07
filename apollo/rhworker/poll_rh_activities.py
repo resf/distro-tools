@@ -42,28 +42,30 @@ async def get_last_indexed_date() -> Optional[str]:
 
 async def fetch_mapped_oval() -> dict[str, ET.ElementTree]:
     # Download the oval_url using aiohttp, decompress using bzip and parse
-    oval_url = (
-        "https://access.redhat.com/security/data/oval/com.redhat.rhsa-all.xml.bz2"
+    oval_urls = (
+        'https://access.redhat.com/security/data/oval/v2/RHEL8/rhel-8.oval.xml.bz2',
+        'https://access.redhat.com/security/data/oval/v2/RHEL9/rhel-9.oval.xml.bz2',
     )
-    async with aiohttp.ClientSession() as session:
-        async with session.get(oval_url) as response:
-            if response.status == 200:
-                data = await response.read()
-                tree = ET.fromstring(bz2.decompress(data))
+    def_map = {}
+    for url in oval_urls:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    data = await response.read()
+                    tree = ET.fromstring(bz2.decompress(data))
 
-                # Index by advisory name
-                def_map = {}
-                definitions = tree.findall("definitions/definition", OVAL_NS)
-                for definition in definitions:
-                    def_id = definition.attrib["id"]
-                    id_split = def_id.split(":")
-                    name = f"{id_split[1].split('.')[2].upper()}-{id_split[3][0:4]}:{id_split[3][4:]}"
-                    def_map[name] = definition
+                    # Index by advisory name
+                    definitions = tree.findall("definitions/definition", OVAL_NS)
+                    for definition in definitions:
+                        def_id = definition.attrib["id"]
+                        id_split = def_id.split(":")
+                        name = f"{id_split[1].split('.')[2].upper()}-{id_split[3][0:4]}:{id_split[3][4:]}"
+                        def_map[name] = definition
 
-                return def_map
-            else:
-                raise Exception("Failed to fetch OVAL data")
+                else:
+                    raise Exception("Failed to fetch OVAL data")
 
+    return def_map
 
 @activity.defn
 async def get_rh_advisories(from_timestamp: str = None) -> None:
