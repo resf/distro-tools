@@ -94,7 +94,7 @@ class OSVAdvisory(BaseModel):
     modified: str
     published: str
     withdrawn: Optional[str]
-    aliases: list[str]
+    aliases: Optional[list[str]]
     related: Optional[list[str]]
     summary: str
     details: str
@@ -149,7 +149,8 @@ def to_osv_advisory(ui_url: str, advisory: Advisory) -> OSVAdvisory:
                         continue
                     processed_nvra[x.nevra] = True
 
-                    ver_rel = f"{nevra.group(3)}-{nevra.group(4)}"
+                    epoch = nevra.group(2)
+                    ver_rel = f"{epoch}:{nevra.group(3)}-{nevra.group(4)}"
                     slugified = slugify(x.supported_product.variant)
                     slugified_distro = slugify(x.product_name)
                     for arch_, _ in arches.items():
@@ -158,9 +159,8 @@ def to_osv_advisory(ui_url: str, advisory: Advisory) -> OSVAdvisory:
                             slugified_arch,
                             "",
                         )
-                    epoch = nevra.group(2)
 
-                    purl = f"pkg:rpm/{slugified}/{pkg_name}@{ver_rel}?distro={slugified_distro}&epoch={epoch}"
+                    purl = f"pkg:rpm/{slugified}/{pkg_name}?distro={slugified_distro}&epoch={epoch}"
 
                     affected = OSVAffected(
                         package=OSVPackage(
@@ -218,8 +218,8 @@ def to_osv_advisory(ui_url: str, advisory: Advisory) -> OSVAdvisory:
         modified=to_rfc3339_date(advisory.updated_at),
         published=to_rfc3339_date(advisory.published_at),
         withdrawn=None,
-        aliases=[x.cve for x in advisory.cves],
-        related=None,
+        aliases=None,
+        related=[x.cve for x in advisory.cves],
         summary=advisory.synopsis,
         details=advisory.description,
         severity=severity,
@@ -231,9 +231,7 @@ def to_osv_advisory(ui_url: str, advisory: Advisory) -> OSVAdvisory:
 
 
 @router.get(
-    "/",
-    response_model=Pagination[OSVAdvisory],
-    response_model_exclude_none=True
+    "/", response_model=Pagination[OSVAdvisory], response_model_exclude_none=True
 )
 async def get_advisories_osv(
     params: Params = Depends(),
@@ -266,31 +264,34 @@ async def get_advisories_osv(
     page = create_page(osv_advisories, count, params)
 
     state = await RedHatIndexState.first()
-    page.last_updated_at = state.last_indexed_at.isoformat("T").replace(
-        "+00:00",
-        "",
-    ) + "Z"
+    page.last_updated_at = (
+        state.last_indexed_at.isoformat("T").replace(
+            "+00:00",
+            "",
+        )
+        + "Z"
+    )
 
     return page
 
 
 @router.get(
-    "/{advisory_id}",
-    response_model=OSVAdvisory,
-    response_model_exclude_none=True
+    "/{advisory_id}", response_model=OSVAdvisory, response_model_exclude_none=True
 )
 async def get_advisory_osv(advisory_id: str):
-    advisory = await Advisory.filter(
-        name=advisory_id, kind="Security"
-    ).prefetch_related(
-        "packages",
-        "cves",
-        "fixes",
-        "affected_products",
-        "packages",
-        "packages__supported_product",
-        "packages__supported_products_rh_mirror",
-    ).get_or_none()
+    advisory = (
+        await Advisory.filter(name=advisory_id, kind="Security")
+        .prefetch_related(
+            "packages",
+            "cves",
+            "fixes",
+            "affected_products",
+            "packages",
+            "packages__supported_product",
+            "packages__supported_products_rh_mirror",
+        )
+        .get_or_none()
+    )
 
     if not advisory:
         raise HTTPException(404)
