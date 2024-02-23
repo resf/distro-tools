@@ -682,8 +682,9 @@ python-dateutil==2.8.2 \
     #   openapi-python-client
     #   rssgen
     #   temporalio
-python-multipart==0.0.5 \
-    --hash=sha256:f7bb5f611fc600d15fa47b3974c8aa16e93724513b49b5f95c81e6624c83fa43
+python-multipart==0.0.7 \
+    --hash=sha256:288a6c39b06596c1b988bb6794c6fbc80e6c369e35e5062637df256bee0c9af9 \
+    --hash=sha256:b1fef9a53b74c795e2347daac8c54b252d9e0df9c619712691c1cc8021bd3c49
     # via -r ./requirements.txt
 python-slugify==8.0.0 \
     --hash=sha256:51f217508df20a6c166c7821683384b998560adcf8f19a6c2ca8b460528ccd9c \

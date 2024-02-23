@@ -13,7 +13,7 @@ hypercorn==0.14.3
 setuptools==58.2.0
 pydantic==1.10.4
 passlib[bcrypt]==1.7.4
-python-multipart==0.0.5
+python-multipart==0.0.7
 itsdangerous==2.1.2
 PyYAML==6.0
 beautifulsoup4==4.11.2
