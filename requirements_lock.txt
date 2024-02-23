@@ -234,9 +234,9 @@ exceptiongroup==1.1.0 \
     --hash=sha256:327cbda3da756e2de031a3107b81ab7b3770a602c4d16ca618298c526f4bec1e \
     --hash=sha256:bcb67d800a4497e1b404c2dd44fca47d3b7a5e5433dbab67f96c1a685cdfdf23
     # via pytest
-fastapi==0.89.1 \
-    --hash=sha256:15d9271ee52b572a015ca2ae5c72e1ce4241dd8532a534ad4f7ec70c376a580f \
-    --hash=sha256:f9773ea22290635b2f48b4275b2bf69a8fa721fda2e38228bed47139839dc877
+fastapi==0.109.1 \
+    --hash=sha256:510042044906b17b6d9149135d90886ade170bf615efcfb5533f568ae6d88534 \
+    --hash=sha256:5402389843a3561918634eb327e86b9ae98645a9e7696bede9074449c48d610a
     # via
     #   -r ./requirements.txt
     #   fastapi-pagination
