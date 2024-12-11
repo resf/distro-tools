@@ -90,9 +90,6 @@ async def get_updateinfo(
         # Add title
         ET.SubElement(update, "title").text = advisory.synopsis
 
-        # Add description
-        ET.SubElement(update, "description").text = advisory.description
-
         # Add time
         time_format = "%Y-%m-%d %H:%M:%S"
         issued = ET.SubElement(update, "issued")
