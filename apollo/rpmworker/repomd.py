@@ -8,6 +8,13 @@ from os import path
 import aiohttp
 import yaml
 
+import logging
+module_logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="[%(name)s][%(asctime)s][%(levelname)s][%(funcName)s %(lineno)d] - %(message)s"
+)
+
 NVRA_RE = re.compile(
     r"^(\S+)-([\w~%.+^]+)-(\w+(?:\.[\w~%+]+)+?)(?:\.(\w+))?(?:\.rpm)?$"
 )
@@ -32,10 +39,14 @@ def clean_nvra_pkg(matching_pkg: ET.Element) -> str:
     clean_release = MODULE_DIST_RE.sub("", DIST_RE.sub("", release))
 
     cleaned = f"{name}-{version}-{clean_release}.{arch}"
+    raw = f"{name}-{version}-{release}.{arch}"
+    # module_logger.debug(f"cleaned: {cleaned}")
+    # module_logger.debug(f"raw: {raw}")
     if ".module+" in release:
         cleaned = f"module.{cleaned}"
+        raw = f"module.{raw}"
 
-    return cleaned
+    return cleaned, raw
 
 
 def clean_nvra(nvra_raw: str) -> str:
@@ -48,15 +59,20 @@ def clean_nvra(nvra_raw: str) -> str:
     clean_release = MODULE_DIST_RE.sub("", DIST_RE.sub("", release))
 
     cleaned = f"{name}-{version}-{clean_release}.{arch}"
+    raw = f"{name}-{version}-{release}.{arch}"
+    # module_logger.debug(f"cleaned: {cleaned}")
+    # module_logger.debug(f"raw: {raw}")
     if ".module+" in release:
         cleaned = f"module.{cleaned}"
+        raw = f"module.{raw}"
 
-    return cleaned
+    return cleaned, raw
 
 
 async def download_xml(
     url: str, gz: bool = False, xz: bool = False
 ) -> ET.Element:
+    module_logger.debug(f"Downloading repomd: {url}")
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as resp:
             if resp.status != 200:
@@ -112,7 +128,7 @@ async def get_data_from_repomd(
                 path.join(parsed_url.path, "../..", location.attrib["href"])
             )
             data_url = parsed_url._replace(path=new_path).geturl()
-
+            module_logger.debug(f"data_url: {data_url}")
             if is_yaml:
                 return await download_yaml(
                     data_url,
