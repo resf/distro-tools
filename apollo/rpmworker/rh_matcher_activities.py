@@ -498,7 +498,6 @@ async def process_repomd(
     nvra_alias = {}
     check_pkgs = set()
 
-    nvra_re = re.compile(r"^(.*)-([^-]{1,})-([^-]{1,})(\.(src|x86_64|aarch64|noarch|i686|ppc64le|s390x|riscv64)(\.rpm)?)$")
 
     # Now check against advisories, and see if we're matching any
     # If we match, that means we can start creating the supporting
@@ -540,30 +539,6 @@ async def process_repomd(
             module_logger.debug(f"No matching package found for {advisory.name}, moving on.")
             continue
         
-        
-        def strip_module_info(pkg: str):
-            module_re = re.compile(r"([0-9.a-z]{1,})\.module\+(.*)\+(.*)\+([a-z0-9]{8})(.*)")
-            pkg_nvra = nvra_re.search(pkg)
-            pkg_release = pkg_nvra.group(3)
-            if ".module+" in pkg_release:
-                module_info = module_re.search(pkg_release)
-                release_major = module_info.group(1)  # example: '65'
-                dist_info = module_info.group(2)  # example: 'el8.10.0'
-                release_minor = module_info.group(5)  # example: '.1'
-                dist_info_parts = dist_info.split(".")
-                if len(dist_info_parts) > 2:
-                    dist_compare = ".".join(dist_info_parts[:-1])
-                else:
-                    dist_compare = dist_info
-                return f"{release_major}.{dist_compare}.{release_minor}"
-            return pkg_release  # return the original release if no module info found
-
-        def compare_rocky_red_hat(rocky_nvr: str, red_hat_nvr: str) -> bool:
-            rocky_release = strip_module_info(rocky_nvr)
-            red_hat_release = strip_module_info(red_hat_nvr)
-            module_logger.debug(f"Comparing Rocky release '{rocky_release}' with Red Hat release '{red_hat_release}'")
-            return rocky_release == red_hat_release
-        
         did_match_any = False
         # module_logger.debug(f"nvra_alias: {json.dumps(nvra_alias, indent=2)}")
         # module_logger.debug(f"clean_advisory_nvras: {json.dumps(clean_advisory_nvras, indent=2)}")
@@ -573,8 +548,6 @@ async def process_repomd(
                 for pkg in raw_pkg_nvras[nevra]:
                     cleaned, raw = repomd.clean_nvra_pkg(pkg)
                     module_logger.debug(f"rocky_raw: {raw}")
-                    if not compare_rocky_red_hat(raw, raw_advisory_nvra):
-                        continue
                     pkg.set("repo_name", rpm_repomd.repo_name)
                     pkg.set("mirror_id", str(mirror.id))
                     check_pkgs.add(pkg)
@@ -586,8 +559,6 @@ async def process_repomd(
                 for pkg in raw_pkg_nvras.get(nvra_alias[nevra], []):
                     cleaned, raw = repomd.clean_nvra_pkg(pkg)
                     module_logger.debug(f"rocky_raw: {raw}")
-                    if not compare_rocky_red_hat(raw, raw_advisory_nvra):
-                        continue
                     pkg.set("repo_name", rpm_repomd.repo_name)
                     pkg.set("mirror_id", str(mirror.id))
                     check_pkgs.add(pkg)
