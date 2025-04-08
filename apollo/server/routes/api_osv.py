@@ -89,13 +89,14 @@ class OSVDatabaseSpecific(BaseModel):
 
 
 class OSVAdvisory(BaseModel):
-    schema_version: str = "1.3.1"
+    schema_version: str = "1.7.0"
     id: str
     modified: str
     published: str
     withdrawn: Optional[str]
     aliases: Optional[list[str]]
     related: Optional[list[str]]
+    upstream: Optional[list[str]]
     summary: str
     details: str
     severity: Optional[list[OSVSeverity]]
@@ -219,7 +220,8 @@ def to_osv_advisory(ui_url: str, advisory: Advisory) -> OSVAdvisory:
         published=to_rfc3339_date(advisory.published_at),
         withdrawn=None,
         aliases=None,
-        related=[x.cve for x in advisory.cves],
+        related=None,
+        upstream=[x.cve for x in advisory.cves],
         summary=advisory.synopsis,
         details=advisory.description,
         severity=severity,
