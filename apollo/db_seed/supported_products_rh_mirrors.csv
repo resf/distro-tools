@@ -1,0 +1,20 @@
+2,2023-01-31 11:10:09.117732+00,\N,1,Rocky Linux 8 x86_64,Red Hat Enterprise Linux,8,\N,x86_64
+3,2023-01-31 11:31:22.988122+00,\N,1,Rocky Linux 8 aarch64,Red Hat Enterprise Linux,8,\N,aarch64
+4,2023-01-31 11:31:22.988122+00,\N,1,Rocky Linux 9 x86_64,Red Hat Enterprise Linux,9,\N,x86_64
+5,2023-01-31 11:31:22.988122+00,\N,1,Rocky Linux 9 aarch64,Red Hat Enterprise Linux,9,\N,aarch64
+6,2023-01-31 11:31:22.988122+00,\N,1,Rocky Linux 9 s390x,Red Hat Enterprise Linux,9,\N,s390x
+7,2023-01-31 11:31:22.988122+00,\N,1,Rocky Linux 9 ppc64le,Red Hat Enterprise Linux,9,\N,ppc64le
+8,2023-01-31 12:45:02.676637+00,\N,1,Rocky Linux 8.4 x86_64 (Legacy),Red Hat Enterprise Linux,8,\N,x86_64
+9,2023-01-31 12:45:02.676637+00,\N,1,Rocky Linux 8.4 aarch64 (Legacy),Red Hat Enterprise Linux,8,\N,aarch64
+10,2023-01-31 12:45:02.676637+00,\N,1,Rocky Linux 8.5 x86_64 (Legacy),Red Hat Enterprise Linux,8,\N,x86_64
+11,2023-01-31 12:45:02.676637+00,\N,1,Rocky Linux 8.5 aarch64 (Legacy),Red Hat Enterprise Linux,8,\N,aarch64
+12,2023-01-31 12:45:02.676637+00,\N,1,Rocky Linux 8.6 x86_64 (Legacy),Red Hat Enterprise Linux,8,\N,x86_64
+13,2023-01-31 12:45:02.676637+00,\N,1,Rocky Linux 8.6 aarch64 (Legacy),Red Hat Enterprise Linux,8,\N,aarch64
+14,2023-01-31 12:46:12.173428+00,\N,1,Rocky Linux 9.0 x86_64 (Legacy),Red Hat Enterprise Linux,9,\N,x86_64
+15,2023-01-31 12:46:12.173428+00,\N,1,Rocky Linux 9.0 aarch64 (Legacy),Red Hat Enterprise Linux,9,\N,aarch64
+16,2023-01-31 12:46:12.173428+00,\N,1,Rocky Linux 9.0 s390x (Legacy),Red Hat Enterprise Linux,9,\N,s390x
+17,2023-01-31 12:46:12.173428+00,\N,1,Rocky Linux 9.0 ppc64le (Legacy),Red Hat Enterprise Linux,9,\N,ppc64le
+18,2023-02-04 02:18:54.822335+00,\N,2,Rocky Linux 8 SIG Cloud x86_64,Red Hat Enterprise Linux,8,\N,x86_64
+19,2023-02-04 02:18:54.822335+00,\N,2,Rocky Linux 8 SIG Cloud aarch64,Red Hat Enterprise Linux,8,\N,aarch64
+20,2023-02-04 02:18:54.822335+00,\N,2,Rocky Linux 9 SIG Cloud x86_64,Red Hat Enterprise Linux,9,\N,x86_64
+21,2023-02-04 02:18:54.822335+00,\N,2,Rocky Linux 9 SIG Cloud aarch64,Red Hat Enterprise Linux,9,\N,aarch64
