@@ -32,10 +32,12 @@ def clean_nvra_pkg(matching_pkg: ET.Element) -> str:
     clean_release = MODULE_DIST_RE.sub("", DIST_RE.sub("", release))
 
     cleaned = f"{name}-{version}-{clean_release}.{arch}"
+    raw = f"{name}-{version}-{release}.{arch}"
     if ".module+" in release:
         cleaned = f"module.{cleaned}"
+        raw = f"module.{raw}"
 
-    return cleaned
+    return cleaned, raw
 
 
 def clean_nvra(nvra_raw: str) -> str:
@@ -48,10 +50,12 @@ def clean_nvra(nvra_raw: str) -> str:
     clean_release = MODULE_DIST_RE.sub("", DIST_RE.sub("", release))
 
     cleaned = f"{name}-{version}-{clean_release}.{arch}"
+    raw = f"{name}-{version}-{release}.{arch}"
     if ".module+" in release:
         cleaned = f"module.{cleaned}"
+        raw = f"module.{raw}"
 
-    return cleaned
+    return cleaned, raw
 
 
 async def download_xml(
@@ -112,7 +116,6 @@ async def get_data_from_repomd(
                 path.join(parsed_url.path, "../..", location.attrib["href"])
             )
             data_url = parsed_url._replace(path=new_path).geturl()
-
             if is_yaml:
                 return await download_yaml(
                     data_url,

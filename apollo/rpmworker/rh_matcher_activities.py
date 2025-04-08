@@ -2,7 +2,6 @@ import datetime
 import re
 from dataclasses import dataclass
 from xml.etree import ElementTree as ET
-
 from temporalio import activity
 from tortoise.transactions import in_transaction
 
@@ -36,13 +35,14 @@ async def get_supported_products_with_rh_mirrors() -> list[int]:
     """
     Get supported product IDs that has an RH mirror configuration
     """
+    logger = Logger()
     rh_mirrors = await SupportedProductsRhMirror.all().prefetch_related(
         "rpm_repomds",
     )
-
     ret = []
     for rh_mirror in rh_mirrors:
         if rh_mirror.supported_product_id not in ret and rh_mirror.rpm_repomds:
+            logger.debug(f"Adding rh_mirror.supported_product_id ({rh_mirror.supported_product_id})")
             ret.append(rh_mirror.supported_product_id)
 
     return ret
@@ -99,7 +99,6 @@ async def get_matching_rh_advisories(
             if advisory.id not in final_ids:
                 final.append(advisory)
                 final_ids.append(advisory.id)
-
     return final
 
 
@@ -121,12 +120,13 @@ async def clone_advisory(
             acceptable_arches.append("i686")
             break
 
+    # Generate dictionary of clean advisory nvras
     clean_advisory_nvras = {}
     for advisory_pkg in advisory.packages:
         nvra = repomd.NVRA_RE.search(advisory_pkg.nevra)
         if nvra.group(4) not in acceptable_arches:
             continue
-        cleaned = repomd.clean_nvra(advisory_pkg.nevra)
+        cleaned, raw = repomd.clean_nvra(advisory_pkg.nevra)
         if cleaned not in clean_advisory_nvras:
             clean_advisory_nvras[cleaned] = True
 
@@ -148,11 +148,14 @@ async def clone_advisory(
         )
         return
 
-    pkg_nvras = {}
-    pkg_name_map = {}
+    # Generate dictionary of all packages in the repomd
+    pkg_nvras = {} # Populated from all_pkgs and contains a mapping of all pkg xml elemnts for each cleaned nvra
+    # { cleaned_nvra: [pkg_xml_elem, pkg_xml_elem, ...] }
+    pkg_name_map = {} # Populated from all_pkgs and contains a mapping of package name to all of the raw nvras associated with that package name
+    # { pkg_name: [raw_nvra, raw_nvra, ...] }
     for pkgs in all_pkgs:
         for pkg in pkgs:
-            cleaned = repomd.clean_nvra_pkg(pkg)
+            cleaned, raw = repomd.clean_nvra_pkg(pkg)
             name = repomd.NVRA_RE.search(cleaned).group(1)
             if cleaned not in pkg_nvras:
                 pkg_nvras[cleaned] = [pkg]
@@ -163,13 +166,14 @@ async def clone_advisory(
                 pkg_name_map[name] = []
             pkg_name_map[name].append(cleaned)
 
-    nvra_alias = {}
+    nvra_alias = {} # Mapping of advisory nvra to pkg nvra where the pkg nvra comes from the pkg_name_map, however this only will get the first match and will ignore all others.
     for advisory_nvra, _ in clean_advisory_nvras.items():
         name = repomd.NVRA_RE.search(advisory_nvra).group(1)
         name_pkgs = pkg_name_map.get(name, [])
         for pkg_nvra in name_pkgs:
             pkg_nvra_rs = pkg_nvra.rsplit(".", 1)
             cleaned_rs = advisory_nvra.rsplit(".", 1)
+
             pkg_arch = pkg_nvra_rs[1]
             cleaned_arch = cleaned_rs[1]
 
@@ -273,7 +277,6 @@ async def clone_advisory(
                 for mirror in mirrors:
                     if pkg.attrib["mirror_id"] != str(mirror.id):
                         continue
-
                     new_pkgs.append(
                         NewPackage(
                             nevra=nevra,
@@ -431,7 +434,6 @@ async def process_repomd(
     advisories: list[RedHatAdvisory],
 ):
     logger = Logger()
-
     all_pkgs = []
     urls_to_fetch = [
         rpm_repomd.url, rpm_repomd.debug_url, rpm_repomd.source_url
@@ -471,77 +473,95 @@ async def process_repomd(
                     )
 
     ret = {}
-
-    pkg_nvras = {}
-    pkg_name_map = {}
+    raw_pkg_nvras = {}
+    raw_package_map = {}
     for pkg in all_pkgs:
-        cleaned = repomd.clean_nvra_pkg(pkg)
-        if cleaned not in pkg_nvras:
-            name = repomd.NVRA_RE.search(cleaned).group(1)
-            if name not in pkg_name_map:
-                pkg_name_map[name] = []
-            pkg_name_map[name].append(cleaned)
-            pkg_nvras[cleaned] = pkg
+        # in the case of a module nvra the cleaned variable
+        # becomes the package stripped of any module information
+        # and with the nvra prepended with 'module.'
+        cleaned, raw = repomd.clean_nvra_pkg(pkg)
+        name = repomd.NVRA_RE.search(cleaned).group(1)
+
+        if cleaned not in raw_pkg_nvras:
+            raw_pkg_nvras[cleaned] = []
+        raw_pkg_nvras[cleaned].append(pkg)
+
+        if name not in raw_package_map:
+            raw_package_map[name] = []
+        raw_package_map[name].append(raw)
 
     nvra_alias = {}
-    check_pkgs = []
+    check_pkgs = set()
+
 
     # Now check against advisories, and see if we're matching any
     # If we match, that means we can start creating the supporting
     # mirror advisories
     for advisory in advisories:
+        logger.debug(f"Processing advisory: {advisory.name}")
         clean_advisory_nvras = {}
+        # Loop through each package in the advisory and check if we
+        # have a match from the rocky repos
         for advisory_pkg in advisory.packages:
-            cleaned = repomd.clean_nvra(advisory_pkg.nevra)
+            # cleaned will strip out module specific info from a package name
+            # and prepend 'module.' to the name for modular packages.
+            cleaned, raw = repomd.clean_nvra(advisory_pkg.nevra)
+            name = repomd.NVRA_RE.search(advisory_pkg.nevra).group(1)
             if cleaned not in clean_advisory_nvras:
-                if not cleaned in pkg_nvras:
+                if not cleaned in raw_pkg_nvras:
                     # Check if we can match the prefix instead
                     # First let's fetch the name matching NVRAs
                     # To cut down on the number of checks
-                    name = repomd.NVRA_RE.search(advisory_pkg.nevra).group(1)
-                    name_pkgs = pkg_name_map.get(name, [])
+                    name_pkgs = raw_package_map.get(name, [])
+                    # pkg_nvra's will be 'cleaned'
                     for pkg_nvra in name_pkgs:
                         pkg_nvra_rs = pkg_nvra.rsplit(".", 1)
                         cleaned_rs = cleaned.rsplit(".", 1)
+
                         pkg_arch = pkg_nvra_rs[1]
                         cleaned_arch = cleaned_rs[1]
 
                         pkg_nvr = pkg_nvra_rs[0]
                         cleaned_nvr = cleaned_rs[0]
-
                         if pkg_nvr.startswith(
                             cleaned_nvr
                         ) and pkg_arch == cleaned_arch:
                             nvra_alias[cleaned] = pkg_nvra
                             break
-                clean_advisory_nvras[cleaned] = True
+                clean_advisory_nvras[cleaned] = raw
 
         if not clean_advisory_nvras:
+            logger.debug(f"No matching package found for {advisory.name}, moving on.")
             continue
 
         did_match_any = False
-
         for nevra, _ in clean_advisory_nvras.items():
-            pkg = None
-            if nevra in pkg_nvras:
-                pkg = pkg_nvras[nevra]
-            elif nevra in nvra_alias:
-                pkg = pkg_nvras[nvra_alias[nevra]]
+            if nevra in raw_pkg_nvras:
+                for pkg in raw_pkg_nvras[nevra]:
+                    cleaned, raw = repomd.clean_nvra_pkg(pkg)
+                    pkg.set("repo_name", rpm_repomd.repo_name)
+                    pkg.set("mirror_id", str(mirror.id))
+                    check_pkgs.add(pkg)
+                    did_match_any = True
 
-            if pkg:
-                # Set repo name as an attribute to packages
-                pkg.set("repo_name", rpm_repomd.repo_name)
-                pkg.set("mirror_id", str(mirror.id))
-                check_pkgs.append(pkg)
-                did_match_any = True
+            elif nevra in nvra_alias:
+                logger.debug(f"nevra: {nevra}")
+                logger.debug(f"nvra_alias[nevra]: {nvra_alias[nevra]}")
+                for pkg in raw_pkg_nvras.get(nvra_alias[nevra], []):
+                    cleaned, raw = repomd.clean_nvra_pkg(pkg)
+                    pkg.set("repo_name", rpm_repomd.repo_name)
+                    pkg.set("mirror_id", str(mirror.id))
+                    check_pkgs.add(pkg)
+                    did_match_any = True
 
         if did_match_any:
+            logger.debug(f"Found packages for {advisory.name}")
             ret.update(
                 {
                     advisory.name:
                         {
                             "advisory": advisory,
-                            "packages": [check_pkgs],
+                            "packages": [check_pkgs], # list of xml element strings
                             "module_packages": module_packages,
                         }
                 }
@@ -556,7 +576,6 @@ async def match_rh_repos(supported_product_id: int) -> None:
     Process the repomd files for the supported product
     """
     logger = Logger()
-
     supported_product = await SupportedProduct.filter(
         id=supported_product_id
     ).first().prefetch_related("rh_mirrors", "rh_mirrors__rpm_repomds", "code")
@@ -568,6 +587,7 @@ async def match_rh_repos(supported_product_id: int) -> None:
         advisories = await get_matching_rh_advisories(mirror)
         for rpm_repomd in mirror.rpm_repomds:
             if rpm_repomd.arch != mirror.match_arch:
+                logger.debug(f"Skipping due to {rpm_repomd.arch} != {mirror.match_arch}")
                 continue
             advisory_map = await process_repomd(mirror, rpm_repomd, advisories)
             if advisory_map:
@@ -575,6 +595,7 @@ async def match_rh_repos(supported_product_id: int) -> None:
                 if rpm_repomd.production:
                     published_at = datetime.datetime.utcnow()
                 for advisory_name, obj in advisory_map.items():
+                    logger.debug(f"Processing advisory: {advisory_name}")
                     if advisory_name in all_advisories:
                         all_advisories[advisory_name]["packages"].extend(
                             obj["packages"]
