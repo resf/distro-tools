@@ -1,23 +1,12 @@
 import pathlib
 import json
-import os
-import re
 
-from common.info import Info
 from common.logger import Logger
 from apollo.rpm_helpers import parse_nevra
 
 # Initialize Info before Logger for this module
 
 logger = Logger()
-# logger = logging.getLogger(__name__)
-# # Add a StreamHandler to output logs to the console
-# console_handler = logging.StreamHandler()
-# console_handler.setLevel(logging.DEBUG)
-# formatter = logging.Formatter('%(levelname)s - %(message)s')
-# console_handler.setFormatter(formatter)
-# logger.addHandler(console_handler)
-
 
 def red_hat_advisory_scraper(filename: pathlib.Path):
     logger.info(f"Parsing CSAF document{filename}")
@@ -35,9 +24,12 @@ def red_hat_advisory_scraper(filename: pathlib.Path):
     name = csaf["document"]["tracking"]["id"] # "RHSA-2025:1234"
     red_hat_synopsis = csaf["document"]["title"] # "Red Hat Bug Fix Advisory: Red Hat Quay v3.13.4 bug fix release"
     red_hat_description = None
+    topic = None
     for item in csaf["document"]["notes"]:
         if item["category"] == "general":
             red_hat_description = item["text"]
+        elif item["category"] == "summary":
+            topic = item["text"]
     kind_lookup = {"RHSA": "Security", "RHBA": "Bug Fix", "RHEA": "Enhancement"}
     kind = kind_lookup[name.split("-")[0]] # "RHSA-2025:1234" --> "Security"
     severity = csaf["document"]["aggregate_severity"]["text"] # "Important"
@@ -47,11 +39,6 @@ def red_hat_advisory_scraper(filename: pathlib.Path):
     red_hat_synopsis = red_hat_synopsis.replace("Red Hat Bug Fix Advisory: ", f"{severity}:")
     red_hat_synopsis = red_hat_synopsis.replace("Red Hat Security Advisory:", f"{severity}:")
     red_hat_synopsis = red_hat_synopsis.replace("Red Hat Enhancement Advisory: ", f"{severity}:")
-
-    topic = None
-    for item in csaf["document"]["notes"]:
-        if item["category"] == "summary":
-            topic = item["text"]
 
     # red_hat_advisory_packages table values
     red_hat_fixed_packages = set()

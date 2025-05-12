@@ -34,14 +34,49 @@ def parse_dist_version(release: str) -> dict:
         "minor": minor
     }
 
-def parse_nevra(filename):
+def parse_nevra(nevra_str: str) -> dict:
+    """
+    Parse a NEVRA (Name-Epoch-Version-Release-Architecture) string from an RPM nevra_str.
+
+    The function extracts the following components from the given nevra_str:
+        - name: Package name
+        - epoch: Epoch (defaults to 0 if not present)
+        - version: Version string
+        - release: Release string
+        - arch: Architecture
+        - dist_major: Major distribution version (parsed from release)
+        - dist_minor: Minor distribution version (parsed from release)
+        - raw: The original nevra_str with optional '.rpm' extension removed
+
+    Args:
+        nevra_str (str): The RPM nevra_str or NEVRA string to parse.
+
+    Returns:
+        dict: A dictionary containing the parsed NEVRA components.
+
+    Raises:
+        ValueError: If the nevra_str is missing required NEVRA components or has an invalid distribution version.
+
+    Example:
+        parse_nevra("bash-0:5.1.8-6.el9.x86_64.rpm")
+        {
+            'raw': 'bash-0:5.1.8-6.el9.x86_64',
+            'name': 'bash',
+            'epoch': '0',
+            'version': '5.1.8',
+            'release': '6.el9',
+            'arch': 'x86_64',
+            'dist_major': 9,
+            'dist_minor': None
+        }
+    """
     # Strip off optional .rpm extension
-    if filename.endswith('.rpm'):
-        filename = filename[:-4]
+    if nevra_str.endswith('.rpm'):
+        nevra_str = nevra_str[:-4]
 
     # Split off arch
     try:
-        rest, arch = filename.rsplit('.', 1)
+        rest, arch = nevra_str.rsplit('.', 1)
     except ValueError:
         raise ValueError("Missing architecture in NEVRA string")
 
@@ -70,7 +105,7 @@ def parse_nevra(filename):
     major = dist_version["major"]
     minor = dist_version["minor"]
     return {
-        "raw": filename,
+        "raw": nevra_str,
         "name": name,
         "epoch": epoch,
         "version": version,

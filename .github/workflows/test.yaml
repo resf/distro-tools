@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "errata-csaf-initiative" ]
 
 jobs:
   lint_test:
@@ -17,21 +17,21 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
-        
+
     - name: Setup Bazel
       uses: bazelbuild/setup-bazelisk@v2
-        
+
     - name: Setup
       run: ./build/scripts/setup.bash
-      
+
     - name: Lint
       run: ./build/scripts/pylint.bash
-      
+
     - name: Unit Tests
       run: |
         bazel test //apollo/tests:test_rpm_helpers --test_output=all
         bazel test //apollo/tests:test_rhcsaf --test_output=all
         bazel test //apollo/tests:test_csaf_processing --test_output=all
-      
+
     - name: Integration Tests
       run: ./build/scripts/test.bash

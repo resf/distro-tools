@@ -308,9 +308,9 @@ async def process_csaf_file(filepath: str) -> Optional[RedHatAdvisory]:
 
                 if updates:
                     updates["updated_at"] = datetime.now()
-                for field, value in updates.items():
-                    setattr(advisory, field, value)
-                    await advisory.save()
+                    for field, value in updates.items():
+                        setattr(advisory, field, value)
+                        await advisory.save()
             else:
                 # Create new advisory
                 logger.info(f"Creating new advisory {data['name']}")
@@ -417,7 +417,8 @@ async def process_csaf_file(filepath: str) -> Optional[RedHatAdvisory]:
 async def process_csaf_files() -> dict:
     logger = Logger()
     logger.info("Starting CSAF file processing")
-    csaf_dir = os.environ.get("RHCSAF_DIR")
+    csaf_dir = "/home/mrthorn/redhat_advisories"
+    # csaf_dir = os.environ.get("RHCSAF_DIR")
     # TODO: Develop a way to get the latest CSAF files.
     #       Options:
     #       1. Pull latest files and store on disk
