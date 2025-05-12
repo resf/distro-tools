@@ -19,7 +19,8 @@ jobs:
         python-version: '3.11'
 
     - name: Setup Bazel
-      uses: bazelbuild/setup-bazelisk@v2
+      uses: bazelbuild/setup-bazelisk@v3
+      continue-on-error: true
 
     - name: Setup
       run: ./build/scripts/setup.bash
