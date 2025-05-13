@@ -2,25 +2,6 @@
   <update from="releng@rockylinux.org" status="final" type="security" version="2">
     <id>RLSA-2022:1821</id>
     <title>Moderate: python27:2.7 security update</title>
-    <description>Python is an interpreted, interactive, object-oriented programming language that supports modules, classes, exceptions, high-level dynamic data types, and dynamic typing. The python27 packages provide a stable release of Python 2.7 with a number of additional utilities and database connectors for MySQL and PostgreSQL.
-
-Security Fix(es):
-
-* python: urllib: Regular expression DoS in AbstractBasicAuthHandler (CVE-2021-3733)
-
-* python: ftplib should not use the host from the PASV response (CVE-2021-4189)
-
-* python-lxml: HTML Cleaner allows crafted and SVG embedded scripts to pass through (CVE-2021-43818)
-
-* python: urllib.parse does not sanitize URLs containing ASCII newline and tabs (CVE-2022-0391)
-
-* python: urllib: HTTP client possible infinite loop on a 100 Continue response (CVE-2021-3737)
-
-For more details about the security issue(s), including the impact, a CVSS score, acknowledgments, and other related information, refer to the CVE page(s) listed in the References section.
-
-Additional Changes:
-
-For detailed information on changes in this release, see the Rocky Linux 8.6 Release Notes linked from the References section.</description>
     <issued>2022-05-10 08:02:50</issued>
     <updated>2023-02-02 13:41:28</updated>
     <rights>Copyright 2023 Rocky Enterprise Software Foundation</rights>
@@ -69,17 +50,6 @@ For detailed information on changes in this release, see the Rocky Linux 8.6 Rel
   <update from="releng@rockylinux.org" status="final" type="security" version="2">
     <id>RLSA-2022:7593</id>
     <title>Moderate: python27:2.7 security update</title>
-    <description>Python is an interpreted, interactive, object-oriented programming language that supports modules, classes, exceptions, high-level dynamic data types, and dynamic typing.
-
-Security Fix(es):
-
-* python: mailcap: findmatch() function does not sanitize the second argument (CVE-2015-20107).
-
-For more details about the security issue(s), including the impact, a CVSS score, acknowledgments, and other related information, refer to the CVE page(s) listed in the References section.
-
-Additional Changes:
-
-For detailed information on changes in this release, see the Rocky Linux 8.7 Release Notes linked from the References section.</description>
     <issued>2022-11-08 06:23:47</issued>
     <updated>2023-02-02 13:52:34</updated>
     <rights>Copyright 2023 Rocky Enterprise Software Foundation</rights>

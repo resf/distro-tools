@@ -1,0 +1,29 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+py_test(
+    name = "test_rpm_helpers",
+    srcs = ["test_rpm_helpers.py"],
+    deps = [
+        "//apollo/rpm_helpers:rpm_helpers_lib",
+    ],
+)
+
+py_test(
+    name = "test_csaf_processing",
+    srcs = ["test_csaf_processing.py"],
+    deps = [
+        "//apollo/rhworker:rhworker_lib",
+        "//apollo/db:db_lib",
+        "//common:common_lib",  # Add common library dependency
+    ],
+)
+
+py_test(
+    name = "test_rhcsaf",
+    srcs = ["test_rhcsaf.py"],
+    deps = [
+        "//apollo/rhcsaf:rhcsaf_lib",
+        "//apollo/rpm_helpers:rpm_helpers_lib",
+        "//common:common_lib",
+    ],
+)
