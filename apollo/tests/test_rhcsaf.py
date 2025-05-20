@@ -9,6 +9,8 @@ with patch('common.logger.Logger') as mock_logger_class:
     mock_logger_class.return_value = mock_logger
     from apollo.rhcsaf import red_hat_advisory_scraper
 
+from apollo.rhcsaf import extract_rhel_affected_products_for_db
+
 class TestRedHatAdvisoryScraper(unittest.TestCase):
     def setUp(self):
         # Create sample CSAF data
@@ -138,3 +140,86 @@ class TestRedHatAdvisoryScraper(unittest.TestCase):
             
         result = red_hat_advisory_scraper(self.test_file)
         self.assertIsNone(result)
+
+
+class TestExtractRhelAffectedProducts(unittest.TestCase):
+    def setUp(self):
+        self.base_csaf = {
+            "product_tree": {
+                "branches": [
+                    {
+                        "branches": [
+                            {
+                                "category": "product_family",
+                                "name": "Red Hat Enterprise Linux",
+                                "branches": [
+                                    {
+                                        "category": "product_name",
+                                        "product": {
+                                            "name": "Red Hat Enterprise Linux 9",
+                                            "product_identification_helper": {
+                                                "cpe": "cpe:/o:redhat:enterprise_linux:9.4"
+                                            }
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "category": "architecture",
+                                "name": "x86_64"
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+
+    def test_extract_basic(self):
+        result = extract_rhel_affected_products_for_db(self.base_csaf)
+        self.assertIn(
+            ("Red Hat Enterprise Linux", "Red Hat Enterprise Linux for x86_64", 9, 4, "x86_64"),
+            result
+        )
+
+    def test_no_product_tree(self):
+        csaf = {}
+        result = extract_rhel_affected_products_for_db(csaf)
+        self.assertEqual(result, set())
+
+    def test_unknown_architecture(self):
+        csaf = self.base_csaf.copy()
+        csaf["product_tree"]["branches"][0]["branches"].append({
+            "category": "architecture",
+            "name": "unknownarch"
+        })
+        result = extract_rhel_affected_products_for_db(csaf)
+        # Should still only include x86_64, unknownarch is skipped
+        self.assertTrue(all(t[4] != "unknownarch" for t in result))
+
+    def test_noarch_expansion(self):
+        csaf = self.base_csaf.copy()
+        csaf["product_tree"]["branches"][0]["branches"] = [
+            csaf["product_tree"]["branches"][0]["branches"][0],  # product_family
+            {"category": "architecture", "name": "noarch"}
+        ]
+        result = extract_rhel_affected_products_for_db(csaf)
+        arches = [t[4] for t in result]
+        self.assertIn("x86_64", arches)
+        self.assertIn("aarch64", arches)
+        self.assertIn("ppc64le", arches)
+        self.assertIn("s390x", arches)
+
+    def test_missing_cpe(self):
+        csaf = self.base_csaf.copy()
+        csaf["product_tree"]["branches"][0]["branches"][0]["branches"][0]["product"].pop("product_identification_helper")
+        result = extract_rhel_affected_products_for_db(csaf)
+        self.assertEqual(result, set())
+
+    def test_major_only_version(self):
+        csaf = self.base_csaf.copy()
+        csaf["product_tree"]["branches"][0]["branches"][0]["branches"][0]["product"]["product_identification_helper"]["cpe"] = "cpe:/o:redhat:enterprise_linux:9"
+        result = extract_rhel_affected_products_for_db(csaf)
+        self.assertIn(
+            ("Red Hat Enterprise Linux", "Red Hat Enterprise Linux for x86_64", 9, None, "x86_64"),
+            result
+        )
