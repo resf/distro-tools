@@ -1,0 +1,14 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+
+# gazelle:exclude example.py
+
+py_library(
+    name = "rhcsaf_lib",
+    srcs = ["__init__.py"],
+    imports = ["../.."],
+    visibility = ["//:__subpackages__"],
+    deps = [
+      "//apollo/rpm_helpers:rpm_helpers_lib",
+      "@pypi_aiohttp//:pkg",
+    ],
+)

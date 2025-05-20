@@ -28,6 +28,7 @@ py_library(
     deps = [
         "//apollo/db:db_lib",
         "//apollo/rherrata:rherrata_lib",
+        "//apollo/rhcsaf:rhcsaf_lib",
         "//common:common_lib",
         "@pypi_aiohttp//:pkg",
         "@pypi_temporalio//:pkg",
