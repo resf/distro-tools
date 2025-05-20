@@ -33,6 +33,7 @@ py_library(
         "//apollo/db:db_lib",
         "//apollo/db/serialize:serialize_lib",
         "//apollo/rpmworker:rpmworker_lib",
+        "//apollo/rpm_helpers:rpm_helpers_lib",
         "//common:common_lib",
         "@pypi_fastapi//:pkg",
         "@pypi_fastapi_pagination//:pkg",

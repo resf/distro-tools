@@ -8,6 +8,7 @@ from tortoise.transactions import in_transaction
 from apollo.db import SupportedProduct, SupportedProductsRhMirror, SupportedProductsRpmRepomd, SupportedProductsRpmRhOverride, SupportedProductsRhBlock
 from apollo.db import RedHatAdvisory, Advisory, AdvisoryAffectedProduct, AdvisoryCVE, AdvisoryFix, AdvisoryPackage
 from apollo.rpmworker import repomd
+from apollo.rpm_helpers import parse_nevra
 
 from common.logger import Logger
 
@@ -123,8 +124,9 @@ async def clone_advisory(
     # Generate dictionary of clean advisory nvras
     clean_advisory_nvras = {}
     for advisory_pkg in advisory.packages:
-        nvra = repomd.NVRA_RE.search(advisory_pkg.nevra)
-        if nvra.group(4) not in acceptable_arches:
+        results = parse_nevra(advisory_pkg.nevra)
+        advisory_pkg_arch = results["arch"]
+        if advisory_pkg_arch not in acceptable_arches:
             continue
         cleaned, raw = repomd.clean_nvra(advisory_pkg.nevra)
         if cleaned not in clean_advisory_nvras:
@@ -204,6 +206,7 @@ async def clone_advisory(
 
         existing_advisory = await Advisory.filter(name=name).get_or_none()
         if not existing_advisory:
+            logger.info(f"Creating advisory {name}")
             new_advisory = await Advisory.create(
                 name=name,
                 synopsis=synopsis,
@@ -392,21 +395,20 @@ async def clone_advisory(
             ignore_conflicts=True,
         )
 
-        # Check if topic is empty, if so construct it
-        if not new_advisory.topic:
-            package_names = list({p.package_name for p in new_pkgs})
-            affected_products = list(
-                {
-                    f"{product.name} {mirror.match_major_version}"
-                    for mirror in mirrors
-                }
-            )
-            topic = f"""An update is available for {', '.join(package_names)}.
+        # Construct topic
+        package_names = list({p.package_name for p in new_pkgs})
+        affected_products = list(
+            {
+                f"{product.name} {mirror.match_major_version}"
+                for mirror in mirrors
+            }
+        )
+        topic = f"""An update is available for {', '.join(package_names)}.
 This update affects {', '.join(affected_products)}.
 A Common Vulnerability Scoring System (CVSS) base score, which gives a detailed severity rating, is available for each vulnerability from the CVE list"""
-            new_advisory.topic = topic
+        new_advisory.topic = topic
 
-            await new_advisory.save()
+        await new_advisory.save()
 
         # Block advisory from being attempted to be mirrored again
         await SupportedProductsRhBlock.bulk_create(
@@ -498,7 +500,7 @@ async def process_repomd(
     # If we match, that means we can start creating the supporting
     # mirror advisories
     for advisory in advisories:
-        logger.debug(f"Processing advisory: {advisory.name}")
+        logger.debug(f"Processing advisory: {advisory.name} inside of `process_repomd` for {mirror.name}")
         clean_advisory_nvras = {}
         # Loop through each package in the advisory and check if we
         # have a match from the rocky repos
@@ -506,7 +508,8 @@ async def process_repomd(
             # cleaned will strip out module specific info from a package name
             # and prepend 'module.' to the name for modular packages.
             cleaned, raw = repomd.clean_nvra(advisory_pkg.nevra)
-            name = repomd.NVRA_RE.search(advisory_pkg.nevra).group(1)
+            results = parse_nevra(advisory_pkg.nevra)
+            name = results["name"]
             if cleaned not in clean_advisory_nvras:
                 if not cleaned in raw_pkg_nvras:
                     # Check if we can match the prefix instead
@@ -531,7 +534,7 @@ async def process_repomd(
                 clean_advisory_nvras[cleaned] = raw
 
         if not clean_advisory_nvras:
-            logger.debug(f"No matching package found for {advisory.name}, moving on.")
+            logger.debug(f"No cleaned packages for {advisory.name}, moving on.")
             continue
 
         did_match_any = False
@@ -566,6 +569,8 @@ async def process_repomd(
                         }
                 }
             )
+        else:
+            logger.debug(f"No matching packages found for {advisory.name} inside of {mirror.name}")
 
     return ret
 
@@ -595,7 +600,7 @@ async def match_rh_repos(supported_product_id: int) -> None:
                 if rpm_repomd.production:
                     published_at = datetime.datetime.utcnow()
                 for advisory_name, obj in advisory_map.items():
-                    logger.debug(f"Processing advisory: {advisory_name}")
+                    logger.debug(f"Processing advisory: {advisory_name} for {mirror.name}")
                     if advisory_name in all_advisories:
                         all_advisories[advisory_name]["packages"].extend(
                             obj["packages"]
@@ -612,6 +617,7 @@ async def match_rh_repos(supported_product_id: int) -> None:
                         all_advisories.update({advisory_name: new_obj})
 
     for advisory_name, obj in all_advisories.items():
+        logger.debug(f"Attempting to clone advisory: {advisory_name}")
         await clone_advisory(
             supported_product,
             list(set(obj["mirrors"])),

@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from datetime import datetime
 import json
 import pathlib
@@ -9,11 +9,8 @@ mock_logger = MagicMock()
 with patch('common.logger.Logger') as mock_logger_class:
     mock_logger_class.return_value = mock_logger
     from apollo.rhworker.poll_rh_activities import process_csaf_file
-    from apollo.db import (RedHatAdvisory, RedHatAdvisoryPackage, 
-                         RedHatAdvisoryCVE, RedHatAdvisoryBugzillaBug, 
-                         RedHatAdvisoryAffectedProduct)
 
-class TestCsafProcessing(unittest.TestCase):
+class TestCsafProcessing(unittest.IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls):
         # Mock Info class
@@ -186,3 +183,87 @@ class TestCsafProcessing(unittest.TestCase):
             
         with self.assertRaises(Exception):
             await process_csaf_file("invalid_csaf.json")
+
+    @patch('apollo.db.RedHatAdvisory')
+    @patch('apollo.db.RedHatAdvisoryPackage')
+    @patch('apollo.db.RedHatAdvisoryCVE')
+    @patch('apollo.db.RedHatAdvisoryBugzillaBug')
+    @patch('apollo.db.RedHatAdvisoryAffectedProduct')
+    async def test_no_vulnerabilities(self, mock_affected, mock_bz, mock_cve, mock_pkg, mock_advisory):
+        # CSAF with no vulnerabilities
+        csaf = self.sample_csaf.copy()
+        csaf.pop("vulnerabilities")
+        result = await process_csaf_file(csaf, "test.json")
+        self.assertIsNone(result)
+
+    @patch('apollo.db.RedHatAdvisory')
+    @patch('apollo.db.RedHatAdvisoryPackage')
+    @patch('apollo.db.RedHatAdvisoryCVE')
+    @patch('apollo.db.RedHatAdvisoryBugzillaBug')
+    @patch('apollo.db.RedHatAdvisoryAffectedProduct')
+    async def test_no_fixed_packages(self, mock_affected, mock_bz, mock_cve, mock_pkg, mock_advisory):
+        # CSAF with vulnerabilities but no fixed packages
+        csaf = self.sample_csaf.copy()
+        csaf["vulnerabilities"][0]["product_status"]["fixed"] = []
+        result = await process_csaf_file(csaf, "test.json")
+        self.assertIsNone(result)
+
+    @patch('apollo.db.RedHatAdvisory')
+    @patch('apollo.db.RedHatAdvisoryPackage')
+    @patch('apollo.db.RedHatAdvisoryCVE')
+    @patch('apollo.db.RedHatAdvisoryBugzillaBug')
+    @patch('apollo.db.RedHatAdvisoryAffectedProduct')
+    async def test_db_exception(self, mock_affected, mock_bz, mock_cve, mock_pkg, mock_advisory):
+        # Simulate DB error
+        mock_advisory.get_or_none.side_effect = Exception("DB error")
+        with self.assertRaises(Exception):
+            await process_csaf_file(self.sample_csaf, "test.json")
+
+    @patch("aiohttp.ClientSession")
+    @patch("apollo.rhworker.poll_rh_activities.process_csaf_file", new_callable=AsyncMock)
+    async def test_process_csaf_files_success(self, mock_process_csaf_file, mock_client_session):
+        # Simulate aiohttp session and CSV responses
+        mock_session = AsyncMock()
+        mock_client_session.return_value.__aenter__.return_value = mock_session
+
+        # Simulate CSV data
+        csv_content = '"RHSA-2025:0001.json","2025-01-01T00:00:00Z"\n'
+        async def fake_fetch_csv_with_dates(session, url):
+            return {"RHSA-2025:0001.json": "2025-01-01T00:00:00Z"}
+
+        # Patch fetch_csv_with_dates inside the function
+        with patch("apollo.rhworker.poll_rh_activities.fetch_csv_with_dates", new=fake_fetch_csv_with_dates):
+            # Simulate advisory JSON fetch
+            mock_response = AsyncMock()
+            mock_response.status = 200
+            mock_response.json.return_value = self.sample_csaf
+            mock_session.get.return_value.__aenter__.return_value = mock_response
+
+            mock_process_csaf_file.return_value = MagicMock()  # Simulate successful processing
+
+            from apollo.rhworker.poll_rh_activities import process_csaf_files
+            result = await process_csaf_files()
+            self.assertEqual(result["processed"], 1)
+            self.assertEqual(result["errors"], 0)
+
+    @patch("aiohttp.ClientSession")
+    @patch("apollo.rhworker.poll_rh_activities.process_csaf_file", new_callable=AsyncMock)
+    async def test_process_csaf_files_error(self, mock_process_csaf_file, mock_client_session):
+        # Simulate aiohttp session and CSV responses
+        mock_session = AsyncMock()
+        mock_client_session.return_value.__aenter__.return_value = mock_session
+
+        # Simulate CSV data
+        async def fake_fetch_csv_with_dates(session, url):
+            return {"RHSA-2025:0002.json": "2025-01-01T00:00:00Z"}
+
+        with patch("apollo.rhworker.poll_rh_activities.fetch_csv_with_dates", new=fake_fetch_csv_with_dates):
+            # Simulate advisory JSON fetch with error
+            mock_response = AsyncMock()
+            mock_response.status = 404
+            mock_session.get.return_value.__aenter__.return_value = mock_response
+
+            from apollo.rhworker.poll_rh_activities import process_csaf_files
+            result = await process_csaf_files()
+            self.assertEqual(result["processed"], 0)
+            self.assertEqual(result["errors"], 1)

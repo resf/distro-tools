@@ -8,14 +8,94 @@ from apollo.rpm_helpers import parse_nevra
 
 logger = Logger()
 
-def red_hat_advisory_scraper(filename: pathlib.Path):
-    logger.info(f"Parsing CSAF document{filename}")
-    with open(filename, "r") as f:
-        csaf = json.load(f)
-    
+def extract_rhel_affected_products_for_db(csaf):
+    """
+    Extracts all needed info for red_hat_advisory_affected_products table from CSAF product_tree.
+    Expands 'noarch' to all main arches and maps names to user-friendly values.
+    Returns a set of tuples: (variant, name, major_version, minor_version, arch)
+    """
+    # Maps architecture short names to user-friendly product names
+    arch_name_map = {
+        "aarch64": "Red Hat Enterprise Linux for ARM 64",
+        "x86_64": "Red Hat Enterprise Linux for x86_64",
+        "s390x": "Red Hat Enterprise Linux for IBM z Systems",
+        "ppc64le": "Red Hat Enterprise Linux for Power, little endian",
+    }
+    # List of main architectures to expand 'noarch'
+    main_arches = list(arch_name_map.keys())
+    affected_products = set()
+    product_tree = csaf.get("product_tree", {})
+    if not product_tree:
+        logger.warning("No product tree found in CSAF document")
+        return affected_products
+
+    # Iterate over all vendor branches in the product tree
+    for vendor_branch in product_tree.get("branches", []):
+        # Find the product_family branch for RHEL
+        family_branch = None
+        for b in vendor_branch.get("branches", []):
+            if b.get("category") == "product_family" and b.get("name") == "Red Hat Enterprise Linux":
+                family_branch = b
+                break
+        if not family_branch:
+            continue
+        # Find the product_name branch for CPE/version info
+        prod_name = None
+        cpe = None
+        for branch in family_branch.get("branches", []):
+            if branch.get("category") == "product_name":
+                prod = branch.get("product", {})
+                prod_name = prod.get("name")
+                cpe = prod.get("product_identification_helper", {}).get("cpe")
+                break
+        if not prod_name or not cpe:
+            continue
+
+        # Parses the CPE string to extract major and minor version numbers
+        parts = cpe.split(":")
+        major = None
+        minor = None
+        if len(parts) > 4:
+            version = parts[4]
+            if version:
+                if "." in version:
+                    major, minor = version.split(".", 1)
+                    major = int(major)
+                    minor = int(minor)
+                else:
+                    major = int(version)
+
+        # Collect all architecture branches at the same level as product_family
+        arches = set()
+        for branch in vendor_branch.get("branches", []):
+            if branch.get("category") == "architecture":
+                arch = branch.get("name")
+                if arch:
+                    arches.add(arch)
+        # If 'noarch' is present, expand to all main architectures
+        if "noarch" in arches:
+            arches = set(main_arches)
+        # For each architecture, add a tuple with product info to the set
+        for arch in arches:
+            name = arch_name_map.get(arch)
+            if name is None:
+                logger.warning(f"'{arch}' not in arch_name_map, skipping.")
+                continue
+            if major:
+                affected_products.add((
+                    family_branch.get("name"),  # variant (e.g., "Red Hat Enterprise Linux")
+                    name,                        # user-friendly architecture name
+                    major,                       # major version number
+                    minor,                       # minor version number (may be None)
+                    arch                         # architecture short name
+                ))
+    logger.debug(f"Number of affected products: {len(affected_products)}")
+    return affected_products
+
+def red_hat_advisory_scraper(csaf: dict):
     # At the time of writing there are ~254 advisories that do not have any vulnerabilities.
     if not csaf.get("vulnerabilities"):
-        logger.warning("No vulnerabilities found in CSAF document %s", filename)
+        logger.warning("No vulnerabilities found in CSAF document")
         return None
 
     # red_hat_advisories table values
@@ -77,25 +157,12 @@ def red_hat_advisory_scraper(filename: pathlib.Path):
         red_hat_cve_set.add((cve_id, cve_cvss3_scoring_vector, cve_cvss3_base_score, cve_cwe))
 
         # red_hat_advisory_bugzilla_bugs table values
-        for bug in vulnerability["references"]:
-            if bug["category"] == "external" and "bugzilla" in bug["url"]:
-                bugzilla_id = bug["url"].split("?")[-1].split("=")[-1] # "https://bugzilla.redhat.com/show_bug.cgi?id=123456" --> "123456"
-                red_hat_bugzilla_set.add(bugzilla_id)
+        for bug_id in vulnerability.get("ids", []):
+            if bug_id.get("system_name") == "Red Hat Bugzilla ID":
+                red_hat_bugzilla_set.add(bug_id["text"])
 
     # red_hat_advisory_affected_products table values
-    red_hat_affected_products = set()
-    for package_nevra in red_hat_fixed_packages:
-        product_info = parse_nevra(package_nevra)
-        if product_info:
-            # Create a tuple of values to add to the set
-            product_tuple = (
-                "Red Hat Enterprise Linux",
-                f"Red Hat Enterprise Linux {product_info['dist_major']}",
-                product_info["dist_major"],
-                product_info["dist_minor"],
-                product_info["arch"]
-            )
-            red_hat_affected_products.add(product_tuple)
+    red_hat_affected_products = extract_rhel_affected_products_for_db(csaf)
 
     return {
         "red_hat_issued_at": str(red_hat_issued_at),
