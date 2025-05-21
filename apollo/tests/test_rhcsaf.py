@@ -36,9 +36,43 @@ class TestRedHatAdvisoryScraper(unittest.TestCase):
                     }
                 ]
             },
+            "product_tree": {
+                "branches": [
+                    {
+                        "branches": [
+                            {
+                                "category": "product_family",
+                                "name": "Red Hat Enterprise Linux",
+                                "branches": [
+                                    {
+                                        "category": "product_name",
+                                        "name": "Red Hat Enterprise Linux 9",
+                                        "product": {
+                                            "name": "Red Hat Enterprise Linux 9",
+                                            "product_identification_helper": {
+                                                "cpe": "cpe:/o:redhat:enterprise_linux:9.4"
+                                            }
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "category": "architecture",
+                                "name": "x86_64"
+                            }
+                        ]
+                    }
+                ]
+            },
             "vulnerabilities": [
                 {
                     "cve": "CVE-2025-1234",
+                    "ids": [
+                        {
+                        "system_name": "Red Hat Bugzilla ID",
+                        "text": "123456"
+                        }
+                    ],
                     "product_status": {
                         "fixed": [
                             "AppStream-9.4.0.Z.EUS:rsync-0:3.2.3-19.el9_4.1.x86_64",
@@ -75,7 +109,7 @@ class TestRedHatAdvisoryScraper(unittest.TestCase):
 
     def test_parse_security_advisory(self):
         """Test parsing a security advisory"""
-        result = red_hat_advisory_scraper(self.test_file)
+        result = red_hat_advisory_scraper(self.sample_csaf)
         
         self.assertEqual(result["name"], "RHSA-2025:1234")
         self.assertEqual(result["kind"], "Security")
@@ -101,11 +135,7 @@ class TestRedHatAdvisoryScraper(unittest.TestCase):
         
         # Check affected products
         self.assertIn(
-            ("Red Hat Enterprise Linux", 
-             "Red Hat Enterprise Linux 9",
-             9,
-             4,
-             "x86_64"),
+            ("Red Hat Enterprise Linux", "Red Hat Enterprise Linux for x86_64", 9, 4, "x86_64"),
             result["red_hat_affected_products"]
         )
 
@@ -117,7 +147,7 @@ class TestRedHatAdvisoryScraper(unittest.TestCase):
         with open(self.test_file, "w") as f:
             json.dump(self.sample_csaf, f)
             
-        result = red_hat_advisory_scraper(self.test_file)
+        result = red_hat_advisory_scraper(self.sample_csaf)
         self.assertEqual(result["kind"], "Bug Fix")
 
     def test_enhancement_advisory(self):
@@ -128,7 +158,7 @@ class TestRedHatAdvisoryScraper(unittest.TestCase):
         with open(self.test_file, "w") as f:
             json.dump(self.sample_csaf, f)
             
-        result = red_hat_advisory_scraper(self.test_file)
+        result = red_hat_advisory_scraper(self.sample_csaf)
         self.assertEqual(result["kind"], "Enhancement")
 
     def test_no_vulnerabilities(self):
@@ -138,7 +168,7 @@ class TestRedHatAdvisoryScraper(unittest.TestCase):
         with open(self.test_file, "w") as f:
             json.dump(self.sample_csaf, f)
             
-        result = red_hat_advisory_scraper(self.test_file)
+        result = red_hat_advisory_scraper(self.sample_csaf)
         self.assertIsNone(result)
 
 
