@@ -3,7 +3,10 @@ import re
 import bz2
 from typing import Optional
 from xml.etree import ElementTree as ET
-import os
+import csv
+import io
+from datetime import datetime, timedelta, timezone
+
 
 import aiohttp
 from temporalio import activity
@@ -264,14 +267,17 @@ async def get_rh_advisories(from_timestamp: str = None) -> None:
 
     return None
 
-async def process_csaf_file(filepath: str) -> Optional[RedHatAdvisory]:
+async def process_csaf_file(json_data: dict, filepath: str) -> Optional[RedHatAdvisory]:
     """Process a CSAF file and insert/update the data in the database"""
     logger = Logger()
-    logger.info("INFO logging is enabled")
-    logger.debug("DEBUG logging is enabled")
-    data = red_hat_advisory_scraper(filepath)
+    data = red_hat_advisory_scraper(json_data)
     if not data:
         logger.warning(f"No data returned from scraper for {filepath}")
+        return None
+    # Check if advisory has any fixed packages. If not, skip it. It could have no fixed packages
+    # because there were not packages for a Red Hat product starting with "Red Hat Enterprise Linux"
+    if len(data.get("red_hat_fixed_packages")) < 1:
+        logger.warning(f"No fixed packages found in CSAF document {filepath}")
         return None
 
     try:
@@ -391,6 +397,7 @@ async def process_csaf_file(filepath: str) -> Optional[RedHatAdvisory]:
 
             new_products = []
             for product_data in data["red_hat_affected_products"]:
+                logger.debug(f"Processing affected product data: {product_data}")
                 if product_data not in existing_products:
                     variant, name, major, minor, arch = product_data
                     new_products.append(
@@ -406,47 +413,79 @@ async def process_csaf_file(filepath: str) -> Optional[RedHatAdvisory]:
             if new_products:
                 logger.info(f"Adding {len(new_products)} new affected products for advisory {advisory.name}")
                 await RedHatAdvisoryAffectedProduct.bulk_create(new_products, ignore_conflicts=True)
+            else:
+                logger.debug(f"No new affected products found for advisory {advisory.name}")
     except Exception as e:
         logger.error(f"Error in transaction: {str(e)}")
         raise
 
-        return advisory
+    return advisory
 
 
 @activity.defn
 async def process_csaf_files() -> dict:
     logger = Logger()
-    logger.info("Starting CSAF file processing")
-    csaf_dir = "/home/mrthorn/redhat_advisories"
-    # csaf_dir = os.environ.get("RHCSAF_DIR")
-    # TODO: Develop a way to get the latest CSAF files.
-    #       Options:
-    #       1. Pull latest files and store on disk
-    #       2. Read diff from Red Hat and stream new files without disk storage
-    #       3. Implement incremental updates based on Red Hat's change tracking
+    logger.info("Starting CSAF file processing (streaming from Red Hat)")
+
+    base_url = "https://security.access.redhat.com/data/csaf/v2/advisories/"
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=30)
+    cutoff = datetime(2025, 1, 1, tzinfo=timezone.utc)
+
+    async def fetch_csv_with_dates(session, url):
+        async with session.get(url) as resp:
+            resp.raise_for_status()
+            text = await resp.text()
+            reader = csv.reader(io.StringIO(text))
+            # Return dict: advisory_id -> timestamp
+            return {
+                row[0].strip('"'): row[1].strip('"')
+                for row in reader
+                if row and row[0].endswith(".json") and len(row) > 1
+            }
+
     processed = 0
     errors = 0
-    try:  # Add error handling
-        for root, _, files in os.walk(csaf_dir):
-            logger.info(f"Scanning directory: {root}")  # Add this line
-            for file in files:
-                if file.endswith(".json"):
-                    filepath = os.path.join(root, file)
-                    logger.info(f"Processing file: {filepath}")  # Add this line
-                    try:
-                        advisory = await process_csaf_file(filepath)
-                        if advisory:
-                            logger.info(f"Successfully processed {filepath}")
-                            processed += 1
-                        else:
-                            logger.warning(f"Skipped {filepath} - no data returned")
-                    except Exception as e:
-                        logger.error(f"Error processing {filepath}: {str(e)}")
+
+    async with aiohttp.ClientSession() as session:
+        logger.info("Fetching CSV files from Red Hat")
+        changes = await fetch_csv_with_dates(session, base_url + "changes.csv")
+        releases = await fetch_csv_with_dates(session, base_url + "releases.csv")
+        deletions = await fetch_csv_with_dates(session, base_url + "deletions.csv")
+
+        # Merge changes and releases, keeping the most recent timestamp for each advisory
+        all_advisories = {**changes, **releases}
+        # Remove deletions
+        for advisory_id in deletions:
+            all_advisories.pop(advisory_id, None)
+
+        # Filter advisories to only those within the last 30 days
+        filtered_advisory_ids = [
+            advisory_id for advisory_id, timestamp in all_advisories.items()
+            if datetime.fromisoformat(timestamp.replace("Z", "+00:00")) >= cutoff
+        ]
+
+        logger.info(f"Found {len(filtered_advisory_ids)} advisories to process from the last 30 days")
+
+        for advisory_id in filtered_advisory_ids: #TODO: parallelize this for faster processing
+            json_url = base_url + advisory_id
+            try:
+                async with session.get(json_url) as resp:
+                    if resp.status != 200:
+                        logger.warning(f"Failed to fetch {json_url}: HTTP {resp.status}")
                         errors += 1
                         continue
-    except Exception as e:
-        logger.error(f"Fatal error during processing: {str(e)}")
-        raise
+                    csaf_json = await resp.json()
+                    advisory = await process_csaf_file(csaf_json, advisory_id)
+                    if advisory:
+                        logger.info(f"Successfully processed {advisory_id}")
+                        processed += 1
+                    else:
+                        logger.warning(f"Skipped {advisory_id} - no data returned")
+            except Exception as e:
+                logger.error(f"Error processing {advisory_id}: {str(e)}")
+                errors += 1
+                continue
 
     logger.info(f"Processing complete. Processed: {processed}, Errors: {errors}")
     return {"processed": processed, "errors": errors}

@@ -2,7 +2,11 @@
 .ijwb
 /.*.venv
 .venv
+venv
 *.pyc
 bazel-*
 __pycache__
 node_modules
+container_data
+personal_work_dir
+*.log

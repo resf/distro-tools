@@ -5,6 +5,8 @@ from xml.etree import ElementTree as ET
 from urllib.parse import urlparse
 from os import path
 
+from apollo.rpm_helpers import parse_nevra
+
 import aiohttp
 import yaml
 
@@ -41,11 +43,11 @@ def clean_nvra_pkg(matching_pkg: ET.Element) -> str:
 
 
 def clean_nvra(nvra_raw: str) -> str:
-    nvra = NVRA_RE.search(nvra_raw)
-    name = nvra.group(1)
-    version = nvra.group(2)
-    release = nvra.group(3)
-    arch = nvra.group(4)
+    results = parse_nevra(nvra_raw)
+    name = results["name"]
+    version = results["version"]
+    release = results["release"]
+    arch = results["arch"]
 
     clean_release = MODULE_DIST_RE.sub("", DIST_RE.sub("", release))
 

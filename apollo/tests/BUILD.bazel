@@ -10,7 +10,7 @@ py_test(
 
 py_test(
     name = "test_csaf_processing",
-    srcs = ["test_csaf_processing.py"],
+    srcs = ["test_csaf_processing.py", "test_db_config.py"],
     deps = [
         "//apollo/rhworker:rhworker_lib",
         "//apollo/db:db_lib",
