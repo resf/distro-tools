@@ -8,7 +8,7 @@ from apollo.rpm_helpers import parse_nevra
 
 logger = Logger()
 
-def extract_rhel_affected_products_for_db(csaf):
+def extract_rhel_affected_products_for_db(csaf: dict) -> set:
     """
     Extracts all needed info for red_hat_advisory_affected_products table from CSAF product_tree.
     Expands 'noarch' to all main arches and maps names to user-friendly values.
@@ -33,10 +33,18 @@ def extract_rhel_affected_products_for_db(csaf):
     for vendor_branch in product_tree.get("branches", []):
         # Find the product_family branch for RHEL
         family_branch = None
+        arches = set()
         for b in vendor_branch.get("branches", []):
             if b.get("category") == "product_family" and b.get("name") == "Red Hat Enterprise Linux":
                 family_branch = b
-                break
+            # Collect all architecture branches at the same level as product_family
+            elif b.get("category") == "architecture":
+                arch = b.get("name")
+                if arch:
+                    arches.add(arch)
+        # If 'noarch' is present, expand to all main architectures
+        if "noarch" in arches:
+            arches = set(main_arches)
         if not family_branch:
             continue
         # Find the product_name branch for CPE/version info
@@ -52,29 +60,22 @@ def extract_rhel_affected_products_for_db(csaf):
             continue
 
         # Parses the CPE string to extract major and minor version numbers
-        parts = cpe.split(":")
+        # Example CPE: "cpe:/a:redhat:enterprise_linux:9::appstream"
+        parts = cpe.split(":")  # Split the CPE string by colon
         major = None
         minor = None
         if len(parts) > 4:
-            version = parts[4]
+            version = parts[4]  # The version is typically the 5th field (index 4)
             if version:
                 if "." in version:
+                    # If the version contains a dot, split into major and minor
                     major, minor = version.split(".", 1)
                     major = int(major)
                     minor = int(minor)
                 else:
+                    # If no dot, only major version is present
                     major = int(version)
 
-        # Collect all architecture branches at the same level as product_family
-        arches = set()
-        for branch in vendor_branch.get("branches", []):
-            if branch.get("category") == "architecture":
-                arch = branch.get("name")
-                if arch:
-                    arches.add(arch)
-        # If 'noarch' is present, expand to all main architectures
-        if "noarch" in arches:
-            arches = set(main_arches)
         # For each architecture, add a tuple with product info to the set
         for arch in arches:
             name = arch_name_map.get(arch)
