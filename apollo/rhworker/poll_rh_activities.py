@@ -276,7 +276,7 @@ async def process_csaf_file(json_data: dict, filepath: str) -> Optional[RedHatAd
         return None
     # Check if advisory has any fixed packages. If not, skip it. It could have no fixed packages
     # because there were not packages for a Red Hat product starting with "Red Hat Enterprise Linux"
-    if len(data.get("red_hat_fixed_packages")) < 1:
+    if not data.get("red_hat_fixed_packages"):
         logger.warning(f"No fixed packages found in CSAF document {filepath}")
         return None
 
@@ -430,7 +430,6 @@ async def process_csaf_files() -> dict:
     base_url = "https://security.access.redhat.com/data/csaf/v2/advisories/"
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=30)
-    cutoff = datetime(2025, 1, 1, tzinfo=timezone.utc)
 
     async def fetch_csv_with_dates(session, url):
         async with session.get(url) as resp:

@@ -34,12 +34,12 @@ def extract_rhel_affected_products_for_db(csaf: dict) -> set:
         # Find the product_family branch for RHEL
         family_branch = None
         arches = set()
-        for b in vendor_branch.get("branches", []):
-            if b.get("category") == "product_family" and b.get("name") == "Red Hat Enterprise Linux":
-                family_branch = b
+        for branch in vendor_branch.get("branches", []):
+            if branch.get("category") == "product_family" and branch.get("name") == "Red Hat Enterprise Linux":
+                family_branch = branch
             # Collect all architecture branches at the same level as product_family
-            elif b.get("category") == "architecture":
-                arch = b.get("name")
+            elif branch.get("category") == "architecture":
+                arch = branch.get("name")
                 if arch:
                     arches.add(arch)
         # If 'noarch' is present, expand to all main architectures

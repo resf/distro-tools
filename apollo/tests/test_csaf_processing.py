@@ -133,9 +133,7 @@ class TestCsafProcessing(unittest.IsolatedAsyncioTestCase):
         
         # Clean up temporary file
         self.test_file.unlink(missing_ok=True)
-        
-        if pathlib.Path("invalid_csaf.json").exists():
-            pathlib.Path("invalid_csaf.json").unlink()
+        pathlib.Path("invalid_csaf.json").unlink(missing_ok=True)
 
     async def test_new_advisory_creation(self):
         # Test creating a new advisory with a real test database
