@@ -22,3 +22,18 @@ class PollRHAdvisoriesWorkflow:
         )
 
         return None
+
+
+@workflow.defn
+class PollRHCSAFAdvisoriesWorkflow:
+    """
+    Polls Red Hat CSAFv2 Advisories for new errata.
+    """
+    @workflow.run
+    async def run(self) -> None:
+        await workflow.execute_activity(
+            "process_csaf_files",
+            start_to_close_timeout=datetime.timedelta(hours=2),
+        )
+
+        return None

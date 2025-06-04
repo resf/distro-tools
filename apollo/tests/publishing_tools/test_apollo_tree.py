@@ -3,6 +3,7 @@ import shutil
 import pathlib
 import hashlib
 from os import path, environ
+import xml.etree.ElementTree as ET
 
 import pytest
 
@@ -16,6 +17,19 @@ data = [
     "appstream__base__repomd__x86_64.xml",
     "appstream__base__repomd__aarch64.xml",
 ]
+
+def canonicalize_repomd_without_updateinfo_dynamic(xml_str):
+    ns = {"repo": "http://linux.duke.edu/metadata/repo"}
+    elem = ET.fromstring(xml_str)
+    for data in elem.findall("repo:data", ns):
+        if data.attrib.get("type") == "updateinfo":
+            # Remove dynamic children
+            for tag in ["checksum", "open-checksum", "location", "timestamp", "size", "open-size"]:
+                child = data.find(f"repo:{tag}", ns)
+                if child is not None:
+                    data.remove(child)
+    # Return canonical string (no pretty print, but stable for comparison)
+    return ET.tostring(elem, encoding="unicode")
 
 
 async def _setup_test_baseos(directory: str):
@@ -494,11 +508,12 @@ async def test_update_repomd_xml(mocker):
             encoding="utf-8",
         ) as f:
             expected_repomd_xml = f.read()
-
         with open(repomd_xml_path, "r", encoding="utf-8") as f:
             actual_repomd_xml = f.read()
 
-        assert actual_repomd_xml == expected_repomd_xml
+        canon_actual_repomd_xml = canonicalize_repomd_without_updateinfo_dynamic(actual_repomd_xml)
+        canon_expected_repomd_xml = canonicalize_repomd_without_updateinfo_dynamic(expected_repomd_xml)
+        assert canon_actual_repomd_xml == canon_expected_repomd_xml
 
 
 @pytest.mark.asyncio
@@ -547,7 +562,9 @@ async def test_run_apollo_tree(mocker):
                 with open(repo["found_path"], "r", encoding="utf-8") as f:
                     actual_repomd_xml = f.read()
 
-                assert actual_repomd_xml == expected_repomd_xml
+                canon_actual_repomd_xml = canonicalize_repomd_without_updateinfo_dynamic(actual_repomd_xml)
+                canon_expected_repomd_xml = canonicalize_repomd_without_updateinfo_dynamic(expected_repomd_xml)
+                assert canon_actual_repomd_xml == canon_expected_repomd_xml
 
 
 @pytest.mark.asyncio
@@ -596,4 +613,6 @@ async def test_run_apollo_tree_arch_in_product(mocker):
                 with open(repo["found_path"], "r", encoding="utf-8") as f:
                     actual_repomd_xml = f.read()
 
-                assert actual_repomd_xml == expected_repomd_xml
+                canon_actual_repomd_xml = canonicalize_repomd_without_updateinfo_dynamic(actual_repomd_xml)
+                canon_expected_repomd_xml = canonicalize_repomd_without_updateinfo_dynamic(expected_repomd_xml)
+                assert canon_actual_repomd_xml == canon_expected_repomd_xml

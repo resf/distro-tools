@@ -1,0 +1,13 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+
+# gazelle:exclude example.py
+
+py_library(
+    name = "rpm_helpers_lib",
+    srcs = ["__init__.py"],
+    imports = ["../.."],
+    visibility = ["//:__subpackages__"],
+    deps = [
+      "@pypi_aiohttp//:pkg",
+    ],
+)
