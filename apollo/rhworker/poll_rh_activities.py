@@ -58,6 +58,26 @@ def parse_datetime(dt_str: str) -> datetime:
             continue
     raise ValueError(f"Unable to parse datetime string: {dt_str}")
 
+async def upsert_last_indexed_at(new_date: datetime) -> None:
+    """
+    Create or update the last_indexed_at field in red_hat_index_state,
+    but only update if new_date is after the current value.
+    """
+    logger = Logger()
+    state = await RedHatIndexState.first()
+    if isinstance(new_date, str):
+        logger.debug("new_date is a string, converting to datetime")
+        new_date = parse_datetime(new_date)
+    if isinstance(state, str):
+        logger.debug("state is a string, converting to datetime")
+        state = parse_datetime(state)
+    logger.debug(f"Current state: {state}, new_date: {new_date}")
+    if state:
+        if not state.last_indexed_at or new_date > state.last_indexed_at:
+            state.last_indexed_at = new_date
+            await state.save()
+    else:
+        await RedHatIndexState.create(last_indexed_at=new_date)
 
 @activity.defn
 async def get_last_indexed_date() -> Optional[str]:
@@ -111,12 +131,7 @@ async def get_rh_advisories(from_timestamp: str = None) -> None:
             advisory_last_indexed_at = parse_red_hat_date(
                 advisory.portal_publication_date
             )
-            state = await RedHatIndexState.first()
-            if state:
-                state.last_indexed_at = advisory_last_indexed_at
-                await state.save()
-            else:
-                await RedHatIndexState().create(last_index_at=advisory_last_indexed_at)
+            await upsert_last_indexed_at(advisory_last_indexed_at)
 
             logger.info("Processing advisory %s", advisory.id)
 
@@ -419,17 +434,20 @@ async def process_csaf_file(json_data: dict, filepath: str) -> Optional[RedHatAd
         logger.error(f"Error in transaction: {str(e)}")
         raise
 
+    # Update RedHatIndexState with the latest indexed date
+    latest_date_str = data.get("red_hat_updated_at") or data.get("red_hat_issued_at")
+    logger.debug(f"Latest date string from {advisory.name} CSAF data: {latest_date_str}")
+    await upsert_last_indexed_at(latest_date_str)
+
     return advisory
 
 
 @activity.defn
-async def process_csaf_files() -> dict:
+async def process_csaf_files(from_timestamp: str = None) -> dict:
     logger = Logger()
     logger.info("Starting CSAF file processing (streaming from Red Hat)")
 
     base_url = "https://security.access.redhat.com/data/csaf/v2/advisories/"
-    now = datetime.now(timezone.utc)
-    cutoff = now - timedelta(days=30)
 
     async def fetch_csv_with_dates(session, url):
         async with session.get(url) as resp:
@@ -458,13 +476,22 @@ async def process_csaf_files() -> dict:
         for advisory_id in deletions:
             all_advisories.pop(advisory_id, None)
 
-        # Filter advisories to only those within the last 30 days
-        filtered_advisory_ids = [
-            advisory_id for advisory_id, timestamp in all_advisories.items()
-            if datetime.fromisoformat(timestamp.replace("Z", "+00:00")) >= cutoff
-        ]
+        if from_timestamp:
+            from_timestamp_dt = datetime.fromisoformat(from_timestamp.replace("Z", "+00:00"))
+        else:
+            from_timestamp_dt = None
+        filtered_advisory_ids = []
+        for advisory_id, timestamp in all_advisories.items():
+            # If from_timestamp_dt is not set, include all advisories.
+            # Otherwise, only include advisories with a timestamp >= from_timestamp_dt.
+            if not from_timestamp_dt:
+                filtered_advisory_ids.append(advisory_id)
+            else:
+                advisory_time = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+                if advisory_time >= from_timestamp_dt:
+                    filtered_advisory_ids.append(advisory_id)
 
-        logger.info(f"Found {len(filtered_advisory_ids)} advisories to process from the last 30 days")
+        logger.info(f"Found {len(filtered_advisory_ids)} advisories to process since last indexed date ({from_timestamp})")
 
         for advisory_id in filtered_advisory_ids: #TODO: parallelize this for faster processing
             json_url = base_url + advisory_id

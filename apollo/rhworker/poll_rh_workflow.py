@@ -31,8 +31,13 @@ class PollRHCSAFAdvisoriesWorkflow:
     """
     @workflow.run
     async def run(self) -> None:
+        from_timestamp = await workflow.execute_activity(
+            "get_last_indexed_date",
+            start_to_close_timeout=datetime.timedelta(seconds=20),
+        )
         await workflow.execute_activity(
             "process_csaf_files",
+            from_timestamp,
             start_to_close_timeout=datetime.timedelta(hours=2),
         )
 
