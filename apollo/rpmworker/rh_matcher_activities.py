@@ -30,6 +30,223 @@ class NewPackage:
     supported_product_id: int
     product_name: str
 
+async def create_or_update_advisory_packages(
+    advisory: Advisory,
+    packages: list[NewPackage],
+    update_advisory: bool = False,
+) -> None:
+    """
+    Create or update advisory packages for the given advisory.
+    If update_advisory is True, remove packages not in the new list.
+    """
+    logger = Logger()
+    logger.info("Creating or updating advisory packages for %s", advisory.name)
+
+    existing_packages = await AdvisoryPackage.filter(advisory_id=advisory.id).all()
+    existing_nevras = {pkg.nevra for pkg in existing_packages}
+    new_nevras = {pkg.nevra for pkg in packages}
+
+    # Add new packages
+    new_packages = []
+    for pkg in packages:
+        if pkg.nevra not in existing_nevras:
+            new_packages.append(
+                AdvisoryPackage(
+                    advisory_id=advisory.id,
+                    nevra=pkg.nevra,
+                    checksum=pkg.checksum,
+                    checksum_type=pkg.checksum_type,
+                    module_context=pkg.module_context,
+                    module_name=pkg.module_name,
+                    module_stream=pkg.module_stream,
+                    module_version=pkg.module_version,
+                    repo_name=pkg.repo_name,
+                    package_name=pkg.package_name,
+                    supported_products_rh_mirror_id=pkg.mirror_id,
+                    supported_product_id=pkg.supported_product_id,
+                    product_name=pkg.product_name,
+                )
+            )
+    if new_packages:
+        logger.info("Adding %d new packages to advisory %s", len(new_packages), advisory.name)
+        await AdvisoryPackage.bulk_create(new_packages, ignore_conflicts=True)
+    else:
+        logger.info("No new packages to add to advisory %s", advisory.name)
+
+    # Remove packages not in the new list if updating
+    if update_advisory:
+        nevras_to_remove = existing_nevras - new_nevras
+        if nevras_to_remove:
+            logger.info("Removing %d packages from advisory %s", len(nevras_to_remove), advisory.name)
+            await AdvisoryPackage.filter(advisory_id=advisory.id, nevra__in=list(nevras_to_remove)).delete()
+
+
+async def create_or_update_advisory_cves(
+    advisory: Advisory,
+    cves: list,
+    update_advisory: bool = False,
+) -> None:
+    """
+    Create or update CVEs for the given advisory.
+    Remove CVEs currently associated with advisory if they don't exist in the list passed in.
+    """
+    logger = Logger()
+    logger.info("Creating or updating CVEs for advisory %s", advisory.name)
+
+    existing_cves = await AdvisoryCVE.filter(advisory_id=advisory.id).all()
+    existing_cve_ids = {cve.cve for cve in existing_cves}
+
+    # Support both dicts and objects
+    def extract_cve_id(cve_data):
+        if isinstance(cve_data, dict):
+            return cve_data["cve"]
+        return getattr(cve_data, "cve", None)
+
+    new_cve_ids = {extract_cve_id(cve_data) for cve_data in cves if extract_cve_id(cve_data)}
+
+    # Add new CVEs
+    new_cves = []
+    for cve_data in cves:
+        cve_id = extract_cve_id(cve_data)
+        if cve_id and cve_id not in existing_cve_ids:
+            new_cves.append(
+                AdvisoryCVE(
+                    advisory_id=advisory.id,
+                    cve=cve_id,
+                    cvss3_scoring_vector=getattr(cve_data, "cvss3_scoring_vector", None) if not isinstance(cve_data, dict) else cve_data.get("cvss3_scoring_vector"),
+                    cvss3_base_score=getattr(cve_data, "cvss3_base_score", None) if not isinstance(cve_data, dict) else cve_data.get("cvss3_base_score"),
+                    cwe=getattr(cve_data, "cwe", None) if not isinstance(cve_data, dict) else cve_data.get("cwe"),
+                )
+            )
+
+    if new_cves:
+        logger.info("Adding %d new CVEs to advisory %s", len(new_cves), advisory.name)
+        await AdvisoryCVE.bulk_create(new_cves, ignore_conflicts=True)
+    else:
+        logger.info("No new CVEs to add to advisory %s", advisory.name)
+
+    # Remove CVEs not in the new list
+    if update_advisory:
+        cves_to_remove = existing_cve_ids - new_cve_ids
+        if cves_to_remove:
+            logger.info("Removing %d CVEs from advisory %s", len(cves_to_remove), advisory.name)
+            await AdvisoryCVE.filter(advisory_id=advisory.id, cve__in=list(cves_to_remove)).delete()
+
+async def create_or_update_advisory_fixes(
+    advisory: Advisory,
+    fixes: list,
+    update_advisory: bool = False,
+) -> None:
+    """
+    Create or update fixes for the given advisory.
+    Remove fixes currently associated with advisory if they don't exist in the list passed in.
+    """
+    logger = Logger()
+    logger.info("Creating or updating fixes for advisory %s", advisory.name)
+
+    existing_fixes = await AdvisoryFix.filter(advisory_id=advisory.id).all()
+    existing_ticket_ids = {fix.ticket_id for fix in existing_fixes}
+
+    new_ticket_ids = {fix.bugzilla_bug_id for fix in fixes if fix.bugzilla_bug_id}
+
+    # Add new fixes
+    new_fixes = []
+    for fix in fixes:
+        if fix.bugzilla_bug_id and fix.bugzilla_bug_id not in existing_ticket_ids:
+            new_fixes.append(
+                AdvisoryFix(
+                    advisory_id=advisory.id,
+                    ticket_id=fix.bugzilla_bug_id,
+                    source=f"https://bugzilla.redhat.com/show_bug.cgi?id={fix.bugzilla_bug_id}",
+                    description=fix.description,
+                )
+            )
+
+    if new_fixes:
+        logger.info("Adding %d new fixes to advisory %s", len(new_fixes), advisory.name)
+        await AdvisoryFix.bulk_create(new_fixes, ignore_conflicts=True)
+    else:
+        logger.info("No new fixes to add to advisory %s", advisory.name)
+
+    # Remove fixes not in the new list
+    if update_advisory:
+        tickets_to_remove = existing_ticket_ids - new_ticket_ids
+        if tickets_to_remove:
+            logger.info("Removing %d fixes from advisory %s", len(tickets_to_remove), advisory.name)
+            await AdvisoryFix.filter(advisory_id=advisory.id, ticket_id__in=list(tickets_to_remove)).delete()
+
+
+async def create_or_update_advisory_affected_product(
+    advisory: Advisory,
+    product_name: str,
+    mirrors: list[SupportedProductsRhMirror],
+    update_advisory: bool = False,
+    ) -> None:
+    """
+    Create or update affected products for the given advisory.
+    Remove affected products currently associated with advisory if they don't exist in the list passed in.
+    """
+    logger = Logger()
+    logger.info("Creating or updating affected products for advisory %s", advisory.name)
+
+    existing_affected_products = await AdvisoryAffectedProduct.filter(advisory_id=advisory.id).all()
+    existing_affected_product_ids = {(ap.variant, ap.name, ap.major_version, ap.minor_version, ap.arch) for ap in existing_affected_products}
+
+    new_affected_products = list()
+
+    for mirror in mirrors:
+        new_affected_products.append(
+            {
+                "advisory_id": advisory.id,
+                "variant": product_name,
+                "name": mirror.name,
+                "major_version": mirror.match_major_version,
+                "minor_version": mirror.match_minor_version,
+                "arch": mirror.match_arch,
+                "supported_product_id": mirror.supported_product_id,
+            }
+        )
+
+    # Add new affected products
+    new_entries = []
+    for product in new_affected_products:
+        key = (product['variant'], product['name'], product['major_version'], product['minor_version'], product['arch'])
+        if key not in existing_affected_product_ids:
+            new_entries.append(
+                AdvisoryAffectedProduct(
+                    advisory_id=advisory.id,
+                    variant=product['variant'],
+                    name=product['name'],
+                    major_version=product['major_version'],
+                    minor_version=product['minor_version'],
+                    arch=product['arch'],
+                    supported_product_id=product.get('supported_product_id'),
+                )
+            )
+
+    if new_entries:
+        logger.info("Adding %d new affected products to advisory %s", len(new_entries), advisory.name)
+        await AdvisoryAffectedProduct.bulk_create(new_entries, ignore_conflicts=True)
+    else:
+        logger.info("No new affected products to add to advisory %s", advisory.name)
+
+    # Remove affected products not in the new list
+    if update_advisory:
+        # Build set of new keys for comparison
+        new_keys = {(p['variant'], p['name'], p['major_version'], p['minor_version'], p['arch']) for p in new_affected_products}
+        products_to_remove = existing_affected_product_ids - new_keys
+        if products_to_remove:
+            logger.info("Removing %d affected products from advisory %s", len(products_to_remove), advisory.name)
+            # Remove each affected product by matching all tuple fields
+            for key in products_to_remove:
+                await AdvisoryAffectedProduct.filter(
+                    advisory_id=advisory.id,
+                    variant=key[0],
+                    name=key[1],
+                    major_version=key[2],
+                    minor_version=key[3],
+                    arch=key[4],
+                ).delete()
 
 @activity.defn
 async def get_supported_products_with_rh_mirrors() -> list[int]:
@@ -205,6 +422,7 @@ async def clone_advisory(
         description = description.replace(advisory.name, name)
 
         existing_advisory = await Advisory.filter(name=name).get_or_none()
+        update_advisory = False
         if not existing_advisory:
             logger.info(f"Creating advisory {name}")
             new_advisory = await Advisory.create(
@@ -218,6 +436,7 @@ async def clone_advisory(
                 topic=advisory.topic,
             )
         else:
+            update_advisory = True
             new_advisory = existing_advisory
 
         # Clone packages
@@ -317,82 +536,26 @@ async def clone_advisory(
             )
             return
 
-        await AdvisoryPackage.bulk_create(
-            [
-                AdvisoryPackage(
-                    **{
-                        "advisory_id": new_advisory.id,
-                        "nevra": pkg.nevra,
-                        "checksum": pkg.checksum,
-                        "checksum_type": pkg.checksum_type,
-                        "module_context": pkg.module_context,
-                        "module_name": pkg.module_name,
-                        "module_stream": pkg.module_stream,
-                        "module_version": pkg.module_version,
-                        "repo_name": pkg.repo_name,
-                        "package_name": pkg.package_name,
-                        "supported_products_rh_mirror_id": pkg.mirror_id,
-                        "supported_product_id": pkg.supported_product_id,
-                        "product_name": pkg.product_name,
-                    }
-                ) for pkg in new_pkgs
-            ],
-            ignore_conflicts=True,
-        )
+        await create_or_update_advisory_packages(new_advisory, new_pkgs, update_advisory)
 
         # Clone CVEs
         if advisory.cves:
-            await AdvisoryCVE.bulk_create(
-                [
-                    AdvisoryCVE(
-                        **{
-                            "advisory_id": new_advisory.id,
-                            "cve": cve.cve,
-                            "cvss3_scoring_vector": cve.cvss3_scoring_vector,
-                            "cvss3_base_score": cve.cvss3_base_score,
-                            "cwe": cve.cwe,
-                        }
-                    ) for cve in advisory.cves
-                ],
-                ignore_conflicts=True,
-            )
+            await create_or_update_advisory_cves(new_advisory, advisory.cves, update_advisory)
 
         # Clone fixes
         if advisory.bugzilla_tickets:
-            await AdvisoryFix.bulk_create(
-                [
-                    AdvisoryFix(
-                        **{
-                            "advisory_id":
-                                new_advisory.id,
-                            "ticket_id":
-                                fix.bugzilla_bug_id,
-                            "source":
-                                f"https://bugzilla.redhat.com/show_bug.cgi?id={fix.bugzilla_bug_id}",
-                            "description":
-                                fix.description,
-                        }
-                    ) for fix in advisory.bugzilla_tickets
-                ],
-                ignore_conflicts=True,
-            )
+            await create_or_update_advisory_fixes(
+                new_advisory,
+                advisory.bugzilla_tickets,
+                update_advisory
+                )
 
         # Add affected products
-        await AdvisoryAffectedProduct.bulk_create(
-            [
-                AdvisoryAffectedProduct(
-                    **{
-                        "advisory_id": new_advisory.id,
-                        "variant": product.name,
-                        "name": mirror.name,
-                        "major_version": mirror.match_major_version,
-                        "minor_version": mirror.match_minor_version,
-                        "arch": mirror.match_arch,
-                        "supported_product_id": mirror.supported_product_id,
-                    }
-                ) for mirror in mirrors
-            ],
-            ignore_conflicts=True,
+        await create_or_update_advisory_affected_product(
+            new_advisory,
+            product.name,
+            mirrors,
+            update_advisory
         )
 
         # Construct topic
