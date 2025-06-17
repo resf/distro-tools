@@ -27,7 +27,7 @@ OVAL_NS = {"": "http://oval.mitre.org/XMLSchema/oval-definitions-5"}
 bz_re = re.compile(r"BZ#([0-9]+)")
 
 
-async def create_or_update_advisory_packages(
+async def create_or_update_red_hat_advisory_packages(
     advisory: RedHatAdvisory,
     new_nevras: set,
     update_advisory: bool = False,
@@ -68,29 +68,70 @@ async def create_or_update_advisory_packages(
             logger.info(f"No packages to remove for advisory {advisory.name}")
 
 
-async def create_or_update_advisory_cves(
+async def create_or_update_red_hat_advisory_cves(
     advisory: RedHatAdvisory,
     new_cve_tuples: set,
     update_advisory: bool = False,
 ) -> None:
     """
-    Add new RedHatAdvisoryCVE entries for the given advisory.
+    Add or update RedHatAdvisoryCVE entries for the given advisory.
     If update_advisory is True, remove CVEs not in the new set.
     new_cve_tuples: set of (cve_id, vector, score, cwe)
     """
     logger = Logger()
     logger.info(f"Creating or updating CVEs for advisory {advisory.name}")
 
-    # Get existing CVEs for this advisory
-    existing_cves = {
-        (c.cve, c.cvss3_scoring_vector, c.cvss3_base_score, c.cwe)
-        for c in await RedHatAdvisoryCVE.filter(red_hat_advisory_id=advisory.id).all()
-    }
-    existing_cve_ids = {c[0] for c in existing_cves}
-    new_cve_ids = {c[0] for c in new_cve_tuples}
+    # Build a map of existing CVEs by cve_id
+    existing_cves = {}
+    async for cve_result in RedHatAdvisoryCVE.filter(red_hat_advisory_id=advisory.id):
+        existing_cves[cve_result.cve] = cve_result
+
+    new_cve_ids = {cve_id for (cve_id, _, _, _) in new_cve_tuples}
+    existing_cve_ids = set(existing_cves.keys())
+
+    # Add or update CVEs
+    for cve_id, vector, score, cwe in new_cve_tuples:
+        existing = existing_cves.get(cve_id)
+        if existing:
+            # Update if any field is different
+            needs_update = (
+                existing.cvss3_scoring_vector != vector or
+                str(existing.cvss3_base_score) != str(score) or
+                (existing.cwe or "") != (cwe or "")
+            )
+            if needs_update:
+                logger.info(f"Updating CVE {cve_id} for advisory {advisory.name}")
+                existing.cvss3_scoring_vector = vector
+                existing.cvss3_base_score = str(score) if score else None
+                existing.cwe = cwe if cwe else None
+                await existing.save()
+        else:
+            logger.info(f"Adding new CVE {cve_id} for advisory {advisory.name}")
+            await RedHatAdvisoryCVE.create(
+                red_hat_advisory_id=advisory.id,
+                cve=cve_id,
+                cvss3_scoring_vector=vector,
+                cvss3_base_score=str(score) if score else None,
+                cwe=cwe if cwe else None,
+            )
+
+    # Remove CVEs not in the new set if updating
+    if update_advisory:
+        to_remove_ids = existing_cve_ids - new_cve_ids
+        if to_remove_ids:
+            logger.info(f"Removing CVEs for advisory {advisory.name}: {to_remove_ids}")
+            await RedHatAdvisoryCVE.filter(
+                red_hat_advisory_id=advisory.id, cve__in=list(to_remove_ids)
+            ).delete()
+        else:
+            logger.info(f"No CVEs to remove for advisory {advisory.name}")
 
     # Add new CVEs
-    to_add = new_cve_tuples - existing_cves
+    existing_cve_tuples = set(
+        (cve_id, existing.cvss3_scoring_vector, existing.cvss3_base_score, existing.cwe)
+        for cve_id, existing in existing_cves.items()
+    )
+    to_add = new_cve_tuples - existing_cve_tuples
     if to_add:
         logger.info(f"Adding new CVEs for advisory {advisory.name}: {to_add}")
         await RedHatAdvisoryCVE.bulk_create([
@@ -117,7 +158,7 @@ async def create_or_update_advisory_cves(
             logger.info(f"No CVEs to remove for advisory {advisory.name}")
 
 
-async def create_or_update_advisory_bugzilla_bugs(
+async def create_or_update_red_hat_advisory_bugzilla_bugs(
     advisory,
     new_bug_ids: set,
     update_advisory: bool = False,
@@ -160,7 +201,7 @@ async def create_or_update_advisory_bugzilla_bugs(
             logger.info(f"No Bugzilla bugs to remove for advisory {advisory.name}")
 
 
-async def create_or_update_advisory_affected_products(
+async def create_or_update_red_hat_advisory_affected_products(
     advisory,
     new_products: set,
     update_advisory: bool = False,
@@ -538,28 +579,28 @@ async def process_csaf_file(json_data: dict, filepath: str) -> Optional[RedHatAd
             # Handle packages
             logger.info(f"Processing packages for advisory {advisory.name}")
             new_nevras = set(data["red_hat_fixed_packages"])
-            await create_or_update_advisory_packages(
+            await create_or_update_red_hat_advisory_packages(
                 advisory, new_nevras, update_advisory=update_advisory
             )
 
             # Handle CVEs
             logger.info(f"Processing CVEs for advisory {advisory.name}")
             new_cve_tuples = set(tuple(cve_data) for cve_data in data["red_hat_cve_list"])
-            await create_or_update_advisory_cves(
+            await create_or_update_red_hat_advisory_cves(
                 advisory, new_cve_tuples, update_advisory=update_advisory
             )
 
             # Handle Bugzilla tickets
             logger.info(f"Processing Bugzilla bugs for advisory {advisory.name}")
             new_bug_ids = set(data["red_hat_bugzilla_list"])
-            await create_or_update_advisory_bugzilla_bugs(
+            await create_or_update_red_hat_advisory_bugzilla_bugs(
                 advisory, new_bug_ids, update_advisory=update_advisory
             )
 
             # Handle affected products
             logger.info(f"Processing affected products for advisory {advisory.name}")
             new_products = set(data["red_hat_affected_products"])
-            await create_or_update_advisory_affected_products(
+            await create_or_update_red_hat_advisory_affected_products(
                 advisory, new_products, update_advisory=update_advisory
             )
     except Exception as e:

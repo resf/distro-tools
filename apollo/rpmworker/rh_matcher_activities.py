@@ -93,8 +93,9 @@ async def create_or_update_advisory_cves(
     logger = Logger()
     logger.info("Creating or updating CVEs for advisory %s", advisory.name)
 
-    existing_cves = await AdvisoryCVE.filter(advisory_id=advisory.id).all()
-    existing_cve_ids = {cve.cve for cve in existing_cves}
+    # Build a map of existing CVEs by cve_id
+    existing_cves = {cve.cve: cve for cve in await AdvisoryCVE.filter(advisory_id=advisory.id).all()}
+    existing_cve_ids = set(existing_cves.keys())
 
     # Support both dicts and objects
     def extract_cve_id(cve_data):
@@ -102,28 +103,47 @@ async def create_or_update_advisory_cves(
             return cve_data["cve"]
         return getattr(cve_data, "cve", None)
 
-    new_cve_ids = {extract_cve_id(cve_data) for cve_data in cves if extract_cve_id(cve_data)}
-
-    # Add new CVEs
-    new_cves = []
+    new_cve_ids = set()
     for cve_data in cves:
         cve_id = extract_cve_id(cve_data)
-        if cve_id and cve_id not in existing_cve_ids:
-            new_cves.append(
-                AdvisoryCVE(
-                    advisory_id=advisory.id,
-                    cve=cve_id,
-                    cvss3_scoring_vector=getattr(cve_data, "cvss3_scoring_vector", None) if not isinstance(cve_data, dict) else cve_data.get("cvss3_scoring_vector"),
-                    cvss3_base_score=getattr(cve_data, "cvss3_base_score", None) if not isinstance(cve_data, dict) else cve_data.get("cvss3_base_score"),
-                    cwe=getattr(cve_data, "cwe", None) if not isinstance(cve_data, dict) else cve_data.get("cwe"),
-                )
-            )
+        if not cve_id:
+            continue
+        new_cve_ids.add(cve_id)
+        existing = existing_cves.get(cve_id)
+        cvss3_scoring_vector = (
+            cve_data.get("cvss3_scoring_vector") if isinstance(cve_data, dict)
+            else getattr(cve_data, "cvss3_scoring_vector", None)
+        )
+        cvss3_base_score = (
+            cve_data.get("cvss3_base_score") if isinstance(cve_data, dict)
+            else getattr(cve_data, "cvss3_base_score", None)
+        )
+        cwe = (
+            cve_data.get("cwe") if isinstance(cve_data, dict)
+            else getattr(cve_data, "cwe", None)
+        )
 
-    if new_cves:
-        logger.info("Adding %d new CVEs to advisory %s", len(new_cves), advisory.name)
-        await AdvisoryCVE.bulk_create(new_cves, ignore_conflicts=True)
-    else:
-        logger.info("No new CVEs to add to advisory %s", advisory.name)
+        if existing:
+            needs_update = (
+                existing.cvss3_scoring_vector != cvss3_scoring_vector or
+                str(existing.cvss3_base_score) != str(cvss3_base_score) or
+                (existing.cwe or "") != (cwe or "")
+            )
+            if needs_update:
+                logger.info("Updating CVE %s for advisory %s", cve_id, advisory.name)
+                existing.cvss3_scoring_vector = cvss3_scoring_vector
+                existing.cvss3_base_score = str(cvss3_base_score) if cvss3_base_score else None
+                existing.cwe = cwe if cwe else None
+                await existing.save()
+        else:
+            logger.info("Adding new CVE %s to advisory %s", cve_id, advisory.name)
+            await AdvisoryCVE.create(
+                advisory_id=advisory.id,
+                cve=cve_id,
+                cvss3_scoring_vector=cvss3_scoring_vector,
+                cvss3_base_score=str(cvss3_base_score) if cvss3_base_score else None,
+                cwe=cwe if cwe else None,
+            )
 
     # Remove CVEs not in the new list
     if update_advisory:
