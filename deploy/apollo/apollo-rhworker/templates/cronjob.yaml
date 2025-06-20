@@ -35,7 +35,7 @@ spec:
               {{- range $cmd := $.Values.cron.preCommand }}
               {{ $cmd }}
               {{- end }}
-              tctl wf run --tq v2-rhworker --wt PollRHAdvisoriesWorkflow
+              tctl wf run --tq v2-rhworker --wt PollRHCSAFAdvisoriesWorkflow
               {{- range $cmd := $.Values.cron.postCommand }}
               {{ $cmd }}
               {{- end }}
