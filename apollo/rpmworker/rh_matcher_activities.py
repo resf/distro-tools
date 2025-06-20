@@ -36,7 +36,7 @@ async def create_or_update_advisory_packages(
     update_advisory: bool = False,
 ) -> None:
     """
-    Create or update advisory packages for the given advisory.
+    Add advisory packages for the given advisory.
     If update_advisory is True, remove packages not in the new list.
     """
     logger = Logger()
@@ -87,7 +87,7 @@ async def create_or_update_advisory_cves(
     update_advisory: bool = False,
 ) -> None:
     """
-    Create or update CVEs for the given advisory.
+    Add or update CVEs for the given advisory.
     Remove CVEs currently associated with advisory if they don't exist in the list passed in.
     """
     logger = Logger()
@@ -158,7 +158,7 @@ async def create_or_update_advisory_fixes(
     update_advisory: bool = False,
 ) -> None:
     """
-    Create or update fixes for the given advisory.
+    Add fixes for the given advisory.
     Remove fixes currently associated with advisory if they don't exist in the list passed in.
     """
     logger = Logger()
@@ -203,7 +203,7 @@ async def create_or_update_advisory_affected_product(
     update_advisory: bool = False,
     ) -> None:
     """
-    Create or update affected products for the given advisory.
+    Add affected products for the given advisory.
     Remove affected products currently associated with advisory if they don't exist in the list passed in.
     """
     logger = Logger()
