@@ -27,6 +27,234 @@ OVAL_NS = {"": "http://oval.mitre.org/XMLSchema/oval-definitions-5"}
 bz_re = re.compile(r"BZ#([0-9]+)")
 
 
+async def create_or_update_red_hat_advisory_packages(
+    advisory: RedHatAdvisory,
+    new_nevras: set,
+    update_advisory: bool = False,
+) -> None:
+    """
+    Add new RedHatAdvisoryPackage entries for the given advisory.
+    If update_advisory is True, remove packages not in the new set.
+    """
+    logger = Logger()
+    logger.info(f"Creating or updating packages for advisory {advisory.name}")
+
+    existing_packages = set(
+        p.nevra for p in await RedHatAdvisoryPackage.filter(red_hat_advisory_id=advisory.id).all()
+    )
+
+    # Add new packages
+    to_add = new_nevras - existing_packages
+    if to_add:
+        logger.info(f"Adding new packages for advisory {advisory.name}: {to_add}")
+        await RedHatAdvisoryPackage.bulk_create([
+            RedHatAdvisoryPackage(
+                red_hat_advisory_id=advisory.id,
+                nevra=nevra
+            ) for nevra in to_add
+        ], ignore_conflicts=True)
+    else:
+        logger.info(f"No new packages to add for advisory {advisory.name}")
+
+    # Remove packages not in the new set if updating
+    if update_advisory:
+        to_remove = existing_packages - new_nevras
+        if to_remove:
+            logger.info(f"Removing packages for advisory {advisory.name}: {to_remove}")
+            await RedHatAdvisoryPackage.filter(
+                red_hat_advisory_id=advisory.id, nevra__in=list(to_remove)
+            ).delete()
+        else:
+            logger.info(f"No packages to remove for advisory {advisory.name}")
+
+
+async def create_or_update_red_hat_advisory_cves(
+    advisory: RedHatAdvisory,
+    new_cve_tuples: set,
+    update_advisory: bool = False,
+) -> None:
+    """
+    Add or update RedHatAdvisoryCVE entries for the given advisory.
+    If update_advisory is True, remove CVEs not in the new set.
+    new_cve_tuples: set of (cve_id, vector, score, cwe)
+    """
+    logger = Logger()
+    logger.info(f"Creating or updating CVEs for advisory {advisory.name}")
+
+    # Build a map of existing CVEs by cve_id
+    existing_cves = {}
+    async for cve_result in RedHatAdvisoryCVE.filter(red_hat_advisory_id=advisory.id):
+        existing_cves[cve_result.cve] = cve_result
+
+    new_cve_ids = {cve_id for (cve_id, _, _, _) in new_cve_tuples}
+    existing_cve_ids = set(existing_cves.keys())
+
+    # Add or update CVEs
+    for cve_id, vector, score, cwe in new_cve_tuples:
+        existing = existing_cves.get(cve_id)
+        if existing:
+            # Update if any field is different
+            needs_update = (
+                existing.cvss3_scoring_vector != vector or
+                str(existing.cvss3_base_score) != str(score) or
+                (existing.cwe or "") != (cwe or "")
+            )
+            if needs_update:
+                logger.info(f"Updating CVE {cve_id} for advisory {advisory.name}")
+                existing.cvss3_scoring_vector = vector
+                existing.cvss3_base_score = str(score) if score else None
+                existing.cwe = cwe if cwe else None
+                await existing.save()
+        else:
+            logger.info(f"Adding new CVE {cve_id} for advisory {advisory.name}")
+            await RedHatAdvisoryCVE.create(
+                red_hat_advisory_id=advisory.id,
+                cve=cve_id,
+                cvss3_scoring_vector=vector,
+                cvss3_base_score=str(score) if score else None,
+                cwe=cwe if cwe else None,
+            )
+
+    # Remove CVEs not in the new set if updating
+    if update_advisory:
+        to_remove_ids = existing_cve_ids - new_cve_ids
+        if to_remove_ids:
+            logger.info(f"Removing CVEs for advisory {advisory.name}: {to_remove_ids}")
+            await RedHatAdvisoryCVE.filter(
+                red_hat_advisory_id=advisory.id, cve__in=list(to_remove_ids)
+            ).delete()
+        else:
+            logger.info(f"No CVEs to remove for advisory {advisory.name}")
+
+    # Add new CVEs
+    existing_cve_tuples = set(
+        (cve_id, existing.cvss3_scoring_vector, existing.cvss3_base_score, existing.cwe)
+        for cve_id, existing in existing_cves.items()
+    )
+    to_add = new_cve_tuples - existing_cve_tuples
+    if to_add:
+        logger.info(f"Adding new CVEs for advisory {advisory.name}: {to_add}")
+        await RedHatAdvisoryCVE.bulk_create([
+            RedHatAdvisoryCVE(
+                red_hat_advisory_id=advisory.id,
+                cve=cve_id,
+                cvss3_scoring_vector=vector,
+                cvss3_base_score=str(score) if score else None,
+                cwe=cwe if cwe else None,
+            ) for (cve_id, vector, score, cwe) in to_add
+        ], ignore_conflicts=True)
+    else:
+        logger.info(f"No new CVEs to add for advisory {advisory.name}")
+
+    # Remove CVEs not in the new set if updating
+    if update_advisory:
+        to_remove_ids = existing_cve_ids - new_cve_ids
+        if to_remove_ids:
+            logger.info(f"Removing CVEs for advisory {advisory.name}: {to_remove_ids}")
+            await RedHatAdvisoryCVE.filter(
+                red_hat_advisory_id=advisory.id, cve__in=list(to_remove_ids)
+            ).delete()
+        else:
+            logger.info(f"No CVEs to remove for advisory {advisory.name}")
+
+
+async def create_or_update_red_hat_advisory_bugzilla_bugs(
+    advisory,
+    new_bug_ids: set,
+    update_advisory: bool = False,
+) -> None:
+    """
+    Add new RedHatAdvisoryBugzillaBug entries for the given advisory.
+    If update_advisory is True, remove bugs not in the new set.
+    """
+    logger = Logger()
+    logger.info(f"Creating or updating Bugzilla bugs for advisory {advisory.name}")
+
+    # Get existing Bugzilla bug IDs for this advisory
+    existing_bugs = set(
+        b.bugzilla_bug_id for b in await RedHatAdvisoryBugzillaBug.filter(red_hat_advisory_id=advisory.id).all()
+    )
+
+    # Add new bugs
+    to_add = new_bug_ids - existing_bugs
+    if to_add:
+        logger.info(f"Adding new Bugzilla bugs for advisory {advisory.name}: {to_add}")
+        await RedHatAdvisoryBugzillaBug.bulk_create([
+            RedHatAdvisoryBugzillaBug(
+                red_hat_advisory_id=advisory.id,
+                bugzilla_bug_id=bug_id,
+                description=""  # No description available in CSAF data
+            ) for bug_id in to_add
+        ], ignore_conflicts=True)
+    else:
+        logger.info(f"No new Bugzilla bugs to add for advisory {advisory.name}")
+
+    # Remove bugs not in the new set if updating
+    if update_advisory:
+        to_remove = existing_bugs - new_bug_ids
+        if to_remove:
+            logger.info(f"Removing Bugzilla bugs for advisory {advisory.name}: {to_remove}")
+            await RedHatAdvisoryBugzillaBug.filter(
+                red_hat_advisory_id=advisory.id, bugzilla_bug_id__in=list(to_remove)
+            ).delete()
+        else:
+            logger.info(f"No Bugzilla bugs to remove for advisory {advisory.name}")
+
+
+async def create_or_update_red_hat_advisory_affected_products(
+    advisory,
+    new_products: set,
+    update_advisory: bool = False,
+) -> None:
+    """
+    Add new RedHatAdvisoryAffectedProduct entries for the given advisory.
+    If update_advisory is True, remove affected products not in the new set.
+    new_products: set of (variant, name, major_version, minor_version, arch)
+    """
+    logger = Logger()
+    logger.info(f"Creating or updating affected products for advisory {advisory.name}")
+
+    # Get existing affected products for this advisory
+    existing_products = {
+        (p.variant, p.name, p.major_version, p.minor_version, p.arch)
+        for p in await RedHatAdvisoryAffectedProduct.filter(red_hat_advisory_id=advisory.id).all()
+    }
+
+    # Add new affected products
+    to_add = new_products - existing_products
+    if to_add:
+        logger.info(f"Adding new affected products for advisory {advisory.name}: {to_add}")
+        await RedHatAdvisoryAffectedProduct.bulk_create([
+            RedHatAdvisoryAffectedProduct(
+                red_hat_advisory_id=advisory.id,
+                variant=variant,
+                name=name,
+                major_version=major,
+                minor_version=minor,
+                arch=arch,
+            ) for (variant, name, major, minor, arch) in to_add
+        ], ignore_conflicts=True)
+    else:
+        logger.info(f"No new affected products to add for advisory {advisory.name}")
+
+    # Remove affected products not in the new set if updating
+    if update_advisory:
+        to_remove = existing_products - new_products
+        if to_remove:
+            logger.info(f"Removing affected products for advisory {advisory.name}: {to_remove}")
+            for (variant, name, major, minor, arch) in to_remove:
+                await RedHatAdvisoryAffectedProduct.filter(
+                    red_hat_advisory_id=advisory.id,
+                    variant=variant,
+                    name=name,
+                    major_version=major,
+                    minor_version=minor,
+                    arch=arch,
+                ).delete()
+        else:
+            logger.info(f"No affected products to remove for advisory {advisory.name}")
+
+
 def parse_red_hat_date(rhdate: str) -> datetime:
     return datetime.fromisoformat(rhdate.removesuffix("Z"))
 
@@ -294,7 +522,7 @@ async def process_csaf_file(json_data: dict, filepath: str) -> Optional[RedHatAd
     if not data.get("red_hat_fixed_packages"):
         logger.warning(f"No fixed packages found in CSAF document {filepath}")
         return None
-
+    update_advisory = False
     try:
         async with in_transaction():
             # Check if advisory already exists
@@ -332,6 +560,7 @@ async def process_csaf_file(json_data: dict, filepath: str) -> Optional[RedHatAd
                     for field, value in updates.items():
                         setattr(advisory, field, value)
                         await advisory.save()
+                update_advisory = True
             else:
                 # Create new advisory
                 logger.info(f"Creating new advisory {data['name']}")
@@ -349,87 +578,31 @@ async def process_csaf_file(json_data: dict, filepath: str) -> Optional[RedHatAd
 
             # Handle packages
             logger.info(f"Processing packages for advisory {advisory.name}")
-            existing_packages = set(p.nevra for p in await RedHatAdvisoryPackage.filter(
-                red_hat_advisory_id=advisory.id).all())
-            new_packages = set(data["red_hat_fixed_packages"]) - existing_packages
-            if new_packages:
-                logger.info(f"New packages for advisory {advisory.name}: {new_packages}")
-                await RedHatAdvisoryPackage.bulk_create([
-                    RedHatAdvisoryPackage(
-                        red_hat_advisory_id=advisory.id,
-                        nevra=nevra
-                    ) for nevra in new_packages
-                ], ignore_conflicts=True)
+            new_nevras = set(data["red_hat_fixed_packages"])
+            await create_or_update_red_hat_advisory_packages(
+                advisory, new_nevras, update_advisory=update_advisory
+            )
 
             # Handle CVEs
             logger.info(f"Processing CVEs for advisory {advisory.name}")
-            existing_cves = set(c.cve for c in await RedHatAdvisoryCVE.filter(
-                red_hat_advisory_id=advisory.id).all())
-            logger.debug(f"Existing CVEs: {existing_cves}")
-            for cve_data in data["red_hat_cve_list"]:
-                logger.debug(f"Processing CVE data: {cve_data}")
-                cve_id, vector, score, cwe = cve_data
-                if cve_id and cve_id not in existing_cves:
-                    logger.info(f"New CVE for advisory {advisory.name}: {cve_id}")
-                    await RedHatAdvisoryCVE.create(
-                        red_hat_advisory_id=advisory.id,
-                        cve=cve_id,
-                        cvss3_scoring_vector=vector,
-                        cvss3_base_score=str(score) if score else None,
-                        cwe=cwe if cwe else None,
-                    )
-                else:
-                    logger.debug(f"No new CVE found for advisory {advisory.name}")
+            new_cve_tuples = set(tuple(cve_data) for cve_data in data["red_hat_cve_list"])
+            await create_or_update_red_hat_advisory_cves(
+                advisory, new_cve_tuples, update_advisory=update_advisory
+            )
 
             # Handle Bugzilla tickets
             logger.info(f"Processing Bugzilla bugs for advisory {advisory.name}")
-            try:
-                existing_bugs = set(b.bugzilla_bug_id for b in await RedHatAdvisoryBugzillaBug.filter(
-                    red_hat_advisory_id=advisory.id).all())
-                logger.debug(f"Existing Bugzilla bugs: {existing_bugs}")
-                new_bugs = set(data["red_hat_bugzilla_list"]) - existing_bugs
-
-                if new_bugs:
-                    logger.info(f"New Bugzilla bugs for advisory {advisory.name}: {new_bugs}")
-                    await RedHatAdvisoryBugzillaBug.bulk_create([
-                        RedHatAdvisoryBugzillaBug(
-                            red_hat_advisory_id=advisory.id,
-                            bugzilla_bug_id=bug_id,
-                            description=""  # No description available in CSAF data
-                        ) for bug_id in new_bugs
-                    ], ignore_conflicts=True)
-                else:
-                    logger.debug(f"No new Bugzilla bugs found for advisory {advisory.name}")
-            except Exception as e:
-                logger.error(f"Error processing Bugzilla bugs for advisory {advisory.name}: {str(e)}")
-                raise
+            new_bug_ids = set(data["red_hat_bugzilla_list"])
+            await create_or_update_red_hat_advisory_bugzilla_bugs(
+                advisory, new_bug_ids, update_advisory=update_advisory
+            )
 
             # Handle affected products
             logger.info(f"Processing affected products for advisory {advisory.name}")
-            existing_products = set()
-            for prod in await RedHatAdvisoryAffectedProduct.filter(red_hat_advisory_id=advisory.id).all():
-                existing_products.add((prod.variant, prod.name, prod.major_version, prod.minor_version, prod.arch))
-
-            new_products = []
-            for product_data in data["red_hat_affected_products"]:
-                logger.debug(f"Processing affected product data: {product_data}")
-                if product_data not in existing_products:
-                    variant, name, major, minor, arch = product_data
-                    new_products.append(
-                        RedHatAdvisoryAffectedProduct(
-                            red_hat_advisory_id=advisory.id,
-                            variant=variant,
-                            name=name,
-                            major_version=major,
-                            minor_version=minor,
-                            arch=arch
-                        )
-                    )
-            if new_products:
-                logger.info(f"Adding {len(new_products)} new affected products for advisory {advisory.name}")
-                await RedHatAdvisoryAffectedProduct.bulk_create(new_products, ignore_conflicts=True)
-            else:
-                logger.debug(f"No new affected products found for advisory {advisory.name}")
+            new_products = set(data["red_hat_affected_products"])
+            await create_or_update_red_hat_advisory_affected_products(
+                advisory, new_products, update_advisory=update_advisory
+            )
     except Exception as e:
         logger.error(f"Error in transaction: {str(e)}")
         raise
