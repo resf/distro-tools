@@ -286,6 +286,14 @@ def parse_datetime(dt_str: str) -> datetime:
             continue
     raise ValueError(f"Unable to parse datetime string: {dt_str}")
 
+
+def ensure_utc(dt: datetime) -> datetime:
+    """Ensure a datetime is timezone-aware in UTC."""
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
 async def upsert_last_indexed_at(new_date: datetime) -> None:
     """
     Create or update the last_indexed_at field in red_hat_index_state,
@@ -296,9 +304,9 @@ async def upsert_last_indexed_at(new_date: datetime) -> None:
     if isinstance(new_date, str):
         logger.debug("new_date is a string, converting to datetime")
         new_date = parse_datetime(new_date)
-    if isinstance(state, str):
-        logger.debug("state is a string, converting to datetime")
-        state = parse_datetime(state)
+    new_date = ensure_utc(new_date)
+    if state and state.last_indexed_at:
+        state.last_indexed_at = ensure_utc(state.last_indexed_at)
     logger.debug(f"Current state: {state}, new_date: {new_date}")
     if state:
         if not state.last_indexed_at or new_date > state.last_indexed_at:
