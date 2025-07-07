@@ -39,7 +39,7 @@ These steps assume you are currently in the root of the cloned distro-tools repo
 1. Set up an alias for interfacing with the DB: `alias apollodb='psql -U postgres -W -h 127.0.0.1 apollo2development'`
 1. Create needed tables: `apollodb -f apollo/schema.sql`
 1. Update the last_indexed_at date to reduce the number of advisories you pull down from Red Hat: `apollodb -c "update red_hat_index_state set last_indexed_at = '2024-11-01';"` Note: you can change this date to whatever works for you.
-1. Seed the needed values in the DB: `apollodb -c "\copy codes from 'codes.csv' with DELIMITER ',';" -c "\copy supported_products from 'apollo/db_seed/supported_products.csv' with DELIMITER ',';" -c "\copy supported_products_rh_mirrors from 'apollo/db_seed/supported_products_rh_mirrors.csv' with DELIMITER ',';" -c "\copy supported_products_rpm_repomds from 'apollo/db_seed/supported_products_rpm_repomds.csv' with DELIMITER ',';"`
+1. Seed the needed values in the DB: `apollodb -c "\copy codes from 'apollo/db_seed/codes.csv' with DELIMITER ',';" -c "\copy supported_products from 'apollo/db_seed/supported_products.csv' with DELIMITER ',';" -c "\copy supported_products_rh_mirrors from 'apollo/db_seed/supported_products_rh_mirrors.csv' with DELIMITER ',';" -c "\copy supported_products_rpm_repomds from 'apollo/db_seed/supported_products_rpm_repomds.csv' with DELIMITER ',';"`
 1. Start the Apollo server (can be run in a tmux or screen session): `bazel run apollo/server:server`
 1. Start the Temporal server (can be run in a tmux or screen session): `temporal server start-dev`
 1. Start the rhworker (can be run in a tmux or screen session): `bazel run apollo/rhworker:rhworker`
