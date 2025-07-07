@@ -16,7 +16,7 @@ def parse_dist_version(release: str) -> dict:
     # 3. el{major} - for regular packages without minor version
     pattern = r"""
         (?:module\+)?     # Optional module prefix
-        (?:el|rhel)       # Distribution identifier
+        (?:el|rhel|sles)  # Distribution identifier
         (\d+)             # Major version (capture group 1)
         (?:[\._]          # Separator (dot or underscore)
         (\d+))?          # Optional minor version (capture group 2)
@@ -78,19 +78,19 @@ def parse_nevra(nevra_str: str) -> dict:
     try:
         rest, arch = nevra_str.rsplit('.', 1)
     except ValueError:
-        raise ValueError("Missing architecture in NEVRA string")
+        raise ValueError(f"Missing architecture in NEVRA string {nevra_str}")
 
     # Split off release
     try:
         nvr, release = rest.rsplit('-', 1)
     except ValueError:
-        raise ValueError("Missing release in NEVRA string")
+        raise ValueError(f"Missing release in NEVRA string {nevra_str}")
 
     # Split off version
     try:
         name_version, version = nvr.rsplit('-', 1)
     except ValueError:
-        raise ValueError("Missing version in NEVRA string")
+        raise ValueError(f"Missing version in NEVRA string {nevra_str}")
 
     # Split epoch if present (it will be in the version part)
     if ':' in version:
@@ -101,7 +101,7 @@ def parse_nevra(nevra_str: str) -> dict:
     name = name_version
     dist_version = parse_dist_version(release)
     if dist_version["major"] is None:
-        raise ValueError("Invalid distribution version in NEVRA string")
+        raise ValueError(f"Invalid distribution version in NEVRA string {nevra_str}")
     major = dist_version["major"]
     minor = dist_version["minor"]
     return {
