@@ -43,7 +43,10 @@ def clean_nvra_pkg(matching_pkg: ET.Element) -> str:
 
 
 def clean_nvra(nvra_raw: str) -> str:
-    results = parse_nevra(nvra_raw)
+    try:
+        results = parse_nevra(nvra_raw)
+    except ValueError as e:
+        return nvra_raw, nvra_raw
     name = results["name"]
     version = results["version"]
     release = results["release"]

@@ -361,7 +361,11 @@ async def clone_advisory(
     # Generate dictionary of clean advisory nvras
     clean_advisory_nvras = {}
     for advisory_pkg in advisory.packages:
-        results = parse_nevra(advisory_pkg.nevra)
+        try:
+            results = parse_nevra(advisory_pkg.nevra)
+        except ValueError as e:
+            logger.warning(f"Skipping invalid NEVRA '{advisory_pkg.nevra}': {e}")
+            continue
         advisory_pkg_arch = results["arch"]
         if advisory_pkg_arch not in acceptable_arches:
             continue
@@ -691,7 +695,11 @@ async def process_repomd(
             # cleaned will strip out module specific info from a package name
             # and prepend 'module.' to the name for modular packages.
             cleaned, raw = repomd.clean_nvra(advisory_pkg.nevra)
-            results = parse_nevra(advisory_pkg.nevra)
+            try:
+                results = parse_nevra(advisory_pkg.nevra)
+            except ValueError as e:
+                logger.warning(f"Skipping invalid NEVRA '{advisory_pkg.nevra}': {e}")
+                continue
             name = results["name"]
             if cleaned not in clean_advisory_nvras:
                 if not cleaned in raw_pkg_nvras:
