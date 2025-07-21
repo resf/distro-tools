@@ -21,7 +21,7 @@ DIST_RE = re.compile(r"(\.el\d(?:_\d|))")
 MODULE_DIST_RE = re.compile(r"\.module.+$")
 
 
-def clean_nvra_pkg(matching_pkg: ET.Element) -> str:
+def clean_nvra_pkg(matching_pkg: ET.Element) -> tuple[str, str]:
     name = matching_pkg.find("{http://linux.duke.edu/metadata/common}name").text
     version = matching_pkg.find(
         "{http://linux.duke.edu/metadata/common}version"
@@ -42,7 +42,7 @@ def clean_nvra_pkg(matching_pkg: ET.Element) -> str:
     return cleaned, raw
 
 
-def clean_nvra(nvra_raw: str) -> str:
+def clean_nvra(nvra_raw: str) -> tuple[str, str]:
     try:
         results = parse_nevra(nvra_raw)
     except ValueError as e:
