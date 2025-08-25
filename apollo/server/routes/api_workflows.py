@@ -10,6 +10,7 @@ from apollo.server.models.workflow import (
 )
 from apollo.server.services.workflow_service import WorkflowService
 from apollo.server.utils import admin_user_scheme, user_scheme
+from apollo.server.auth import workflow_api_key_auth, api_key_or_session_auth
 from apollo.db import User
 from common.logger import Logger
 
@@ -42,11 +43,11 @@ async def list_products():
 @router.post("/rh-matcher/trigger", response_model=WorkflowTriggerResponse)
 async def trigger_rh_matcher_workflow(
     request: WorkflowTriggerRequest,
-    user: User = Depends(admin_user_scheme)
+    user: User = Depends(workflow_api_key_auth)
 ):
     """
     Trigger RhMatcherWorkflow with optional product filtering.
-    Admin access required.
+    Requires API key with 'workflow:trigger' permission.
     """
     try:
         service = WorkflowService()
@@ -90,11 +91,11 @@ async def trigger_rh_matcher_workflow(
 @router.get("/{workflow_id}/status", response_model=WorkflowStatusResponse)
 async def get_workflow_status(
     workflow_id: str,
-    user: User = Depends(admin_user_scheme)
+    user: User = Depends(workflow_api_key_auth)
 ):
     """
     Get status of a specific workflow.
-    Admin access required.
+    Requires API key with 'workflow:trigger' permission.
     """
     try:
         service = WorkflowService()

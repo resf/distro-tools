@@ -701,6 +701,44 @@ ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
 
 
 --
+-- Name: api_keys; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.api_keys (
+    id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone,
+    revoked_at timestamp with time zone,
+    name varchar(255) NOT NULL,
+    key_hash varchar(255) NOT NULL,
+    key_prefix varchar(32) NOT NULL,
+    user_id bigint NOT NULL,
+    permissions jsonb DEFAULT '[]'::jsonb NOT NULL,
+    expires_at timestamp with time zone,
+    last_used_at timestamp with time zone
+);
+
+
+--
+-- Name: api_keys_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.api_keys_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: api_keys_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.api_keys_id_seq OWNED BY public.api_keys.id;
+
+
+--
 -- Name: advisories id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -838,6 +876,13 @@ ALTER TABLE ONLY public.supported_products_rpm_rh_overrides ALTER COLUMN id SET 
 --
 
 ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_id_seq'::regclass);
+
+
+--
+-- Name: api_keys id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.api_keys ALTER COLUMN id SET DEFAULT nextval('public.api_keys_id_seq'::regclass);
 
 
 --
@@ -1118,6 +1163,14 @@ ALTER TABLE ONLY public.users
 
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: api_keys api_keys_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.api_keys
+    ADD CONSTRAINT api_keys_pkey PRIMARY KEY (id);
 
 
 --
@@ -1642,6 +1695,14 @@ ALTER TABLE ONLY public.supported_products_rpm_rh_overrides
 
 ALTER TABLE ONLY public.supported_products_rpm_rh_overrides
     ADD CONSTRAINT supported_products_rpm_rh_overrides_red_hat_advisory_id_fkey FOREIGN KEY (red_hat_advisory_id) REFERENCES public.red_hat_advisories(id) ON DELETE CASCADE;
+
+
+--
+-- Name: api_keys api_keys_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.api_keys
+    ADD CONSTRAINT api_keys_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

@@ -4,6 +4,7 @@ load("//build/macros:fastapi.bzl", "fastapi_binary")
 py_library(
     name = "server_lib",
     srcs = [
+        "auth.py",
         "models/__init__.py",
         "models/workflow.py",
         "roles.py",
@@ -12,6 +13,7 @@ py_library(
         "routes/advisories.py",
         "routes/api_advisories.py",
         "routes/api_compat.py",
+        "routes/api_keys.py",
         "routes/api_osv.py",
         "routes/api_red_hat.py",
         "routes/api_updateinfo.py",

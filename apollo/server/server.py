@@ -24,6 +24,7 @@ from apollo.server.routes.api_red_hat import router as api_red_hat_router
 from apollo.server.routes.api_compat import router as api_compat_router
 from apollo.server.routes.api_osv import router as api_osv_router
 from apollo.server.routes.api_workflows import router as api_workflows_router
+from apollo.server.routes.api_keys import router as api_keys_router
 from apollo.server.settings import SECRET_KEY, SettingsMiddleware, get_setting
 from apollo.server.utils import admin_user_scheme, user_scheme, templates
 from apollo.db import Settings
@@ -78,6 +79,7 @@ app.include_router(api_red_hat_router, prefix="/api/v3/red_hat")
 app.include_router(api_compat_router, prefix="/v2/advisories")
 app.include_router(api_osv_router, prefix="/api/v3/osv")
 app.include_router(api_workflows_router, prefix="/api/v3/workflows")
+app.include_router(api_keys_router, prefix="/api/v3/keys")
 
 Info("apollo2")
 Logger()
