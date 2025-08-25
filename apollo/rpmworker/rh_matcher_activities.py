@@ -1,6 +1,7 @@
 import datetime
 import re
 from dataclasses import dataclass
+from typing import Optional
 from xml.etree import ElementTree as ET
 from temporalio import activity
 from tortoise.transactions import in_transaction
@@ -269,9 +270,10 @@ async def create_or_update_advisory_affected_product(
                 ).delete()
 
 @activity.defn
-async def get_supported_products_with_rh_mirrors() -> list[int]:
+async def get_supported_products_with_rh_mirrors(filter_product_ids: Optional[list[int]] = None) -> list[int]:
     """
     Get supported product IDs that has an RH mirror configuration
+    Optionally filter to specific product IDs for backward compatibility
     """
     logger = Logger()
     rh_mirrors = await SupportedProductsRhMirror.all().prefetch_related(
@@ -280,8 +282,10 @@ async def get_supported_products_with_rh_mirrors() -> list[int]:
     ret = []
     for rh_mirror in rh_mirrors:
         if rh_mirror.supported_product_id not in ret and rh_mirror.rpm_repomds:
-            logger.debug(f"Adding rh_mirror.supported_product_id ({rh_mirror.supported_product_id})")
-            ret.append(rh_mirror.supported_product_id)
+            # Apply filtering if specified, otherwise include all (backward compatibility)
+            if filter_product_ids is None or rh_mirror.supported_product_id in filter_product_ids:
+                logger.debug(f"Adding rh_mirror.supported_product_id ({rh_mirror.supported_product_id})")
+                ret.append(rh_mirror.supported_product_id)
 
     return ret
 

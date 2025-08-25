@@ -23,6 +23,7 @@ from apollo.server.routes.api_updateinfo import router as api_updateinfo_router
 from apollo.server.routes.api_red_hat import router as api_red_hat_router
 from apollo.server.routes.api_compat import router as api_compat_router
 from apollo.server.routes.api_osv import router as api_osv_router
+from apollo.server.routes.api_workflows import router as api_workflows_router
 from apollo.server.settings import SECRET_KEY, SettingsMiddleware, get_setting
 from apollo.server.utils import admin_user_scheme, user_scheme, templates
 from apollo.db import Settings
@@ -30,9 +31,13 @@ from apollo.db import Settings
 from common.info import Info
 from common.logger import Logger
 from common.database import Database
+from common.temporal import Temporal
 from common.fastapi import StaticFilesSym, RenderErrorTemplateException
 
 app = FastAPI()
+
+# Global Temporal client instance
+temporal_client = None
 
 app.mount(
     "/static",
@@ -72,6 +77,7 @@ app.include_router(api_updateinfo_router, prefix="/api/v3/updateinfo")
 app.include_router(api_red_hat_router, prefix="/api/v3/red_hat")
 app.include_router(api_compat_router, prefix="/v2/advisories")
 app.include_router(api_osv_router, prefix="/api/v3/osv")
+app.include_router(api_workflows_router, prefix="/api/v3/workflows")
 
 Info("apollo2")
 Logger()
@@ -150,6 +156,8 @@ async def render_template_exception_handler(
 
 @app.on_event("startup")
 async def startup():
+    global temporal_client
+    
     # Generate secret-key if it does not exist in the database
     secret_key = await get_setting(SECRET_KEY)
     if not secret_key:
@@ -163,3 +171,16 @@ async def startup():
         secret_key=secret_key,
         max_age=60 * 60 * 24 * 7,  # 1 week
     )
+    
+    # Initialize Temporal client for workflow management
+    temporal = Temporal(True)
+    await temporal.connect()
+    temporal_client = temporal
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    global temporal_client
+    # Close Temporal client connection if it exists
+    if temporal_client and temporal_client.client:
+        await temporal_client.client.close()

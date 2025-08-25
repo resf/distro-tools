@@ -4,6 +4,8 @@ load("//build/macros:fastapi.bzl", "fastapi_binary")
 py_library(
     name = "server_lib",
     srcs = [
+        "models/__init__.py",
+        "models/workflow.py",
         "roles.py",
         "routes/admin_index.py",
         "routes/admin_users.py",
@@ -13,12 +15,15 @@ py_library(
         "routes/api_osv.py",
         "routes/api_red_hat.py",
         "routes/api_updateinfo.py",
+        "routes/api_workflows.py",
         "routes/login.py",
         "routes/logout.py",
         "routes/profile.py",
         "routes/red_hat_advisories.py",
         "routes/statistics.py",
         "server.py",
+        "services/__init__.py",
+        "services/workflow_service.py",
         "settings.py",
         "utils.py",
     ],
@@ -45,6 +50,7 @@ py_library(
         "@pypi_python_slugify//:pkg",
         "@pypi_rssgen//:pkg",
         "@pypi_starlette//:pkg",
+        "@pypi_temporalio//:pkg",
         "@pypi_tortoise_orm//:pkg",
     ],
 )

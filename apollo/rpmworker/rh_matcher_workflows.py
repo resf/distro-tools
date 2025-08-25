@@ -1,7 +1,13 @@
 import datetime
 from dataclasses import dataclass
+from typing import Optional
 
 from temporalio import workflow
+
+
+@dataclass
+class RhMatcherWorkflowInput:
+    supported_product_ids: Optional[list[int]] = None
 
 
 @dataclass
@@ -12,9 +18,13 @@ class RhDefunctWorkflowInput:
 @workflow.defn
 class RhMatcherWorkflow:
     @workflow.run
-    async def run(self) -> list[int]:
+    async def run(self, input: Optional[RhMatcherWorkflowInput] = None) -> list[int]:
+        # Extract product ID filter from input (None means all products for backward compatibility)
+        filter_product_ids = input.supported_product_ids if input else None
+        
         supported_product_ids = await workflow.execute_activity(
             "get_supported_products_with_rh_mirrors",
+            filter_product_ids,
             start_to_close_timeout=datetime.timedelta(seconds=20),
         )
 
