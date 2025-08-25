@@ -270,10 +270,11 @@ async def create_or_update_advisory_affected_product(
                 ).delete()
 
 @activity.defn
-async def get_supported_products_with_rh_mirrors(filter_product_ids: Optional[list[int]] = None) -> list[int]:
+async def get_supported_products_with_rh_mirrors(filter_major_versions: Optional[list[int]] = None) -> list[int]:
     """
     Get supported product IDs that has an RH mirror configuration
-    Optionally filter to specific product IDs for backward compatibility
+    Note: filter_major_versions parameter is kept for backward compatibility but not used at this level.
+    Filtering now happens at the mirror level within match_rh_repos activity.
     """
     logger = Logger()
     rh_mirrors = await SupportedProductsRhMirror.all().prefetch_related(
@@ -282,10 +283,8 @@ async def get_supported_products_with_rh_mirrors(filter_product_ids: Optional[li
     ret = []
     for rh_mirror in rh_mirrors:
         if rh_mirror.supported_product_id not in ret and rh_mirror.rpm_repomds:
-            # Apply filtering if specified, otherwise include all (backward compatibility)
-            if filter_product_ids is None or rh_mirror.supported_product_id in filter_product_ids:
-                logger.debug(f"Adding rh_mirror.supported_product_id ({rh_mirror.supported_product_id})")
-                ret.append(rh_mirror.supported_product_id)
+            logger.debug(f"Adding rh_mirror.supported_product_id ({rh_mirror.supported_product_id})")
+            ret.append(rh_mirror.supported_product_id)
 
     return ret
 
@@ -771,10 +770,18 @@ async def process_repomd(
 
 
 @activity.defn
-async def match_rh_repos(supported_product_id: int) -> None:
+async def match_rh_repos(params) -> None:
     """
-    Process the repomd files for the supported product
+    Process the repomd files for the supported product with optional major version filtering
     """
+    # Handle both old format (int) and new format (dict) for backward compatibility
+    if isinstance(params, int):
+        supported_product_id = params
+        filter_major_versions = None
+    else:
+        supported_product_id = params["supported_product_id"]
+        filter_major_versions = params.get("filter_major_versions")
+    
     logger = Logger()
     supported_product = await SupportedProduct.filter(
         id=supported_product_id
@@ -783,6 +790,10 @@ async def match_rh_repos(supported_product_id: int) -> None:
     all_advisories = {}
 
     for mirror in supported_product.rh_mirrors:
+        # Apply major version filtering if specified
+        if filter_major_versions is not None and int(mirror.match_major_version) not in filter_major_versions:
+            logger.debug(f"Skipping mirror {mirror.name} with major version {mirror.match_major_version} due to filtering")
+            continue
         logger.info("Processing mirror: %s", mirror.name)
         advisories = await get_matching_rh_advisories(mirror)
         for rpm_repomd in mirror.rpm_repomds:

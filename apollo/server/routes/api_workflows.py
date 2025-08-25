@@ -46,25 +46,25 @@ async def trigger_rh_matcher_workflow(
     user: User = Depends(workflow_api_key_auth)
 ):
     """
-    Trigger RhMatcherWorkflow with optional product filtering.
+    Trigger RhMatcherWorkflow with optional major version filtering.
     Requires API key with 'workflow:trigger' permission.
     """
     try:
         service = WorkflowService()
-        workflow_id = await service.trigger_rh_matcher_workflow(request.product_ids)
+        workflow_id = await service.trigger_rh_matcher_workflow(request.major_versions)
         
         logger = Logger()
-        logger.info(f"User {user.email} triggered RhMatcherWorkflow {workflow_id} with products: {request.product_ids}")
+        logger.info(f"User {user.email} triggered RhMatcherWorkflow {workflow_id} with major_versions: {request.major_versions}")
         
         return WorkflowTriggerResponse(
             workflow_id=workflow_id,
             status="started",
             message="RhMatcherWorkflow triggered successfully",
-            filtered_products=request.product_ids
+            filtered_major_versions=request.major_versions
         )
         
     except ValueError as e:
-        # Handle validation errors (invalid product IDs)
+        # Handle validation errors (invalid major versions)
         logger = Logger()
         logger.error(f"Validation error triggering workflow: {str(e)}")
         raise HTTPException(

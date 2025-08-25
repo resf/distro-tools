@@ -44,13 +44,13 @@ class WorkflowService:
             for product in products
         ]
     
-    async def trigger_rh_matcher_workflow(self, product_ids: Optional[List[int]] = None) -> str:
+    async def trigger_rh_matcher_workflow(self, major_versions: Optional[List[int]] = None) -> str:
         """
-        Trigger RhMatcherWorkflow with optional product filtering
+        Trigger RhMatcherWorkflow with optional major version filtering
         
         Args:
-            product_ids: Optional list of supported product IDs to process
-                        If None, processes all products (backward compatibility)
+            major_versions: Optional list of Rocky Linux major versions to process (e.g., [8, 9, 10])
+                           If None, processes all versions (backward compatibility)
         
         Returns:
             Workflow ID for tracking
@@ -60,17 +60,17 @@ class WorkflowService:
         if not temporal_client or not temporal_client.client:
             raise RuntimeError("Temporal client not initialized")
         
-        # Validate product IDs if provided
-        if product_ids:
-            await self._validate_product_ids(product_ids)
+        # Validate major versions if provided
+        if major_versions:
+            await self._validate_major_versions(major_versions)
         
         # Create workflow input
-        workflow_input = RhMatcherWorkflowInput(supported_product_ids=product_ids) if product_ids else None
+        workflow_input = RhMatcherWorkflowInput(major_versions=major_versions) if major_versions else None
         
         # Generate unique workflow ID
         workflow_id = f"rh-matcher-{uuid.uuid4()}"
         
-        self.logger.info(f"Starting RhMatcherWorkflow with ID: {workflow_id}, products: {product_ids}")
+        self.logger.info(f"Starting RhMatcherWorkflow with ID: {workflow_id}, major_versions: {major_versions}")
         
         # Start the workflow
         workflow_handle: WorkflowHandle = await temporal_client.client.start_workflow(
@@ -163,25 +163,29 @@ class WorkflowService:
         self.logger.info("list_recent_workflows called - implementation needed for workflow history tracking")
         return []
     
-    async def _validate_product_ids(self, product_ids: List[int]) -> None:
+    async def _validate_major_versions(self, major_versions: List[int]) -> None:
         """
-        Validate that the provided product IDs exist and have RH mirrors
+        Validate that the provided major versions are available in RH mirrors
         
         Args:
-            product_ids: List of product IDs to validate
+            major_versions: List of major versions to validate
             
         Raises:
-            ValueError: If any product ID is invalid
+            ValueError: If any major version is invalid
         """
-        if not product_ids:
+        if not major_versions:
             return
         
-        # Check if all product IDs exist
-        existing_products = await SupportedProduct.filter(id__in=product_ids).all()
-        existing_ids = {p.id for p in existing_products}
+        # Import here to avoid circular imports
+        from apollo.db import SupportedProductsRhMirror
         
-        missing_ids = set(product_ids) - existing_ids
-        if missing_ids:
-            raise ValueError(f"Invalid product IDs: {sorted(missing_ids)}")
+        # Get available major versions from RH mirrors
+        rh_mirrors = await SupportedProductsRhMirror.all()
+        available_versions = {int(mirror.match_major_version) for mirror in rh_mirrors}
         
-        self.logger.info(f"Validated product IDs: {product_ids}")
+        # Check if all requested major versions are available
+        invalid_versions = set(major_versions) - available_versions
+        if invalid_versions:
+            raise ValueError(f"Invalid major versions: {sorted(invalid_versions)}. Available: {sorted(available_versions)}")
+        
+        self.logger.info(f"Validated major versions: {major_versions}")

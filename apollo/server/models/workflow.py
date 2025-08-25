@@ -21,9 +21,9 @@ class ProductInfo(BaseModel):
 
 class WorkflowTriggerRequest(BaseModel):
     """Request model for triggering RhMatcherWorkflow"""
-    product_ids: Optional[List[int]] = Field(
+    major_versions: Optional[List[int]] = Field(
         None,
-        description="Optional list of supported product IDs to process. If omitted, processes all products."
+        description="Optional list of Rocky Linux major versions to process (e.g., [8, 9, 10]). If omitted, processes all versions."
     )
 
 
@@ -32,7 +32,7 @@ class WorkflowTriggerResponse(BaseModel):
     workflow_id: str
     status: str = "started"
     message: str = "Workflow triggered successfully"
-    filtered_products: Optional[List[int]] = None
+    filtered_major_versions: Optional[List[int]] = None
 
 
 class WorkflowStatusResponse(BaseModel):
