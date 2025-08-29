@@ -8,6 +8,7 @@ py_library(
         "models/__init__.py",
         "models/workflow.py",
         "roles.py",
+        "routes/admin_api_keys.py",
         "routes/admin_index.py",
         "routes/admin_users.py",
         "routes/advisories.py",
