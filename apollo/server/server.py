@@ -18,6 +18,7 @@ from apollo.server.routes.profile import router as profile_router
 from apollo.server.routes.admin_index import router as admin_index_router
 from apollo.server.routes.admin_users import router as admin_users_router
 from apollo.server.routes.admin_api_keys import router as admin_api_keys_router
+from apollo.server.routes.admin_workflows import router as admin_workflows_router
 from apollo.server.routes.red_hat_advisories import router as red_hat_advisories_router
 from apollo.server.routes.api_advisories import router as api_advisories_router
 from apollo.server.routes.api_updateinfo import router as api_updateinfo_router
@@ -76,6 +77,11 @@ app.include_router(
 app.include_router(
     admin_api_keys_router,
     prefix="/admin/api-keys",
+    dependencies=[Depends(admin_user_scheme)]
+)
+app.include_router(
+    admin_workflows_router,
+    prefix="/admin",
     dependencies=[Depends(admin_user_scheme)]
 )
 app.include_router(red_hat_advisories_router, prefix="/red_hat")
