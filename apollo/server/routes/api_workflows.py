@@ -88,6 +88,44 @@ async def trigger_rh_matcher_workflow(
         )
 
 
+@router.post("/poll-rhcsaf/trigger", response_model=WorkflowTriggerResponse)
+async def trigger_poll_rhcsaf_workflow(
+    user: User = Depends(workflow_api_key_auth)
+):
+    """
+    Trigger PollRHCSAFAdvisoriesWorkflow to poll Red Hat CSAF advisories.
+    Requires API key with 'workflow:trigger' permission.
+    """
+    try:
+        service = WorkflowService()
+        workflow_id = await service.trigger_poll_rhcsaf_workflow()
+        
+        logger = Logger()
+        logger.info(f"User {user.email} triggered PollRHCSAFAdvisoriesWorkflow {workflow_id}")
+        
+        return WorkflowTriggerResponse(
+            workflow_id=workflow_id,
+            status="started",
+            message="PollRHCSAFAdvisoriesWorkflow triggered successfully"
+        )
+        
+    except RuntimeError as e:
+        # Handle Temporal client errors
+        logger = Logger()
+        logger.error(f"Runtime error triggering PollRHCSAF workflow: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Workflow service unavailable"
+        )
+    except Exception as e:
+        logger = Logger()
+        logger.error(f"Error triggering PollRHCSAF workflow: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to trigger workflow"
+        )
+
+
 @router.get("/{workflow_id}/status", response_model=WorkflowStatusResponse)
 async def get_workflow_status(
     workflow_id: str,

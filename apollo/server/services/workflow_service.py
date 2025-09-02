@@ -10,6 +10,8 @@ from temporalio.client import WorkflowHandle
 from apollo.db import SupportedProduct
 from apollo.rpmworker.rh_matcher_workflows import RhMatcherWorkflow, RhMatcherWorkflowInput
 from apollo.rpmworker.temporal import TASK_QUEUE
+from apollo.rhworker.poll_rh_workflow import PollRHCSAFAdvisoriesWorkflow
+from apollo.rhworker.temporal import TASK_QUEUE as RH_TASK_QUEUE
 from common.temporal import Temporal
 from common.logger import Logger
 
@@ -78,6 +80,32 @@ class WorkflowService:
             workflow_input,
             id=workflow_id,
             task_queue=TASK_QUEUE,
+        )
+        
+        return workflow_id
+    
+    async def trigger_poll_rhcsaf_workflow(self) -> str:
+        """
+        Trigger PollRHCSAFAdvisoriesWorkflow to poll Red Hat CSAF advisories
+        
+        Returns:
+            Workflow ID for tracking
+        """
+        temporal_client = await self._get_temporal_client()
+        
+        if not temporal_client or not temporal_client.client:
+            raise RuntimeError("Temporal client not initialized")
+        
+        # Generate unique workflow ID
+        workflow_id = f"poll-rhcsaf-{uuid.uuid4()}"
+        
+        self.logger.info(f"Starting PollRHCSAFAdvisoriesWorkflow with ID: {workflow_id}")
+        
+        # Start the workflow (no input parameters needed)
+        workflow_handle: WorkflowHandle = await temporal_client.client.start_workflow(
+            PollRHCSAFAdvisoriesWorkflow.run,
+            id=workflow_id,
+            task_queue=RH_TASK_QUEUE,
         )
         
         return workflow_id
