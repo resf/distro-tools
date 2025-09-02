@@ -1,4 +1,5 @@
 load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_python//python:defs.bzl", py_test_rules = "py_test")
 
 py_test(
     name = "test_rpm_helpers",
@@ -25,5 +26,21 @@ py_test(
         "//apollo/rhcsaf:rhcsaf_lib",
         "//apollo/rpm_helpers:rpm_helpers_lib",
         "//common:common_lib",
+    ],
+)
+
+py_test(
+    name = "test_api_keys",
+    srcs = ["test_api_keys.py"],
+    deps = [
+        "//apollo/server:server_lib",
+    ],
+)
+
+py_test(
+    name = "test_auth",
+    srcs = ["test_auth.py"],
+    deps = [
+        "//apollo/server:server_lib",
     ],
 )

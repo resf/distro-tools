@@ -92,13 +92,25 @@ async def api_key_auth(request: Request, required_permission: str = None) -> Use
     # Extract API key from Authorization header
     auth_header = request.headers.get("Authorization", "")
     
+    # Strict validation: must be exactly "Bearer <token>"
     if not auth_header.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing or invalid Authorization header. Use: Authorization: Bearer apollo_sk_..."
         )
     
-    raw_key = auth_header.replace("Bearer ", "")
+    # Extract token part (everything after "Bearer ")
+    raw_key = auth_header[7:]  # Remove "Bearer " (7 characters)
+    
+    # Validate token format: no whitespace, must start with apollo_sk_, minimum length
+    if (not raw_key or 
+        raw_key != raw_key.strip() or 
+        not raw_key.startswith("apollo_sk_") or
+        len(raw_key) <= 10):  # Must be longer than just "apollo_sk_"
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid API key format. Key must start with apollo_sk_ and contain no whitespace."
+        )
     api_key = await verify_api_key(raw_key)
     
     if not api_key:
