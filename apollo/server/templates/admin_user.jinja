@@ -11,10 +11,11 @@
     <bx-input required name="email" type="email" value="{{ user.email }}" form_id="edit_user_form">
       <span slot="label-text">Email</span>
     </bx-input>
-    <bx-select label-text="Role" name="role" set_value="{{ user.role }}" form_id="edit_user_form">
-      <bx-select-item value="admin">Admin</bx-select-item>
-      <bx-select-item value="elevated">Elevated</bx-select-item>
-    </bx-select>
+    <label for="role" style="display:block;margin-bottom:0.5rem;font-weight:500;">Role</label>
+    <select name="role" id="role" form="edit_user_form" style="width:100%;padding:0.5rem;border:1px solid #8d8d8d;border-radius:0;background-color:#f4f4f4;font-size:0.875rem;line-height:1.125rem;" required>
+      <option value="admin"{% if user.role == "admin" %} selected{% endif %}>Admin</option>
+      <option value="elevated"{% if user.role == "elevated" %} selected{% endif %}>Elevated</option>
+    </select>
     <bx-btn type="submit" style="margin-top:1rem;margin-bottom:1rem;display:block" form_id="edit_user_form">
       Update user
     </bx-btn>
