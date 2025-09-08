@@ -1,0 +1,123 @@
+{% extends "admin_layout.jinja" %}
+
+{% block admin_content %}
+<div class="bx--container">
+  <div class="bx--grid">
+    <div class="bx--row">
+      <div class="bx--col">
+        <nav aria-label="breadcrumb" class="bx--breadcrumb">
+          <div class="bx--breadcrumb-item">
+            <a href="/admin/supported-products/" class="bx--link">Supported Products</a>
+          </div>
+          <div class="bx--breadcrumb-item">
+            <a href="/admin/supported-products/{{ mirror.supported_product.id }}" class="bx--link">{{ mirror.supported_product.name }}</a>
+          </div>
+          <div class="bx--breadcrumb-item">
+            <a href="/admin/supported-products/{{ mirror.supported_product.id }}/mirrors/{{ mirror.id }}" class="bx--link">{{ mirror.name }}</a>
+          </div>
+          <div class="bx--breadcrumb-item bx--breadcrumb-item--current">
+            <span>Add Override</span>
+          </div>
+        </nav>
+        
+        <h1 class="bx--type-expressive-heading-05">Add Advisory Override</h1>
+        <p class="bx--type-body-long-02">Add a processing override for a Red Hat advisory for {{ mirror.name }}.</p>
+      </div>
+    </div>
+
+    <div class="bx--row">
+      <div class="bx--col">
+        <form method="get" class="bx--form" style="margin-bottom: 2rem;">
+          <div class="bx--form-item">
+            <label for="search" class="bx--label">Search Advisories</label>
+            <input id="search" name="search" type="text" class="bx--text-input" 
+                   value="{{ search if search else '' }}"
+                   placeholder="Search by advisory name (e.g., RHSA-2023-1234)">
+          </div>
+          <button type="submit" class="bx--btn bx--btn--secondary bx--btn--sm" style="margin-top: 1rem;">
+            Search
+          </button>
+        </form>
+      </div>
+    </div>
+
+    {% if advisories %}
+    <div class="bx--row">
+      <div class="bx--col">
+        <h2 class="bx--type-productive-heading-04">Available Red Hat Advisories</h2>
+        <p class="bx--type-body-short-02" style="margin-bottom: 1rem;">
+          Select an advisory to add an override rule. Showing up to 50 results.
+        </p>
+        
+        <table class="bx--data-table bx--data-table--sticky-header">
+          <thead>
+            <tr>
+              <th><span class="bx--table-header-label">Advisory Name</span></th>
+              <th><span class="bx--table-header-label">Severity</span></th>
+              <th><span class="bx--table-header-label">Synopsis</span></th>
+              <th><span class="bx--table-header-label">Issued Date</span></th>
+              <th><span class="bx--table-header-label">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for advisory in advisories %}
+            <tr>
+              <td>
+                <a href="/red-hat-advisories/{{ advisory.id }}" class="bx--link" target="_blank">
+                  {{ advisory.name }}
+                </a>
+              </td>
+              <td>
+                <span class="bx--tag 
+                  {% if advisory.severity == 'Critical' %}bx--tag--red
+                  {% elif advisory.severity == 'Important' %}bx--tag--red
+                  {% elif advisory.severity == 'Moderate' %}bx--tag--yellow
+                  {% elif advisory.severity == 'Low' %}bx--tag--green
+                  {% else %}bx--tag--cool-gray{% endif %}">
+                  {{ advisory.severity }}
+                </span>
+              </td>
+              <td>{{ advisory.synopsis[:80] }}{% if advisory.synopsis|length > 80 %}...{% endif %}</td>
+              <td>{{ advisory.red_hat_issued_at.strftime('%Y-%m-%d') }}</td>
+              <td>
+                <form method="post" style="display: inline;" 
+                      onsubmit="return confirm('Are you sure you want to add an override for advisory {{ advisory.name }}?')">
+                  <input type="hidden" name="advisory_id" value="{{ advisory.id }}">
+                  <button type="submit" class="bx--btn bx--btn--primary bx--btn--sm">
+                    Add Override
+                  </button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% else %}
+    <div class="bx--row">
+      <div class="bx--col">
+        <div class="bx--tile">
+          <p>{% if search %}No advisories found matching "{{ search }}".{% else %}No advisories available for overrides.{% endif %}</p>
+          {% if search %}
+          <a href="/admin/supported-products/{{ mirror.supported_product.id }}/mirrors/{{ mirror.id }}/overrides/new" 
+             class="bx--btn bx--btn--secondary" style="margin-top: 1rem;">
+            Clear Search
+          </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="bx--row" style="margin-top: 2rem;">
+      <div class="bx--col">
+        <a href="/admin/supported-products/{{ mirror.supported_product.id }}/mirrors/{{ mirror.id }}" 
+           class="bx--btn bx--btn--secondary">
+          Back to Mirror
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
