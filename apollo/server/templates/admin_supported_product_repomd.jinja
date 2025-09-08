@@ -1,0 +1,144 @@
+{% extends "admin_layout.jinja" %}
+
+{% block admin_content %}
+<div class="bx--container">
+  <div class="bx--grid">
+    <div class="bx--row">
+      <div class="bx--col">
+        <nav aria-label="breadcrumb" class="bx--breadcrumb">
+          <div class="bx--breadcrumb-item">
+            <a href="/admin/supported-products/" class="bx--link">Supported Products</a>
+          </div>
+          <div class="bx--breadcrumb-item">
+            <a href="/admin/supported-products/{{ repomd.supported_products_rh_mirror.supported_product.id }}" class="bx--link">{{ repomd.supported_products_rh_mirror.supported_product.name }}</a>
+          </div>
+          <div class="bx--breadcrumb-item">
+            <a href="/admin/supported-products/{{ repomd.supported_products_rh_mirror.supported_product.id }}/mirrors/{{ repomd.supported_products_rh_mirror.id }}" class="bx--link">{{ repomd.supported_products_rh_mirror.name }}</a>
+          </div>
+          <div class="bx--breadcrumb-item bx--breadcrumb-item--current">
+            <span>{{ repomd.repo_name }}</span>
+          </div>
+        </nav>
+
+        <h1 class="bx--type-expressive-heading-05">{{ repomd.repo_name }} ({{ repomd.arch }})</h1>
+        <p class="bx--type-body-long-02">Edit repository configuration.</p>
+      </div>
+    </div>
+
+    {% if success %}
+    <div class="bx--row">
+      <div class="bx--col">
+        <div class="bx--inline-notification bx--inline-notification--success" role="alert">
+          <div class="bx--inline-notification__details">
+            <div class="bx--inline-notification__text-wrapper">
+              <div class="bx--inline-notification__title">Success</div>
+              <div class="bx--inline-notification__subtitle">{{ success }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if error %}
+    <div class="bx--row">
+      <div class="bx--col">
+        <div class="bx--inline-notification bx--inline-notification--error" role="alert">
+          <div class="bx--inline-notification__details">
+            <div class="bx--inline-notification__text-wrapper">
+              <div class="bx--inline-notification__title">Error</div>
+              <div class="bx--inline-notification__subtitle">{{ error }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="bx--row">
+      <div class="bx--col-lg-8">
+        <form method="post" class="bx--form">
+          <div class="bx--form-item">
+            <label for="repo_name" class="bx--label">Repository Name *</label>
+            <input id="repo_name" name="repo_name" type="text" class="bx--text-input"
+                   required maxlength="255" value="{{ repomd.repo_name }}">
+          </div>
+
+          <div class="bx--row">
+            <div class="bx--col-sm-6">
+              <div class="bx--form-item">
+                <label for="arch" class="bx--label">Architecture *</label>
+                <select id="arch" name="arch" class="bx--select-input" required>
+                  <option value="x86_64" {% if repomd.arch == 'x86_64' %}selected{% endif %}>x86_64</option>
+                  <option value="aarch64" {% if repomd.arch == 'aarch64' %}selected{% endif %}>aarch64</option>
+                  <option value="ppc64le" {% if repomd.arch == 'ppc64le' %}selected{% endif %}>ppc64le</option>
+                  <option value="s390x" {% if repomd.arch == 's390x' %}selected{% endif %}>s390x</option>
+                </select>
+              </div>
+            </div>
+            <div class="bx--col-sm-6">
+              <div class="bx--form-item">
+                <fieldset class="bx--fieldset">
+                  <legend class="bx--label">Environment *</legend>
+                  <div class="bx--form-item bx--checkbox-wrapper">
+                    <input id="production" name="production" type="checkbox" class="bx--checkbox"
+                           value="true" {% if repomd.production %}checked{% endif %}>
+                    <label for="production" class="bx--checkbox-label">
+                      <span class="bx--checkbox-label-text">Production</span>
+                    </label>
+                  </div>
+                </fieldset>
+              </div>
+            </div>
+          </div>
+
+          <div class="bx--form-item">
+            <label for="url" class="bx--label">Repository URL *</label>
+            <input id="url" name="url" type="url" class="bx--text-input"
+                   required value="{{ repomd.url }}">
+          </div>
+
+          <div class="bx--form-item">
+            <label for="debug_url" class="bx--label">Debug Repository URL</label>
+            <input id="debug_url" name="debug_url" type="url" class="bx--text-input"
+                   value="{{ repomd.debug_url }}">
+          </div>
+
+          <div class="bx--form-item">
+            <label for="source_url" class="bx--label">Source Repository URL</label>
+            <input id="source_url" name="source_url" type="url" class="bx--text-input"
+                   value="{{ repomd.source_url }}">
+          </div>
+
+          <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+            <button type="submit" class="bx--btn bx--btn--primary">
+              Update Repository
+            </button>
+            <a href="/admin/supported-products/{{ repomd.supported_products_rh_mirror.supported_product.id }}/mirrors/{{ repomd.supported_products_rh_mirror.id }}"
+               class="bx--btn bx--btn--secondary">
+              Back to Mirror
+            </a>
+          </div>
+        </form>
+      </div>
+
+      <div class="bx--col-lg-4">
+        <div class="bx--tile">
+          <h3 class="bx--type-productive-heading-03" style="margin-bottom: 1rem;">Repository Info</h3>
+          <p><strong>Mirror:</strong> {{ repomd.supported_products_rh_mirror.name }}</p>
+          <p><strong>Product:</strong> {{ repomd.supported_products_rh_mirror.supported_product.name }}</p>
+          <p><strong>Environment:</strong>
+            <span class="bx--tag {% if repomd.production %}bx--tag--green{% else %}bx--tag--cool-gray{% endif %}">
+              {% if repomd.production %}Production{% else %}Staging{% endif %}
+            </span>
+          </p>
+          <p><strong>Created:</strong> {{ repomd.created_at.strftime('%Y-%m-%d') }}</p>
+          {% if repomd.updated_at %}
+          <p><strong>Updated:</strong> {{ repomd.updated_at.strftime('%Y-%m-%d') }}</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -69,10 +69,11 @@
 <bx-side-nav aria-label="Side navigation" expanded>
   <bx-side-nav-items>
     {% set current_path = request.url.path %}
-    <bx-side-nav-link href="/admin/" {% if current_path in ['/admin/', '/admin'] and not (current_path.startswith('/admin/workflows') or current_path.startswith('/admin/users') or current_path.startswith('/admin/api-keys') or current_path.startswith('/admin/oidc')) %}active{% endif %}>General</bx-side-nav-link>
+    <bx-side-nav-link href="/admin/" {% if current_path in ['/admin/', '/admin'] and not (current_path.startswith('/admin/workflows') or current_path.startswith('/admin/users') or current_path.startswith('/admin/api-keys') or current_path.startswith('/admin/oidc') or current_path.startswith('/admin/supported-products')) %}active{% endif %}>General</bx-side-nav-link>
     <bx-side-nav-link href="/admin/workflows/" {% if current_path.startswith('/admin/workflows') %}active{% endif %}>Workflows</bx-side-nav-link>
     <bx-side-nav-link href="/admin/users/" {% if current_path.startswith('/admin/users') %}active{% endif %}>Users</bx-side-nav-link>
     <bx-side-nav-link href="/admin/api-keys/" {% if current_path.startswith('/admin/api-keys') %}active{% endif %}>API Keys</bx-side-nav-link>
+    <bx-side-nav-link href="/admin/supported-products/" {% if current_path.startswith('/admin/supported-products') %}active{% endif %}>Supported Products</bx-side-nav-link>
     <bx-side-nav-link href="/admin/oidc/" {% if current_path.startswith('/admin/oidc') %}active{% endif %}>OIDC</bx-side-nav-link>
   </bx-side-nav-items>
 </bx-side-nav>

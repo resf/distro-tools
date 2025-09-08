@@ -1,0 +1,372 @@
+{% extends "admin_layout.jinja" %}
+
+{% block admin_content %}
+<div class="bx--container">
+  <div class="bx--grid">
+    <div class="bx--row">
+      <div class="bx--col">
+        <nav aria-label="breadcrumb" class="bx--breadcrumb">
+          <div class="bx--breadcrumb-item">
+            <a href="/admin/supported-products/" class="bx--link">Supported Products</a>
+          </div>
+          <div class="bx--breadcrumb-item">
+            <a href="/admin/supported-products/{{ mirror.supported_product.id }}" class="bx--link">{{ mirror.supported_product.name }}</a>
+          </div>
+          <div class="bx--breadcrumb-item bx--breadcrumb-item--current">
+            <span>{{ mirror.name }}</span>
+          </div>
+        </nav>
+
+        <h1 class="bx--type-expressive-heading-05">{{ mirror.name }}</h1>
+        <p class="bx--type-body-long-02">Manage Red Hat mirror configuration and associated repositories.</p>
+      </div>
+    </div>
+
+    {% if success %}
+    <div class="bx--row">
+      <div class="bx--col">
+        <div class="bx--inline-notification bx--inline-notification--success" role="alert">
+          <div class="bx--inline-notification__details">
+            <div class="bx--inline-notification__text-wrapper">
+              <div class="bx--inline-notification__title">Success</div>
+              <div class="bx--inline-notification__subtitle">{{ success }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if error %}
+    <div class="bx--row">
+      <div class="bx--col">
+        <div class="bx--inline-notification bx--inline-notification--error" role="alert">
+          <div class="bx--inline-notification__details">
+            <div class="bx--inline-notification__text-wrapper">
+              <div class="bx--inline-notification__title">Error</div>
+              <div class="bx--inline-notification__subtitle">{{ error }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Mirror Configuration Form -->
+    <div class="bx--row">
+      <div class="bx--col-lg-8">
+        <div class="bx--tile" style="margin-bottom: 2rem;">
+          <h2 class="bx--type-productive-heading-04" style="margin-bottom: 1rem;">Mirror Configuration</h2>
+
+          <form method="post" class="bx--form">
+            <div class="bx--form-item">
+              <label for="name" class="bx--label">Mirror Name *</label>
+              <input id="name" name="name" type="text" class="bx--text-input"
+                     required maxlength="255" value="{{ mirror.name }}">
+            </div>
+
+            <div class="bx--form-item">
+              <label for="match_variant" class="bx--label">Match Variant *</label>
+              <select id="match_variant" name="match_variant" class="bx--select-input" required>
+                <option value="Red Hat Enterprise Linux" {% if mirror.match_variant == 'Red Hat Enterprise Linux' %}selected{% endif %}>
+                  Red Hat Enterprise Linux
+                </option>
+                <option value="CentOS Linux" {% if mirror.match_variant == 'CentOS Linux' %}selected{% endif %}>
+                  CentOS Linux
+                </option>
+                <option value="CentOS Stream" {% if mirror.match_variant == 'CentOS Stream' %}selected{% endif %}>
+                  CentOS Stream
+                </option>
+              </select>
+            </div>
+
+            <div class="bx--row">
+              <div class="bx--col-sm-6">
+                <div class="bx--form-item">
+                  <label for="match_major_version" class="bx--label">Major Version *</label>
+                  <select id="match_major_version" name="match_major_version" class="bx--select-input" required>
+                    <option value="7" {% if mirror.match_major_version == 7 %}selected{% endif %}>7</option>
+                    <option value="8" {% if mirror.match_major_version == 8 %}selected{% endif %}>8</option>
+                    <option value="9" {% if mirror.match_major_version == 9 %}selected{% endif %}>9</option>
+                    <option value="10" {% if mirror.match_major_version == 10 %}selected{% endif %}>10</option>
+                  </select>
+                </div>
+              </div>
+              <div class="bx--col-sm-6">
+                <div class="bx--form-item">
+                  <label for="match_minor_version" class="bx--label">Minor Version</label>
+                  <input id="match_minor_version" name="match_minor_version" type="number"
+                         class="bx--text-input" min="0" max="99"
+                         value="{{ mirror.match_minor_version if mirror.match_minor_version else '' }}">
+                </div>
+              </div>
+            </div>
+
+            <div class="bx--form-item">
+              <label for="match_arch" class="bx--label">Architecture *</label>
+              <select id="match_arch" name="match_arch" class="bx--select-input" required>
+                <option value="x86_64" {% if mirror.match_arch == 'x86_64' %}selected{% endif %}>x86_64</option>
+                <option value="aarch64" {% if mirror.match_arch == 'aarch64' %}selected{% endif %}>aarch64</option>
+                <option value="ppc64le" {% if mirror.match_arch == 'ppc64le' %}selected{% endif %}>ppc64le</option>
+                <option value="s390x" {% if mirror.match_arch == 's390x' %}selected{% endif %}>s390x</option>
+              </select>
+            </div>
+
+            <button type="submit" class="bx--btn bx--btn--primary">
+              Update Mirror
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div class="bx--col-lg-4">
+        <div class="bx--tile">
+          <h3 class="bx--type-productive-heading-03" style="margin-bottom: 1rem;">Statistics</h3>
+          <p><strong>Repositories:</strong> {{ mirror.rpm_repomds|length }}</p>
+          <p><strong>Blocked Advisories:</strong> {{ mirror.rh_blocks|length }}</p>
+          <p><strong>Override Rules:</strong> {{ mirror.rpm_rh_overrides|length }}</p>
+          <p><strong>Created:</strong> {{ mirror.created_at.strftime('%Y-%m-%d') }}</p>
+          {% if mirror.updated_at %}
+          <p><strong>Updated:</strong> {{ mirror.updated_at.strftime('%Y-%m-%d') }}</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="bx--row">
+      <div class="bx--col">
+        <div class="bx--tabs" data-tabs>
+          <ul class="bx--tabs__nav" role="tablist">
+            <li class="bx--tabs__nav-item" role="presentation">
+              <a class="bx--tabs__nav-link" href="#repositories" id="repositories-tab" role="tab" aria-controls="repositories" aria-selected="true">
+                Repositories ({{ mirror.rpm_repomds|length }})
+              </a>
+            </li>
+            <li class="bx--tabs__nav-item" role="presentation">
+              <a class="bx--tabs__nav-link" href="#blocks" id="blocks-tab" role="tab" aria-controls="blocks" aria-selected="false">
+                Blocked Advisories ({{ mirror.rh_blocks|length }})
+              </a>
+            </li>
+            <li class="bx--tabs__nav-item" role="presentation">
+              <a class="bx--tabs__nav-link" href="#overrides" id="overrides-tab" role="tab" aria-controls="overrides" aria-selected="false">
+                Overrides ({{ mirror.rpm_rh_overrides|length }})
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Repositories Tab -->
+    <div class="bx--row">
+      <div class="bx--col">
+        <div class="bx--tab-content" id="repositories" role="tabpanel" aria-labelledby="repositories-tab" aria-hidden="false">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 class="bx--type-productive-heading-04">Repository Configurations</h3>
+            <a href="/admin/supported-products/{{ mirror.supported_product.id }}/mirrors/{{ mirror.id }}/repomds/new"
+               class="bx--btn bx--btn--primary">
+              Add Repository
+            </a>
+          </div>
+
+          {% if mirror.rpm_repomds %}
+          <table class="bx--data-table">
+            <thead>
+              <tr>
+                <th><span class="bx--table-header-label">Repository Name</span></th>
+                <th><span class="bx--table-header-label">Architecture</span></th>
+                <th><span class="bx--table-header-label">Production</span></th>
+                <th><span class="bx--table-header-label">URL</span></th>
+                <th><span class="bx--table-header-label">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for repomd in mirror.rpm_repomds %}
+              <tr>
+                <td>{{ repomd.repo_name }}</td>
+                <td>{{ repomd.arch }}</td>
+                <td>
+                  <span class="bx--tag {% if repomd.production %}bx--tag--green{% else %}bx--tag--cool-gray{% endif %}">
+                    {% if repomd.production %}Production{% else %}Staging{% endif %}
+                  </span>
+                </td>
+                <td>
+                  <a href="{{ repomd.url }}" class="bx--link" target="_blank" rel="noopener">
+                    {{ repomd.url[:50] }}{% if repomd.url|length > 50 %}...{% endif %}
+                  </a>
+                </td>
+                <td>
+                  <div style="display: flex; gap: 0.5rem;">
+                    <a href="/admin/supported-products/{{ mirror.supported_product.id }}/mirrors/{{ mirror.id }}/repomds/{{ repomd.id }}"
+                       class="bx--btn bx--btn--ghost bx--btn--sm">Edit</a>
+                    <form method="post" action="/admin/supported-products/{{ mirror.supported_product.id }}/mirrors/{{ mirror.id }}/repomds/{{ repomd.id }}/delete"
+                          style="display: inline;"
+                          onsubmit="return confirm('Are you sure you want to delete this repository configuration?')">
+                      <button type="submit" class="bx--btn bx--btn--danger--ghost bx--btn--sm">Delete</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="bx--tile">
+            <p>No repository configurations found.</p>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- Blocks Tab -->
+        <div class="bx--tab-content" id="blocks" role="tabpanel" aria-labelledby="blocks-tab" aria-hidden="true">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 class="bx--type-productive-heading-04">Blocked Red Hat Advisories</h3>
+            <a href="/admin/supported-products/{{ mirror.supported_product.id }}/mirrors/{{ mirror.id }}/blocks/new"
+               class="bx--btn bx--btn--primary">
+              Add Block
+            </a>
+          </div>
+
+          {% if mirror.rh_blocks %}
+          <div class="bx--form__helper-text" style="margin-bottom: 1rem;">
+            These Red Hat advisories are blocked from being processed for this mirror configuration.
+          </div>
+          <table class="bx--data-table">
+            <thead>
+              <tr>
+                <th><span class="bx--table-header-label">Advisory Name</span></th>
+                <th><span class="bx--table-header-label">Severity</span></th>
+                <th><span class="bx--table-header-label">Synopsis</span></th>
+                <th><span class="bx--table-header-label">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for block in mirror.rh_blocks %}
+              <tr>
+                <td>
+                  <a href="/red-hat-advisories/{{ block.red_hat_advisory.id }}" class="bx--link" target="_blank">
+                    {{ block.red_hat_advisory.name }}
+                  </a>
+                </td>
+                <td>
+                  <span class="bx--tag bx--tag--red">{{ block.red_hat_advisory.severity }}</span>
+                </td>
+                <td>{{ block.red_hat_advisory.synopsis[:100] }}{% if block.red_hat_advisory.synopsis|length > 100 %}...{% endif %}</td>
+                <td>
+                  <form method="post" action="/admin/supported-products/{{ mirror.supported_product.id }}/mirrors/{{ mirror.id }}/blocks/{{ block.id }}/delete"
+                        style="display: inline;"
+                        onsubmit="return confirm('Are you sure you want to remove this block?')">
+                    <button type="submit" class="bx--btn bx--btn--danger--ghost bx--btn--sm">Remove</button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="bx--tile">
+            <p>No blocked advisories configured.</p>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- Overrides Tab -->
+        <div class="bx--tab-content" id="overrides" role="tabpanel" aria-labelledby="overrides-tab" aria-hidden="true">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 class="bx--type-productive-heading-04">Advisory Overrides</h3>
+            <a href="/admin/supported-products/{{ mirror.supported_product.id }}/mirrors/{{ mirror.id }}/overrides/new"
+               class="bx--btn bx--btn--primary">
+              Add Override
+            </a>
+          </div>
+
+          {% if mirror.rpm_rh_overrides %}
+          <div class="bx--form__helper-text" style="margin-bottom: 1rem;">
+            These Red Hat advisories have special processing rules for this mirror configuration.
+          </div>
+          <table class="bx--data-table">
+            <thead>
+              <tr>
+                <th><span class="bx--table-header-label">Advisory Name</span></th>
+                <th><span class="bx--table-header-label">Severity</span></th>
+                <th><span class="bx--table-header-label">Synopsis</span></th>
+                <th><span class="bx--table-header-label">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for override in mirror.rpm_rh_overrides %}
+              <tr>
+                <td>
+                  <a href="/red-hat-advisories/{{ override.red_hat_advisory.id }}" class="bx--link" target="_blank">
+                    {{ override.red_hat_advisory.name }}
+                  </a>
+                </td>
+                <td>
+                  <span class="bx--tag bx--tag--blue">{{ override.red_hat_advisory.severity }}</span>
+                </td>
+                <td>{{ override.red_hat_advisory.synopsis[:100] }}{% if override.red_hat_advisory.synopsis|length > 100 %}...{% endif %}</td>
+                <td>
+                  <form method="post" action="/admin/supported-products/{{ mirror.supported_product.id }}/mirrors/{{ mirror.id }}/overrides/{{ override.id }}/delete"
+                        style="display: inline;"
+                        onsubmit="return confirm('Are you sure you want to remove this override?')">
+                    <button type="submit" class="bx--btn bx--btn--danger--ghost bx--btn--sm">Remove</button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="bx--tile">
+            <p>No advisory overrides configured.</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Simple tab functionality since Carbon tabs might not be available
+document.addEventListener('DOMContentLoaded', function() {
+  const tabs = document.querySelectorAll('.bx--tabs__nav-link');
+  const tabPanels = document.querySelectorAll('.bx--tab-content');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', function(e) {
+      e.preventDefault();
+
+      // Remove active state from all tabs
+      tabs.forEach(t => {
+        t.setAttribute('aria-selected', 'false');
+        t.classList.remove('bx--tabs__nav-link--active');
+      });
+
+      // Hide all panels
+      tabPanels.forEach(panel => {
+        panel.setAttribute('aria-hidden', 'true');
+        panel.style.display = 'none';
+      });
+
+      // Activate clicked tab
+      this.setAttribute('aria-selected', 'true');
+      this.classList.add('bx--tabs__nav-link--active');
+
+      // Show corresponding panel
+      const targetPanel = document.querySelector(this.getAttribute('href'));
+      if (targetPanel) {
+        targetPanel.setAttribute('aria-hidden', 'false');
+        targetPanel.style.display = 'block';
+      }
+    });
+  });
+
+  // Initialize first tab as active
+  if (tabs.length > 0) {
+    tabs[0].click();
+  }
+});
+</script>
+{% endblock %}

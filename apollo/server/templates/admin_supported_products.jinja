@@ -1,0 +1,116 @@
+{% extends "admin_layout.jinja" %}
+
+{% block admin_content %}
+<div class="bx--container">
+  <div class="bx--grid">
+    <div class="bx--row">
+      <div class="bx--col">
+        <h1 class="bx--type-expressive-heading-05">Supported Products</h1>
+        <p class="bx--type-body-long-02">Manage supported products and their Red Hat mirror configurations.</p>
+      </div>
+    </div>
+
+    {% if products.items %}
+    <div class="bx--row">
+      <div class="bx--col">
+        <table class="bx--data-table bx--data-table--sticky-header">
+          <thead>
+            <tr>
+              <th>
+                <span class="bx--table-header-label">Name</span>
+              </th>
+              <th>
+                <span class="bx--table-header-label">Variant</span>
+              </th>
+              <th>
+                <span class="bx--table-header-label">Vendor</span>
+              </th>
+              <th>
+                <span class="bx--table-header-label">Mirrors</span>
+              </th>
+              <th>
+                <span class="bx--table-header-label">Repositories</span>
+              </th>
+              <th>
+                <span class="bx--table-header-label">Blocks</span>
+              </th>
+              <th>
+                <span class="bx--table-header-label">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for product in products.items %}
+            <tr>
+              <td>
+                <a href="/admin/supported-products/{{ product.id }}" class="bx--link">
+                  {{ product.name }}
+                </a>
+              </td>
+              <td>{{ product.variant }}</td>
+              <td>{{ product.vendor }}</td>
+              <td>
+                <span class="bx--tag bx--tag--cool-gray">
+                  {{ product.stats.mirrors }} mirrors
+                </span>
+              </td>
+              <td>
+                <span class="bx--tag bx--tag--blue">
+                  {{ product.stats.repomds }} repos
+                </span>
+              </td>
+              <td>
+                <span class="bx--tag bx--tag--red">
+                  {{ product.stats.blocks }} blocks
+                </span>
+              </td>
+              <td>
+                <a href="/admin/supported-products/{{ product.id }}" class="bx--btn bx--btn--ghost bx--btn--sm">
+                  Manage
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {% if products_pages > 1 %}
+    <div class="bx--row">
+      <div class="bx--col">
+        <nav class="bx--pagination" aria-label="Table pagination">
+          <div class="bx--pagination__left">
+            <span class="bx--pagination__text">
+              Showing {{ (products.page - 1) * products.size + 1 }}-{{ products.page * products.size if products.page * products.size < products.total else products.total }} of {{ products.total }} products
+            </span>
+          </div>
+          <div class="bx--pagination__right">
+            {% if products.page > 1 %}
+            <a href="?page={{ products.page - 1 }}" class="bx--pagination__button bx--pagination__button--backward">
+              <span class="bx--pagination__button-text">Previous</span>
+            </a>
+            {% endif %}
+            {% if products.page < products_pages %}
+            <a href="?page={{ products.page + 1 }}" class="bx--pagination__button bx--pagination__button--forward">
+              <span class="bx--pagination__button-text">Next</span>
+            </a>
+            {% endif %}
+          </div>
+        </nav>
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="bx--row">
+      <div class="bx--col">
+        <div class="bx--tile">
+          <p>No supported products found.</p>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
