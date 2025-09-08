@@ -46,10 +46,7 @@ async def admin_api_key_new(request: Request):
 async def admin_api_key_new_post(request: Request):
     user = request.state.user
     
-    # Debug: Get raw form data to see what's being sent
     form_data = await request.form()
-    logger = Logger()
-    logger.info(f"Form data received: {dict(form_data)}")
     
     name = form_data.get("name", "")
     expires_days = form_data.get("expires_days")

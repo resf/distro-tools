@@ -13,10 +13,6 @@ create table api_keys (
   last_used_at timestamptz
 );
 
-create index api_keys_user_id_idx on api_keys(user_id);
-create index api_keys_key_prefix_idx on api_keys(key_prefix);
-create index api_keys_revoked_at_idx on api_keys(revoked_at);
-create index api_keys_expires_at_idx on api_keys(expires_at);
 
 -- migrate:down
 drop table if exists api_keys;

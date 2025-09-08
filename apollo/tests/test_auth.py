@@ -96,7 +96,6 @@ class TestAPIKeyAuth(unittest.TestCase):
 
         self.assertEqual(result, self.mock_api_key.user)
         mock_verify.assert_called_once_with(self.raw_key)
-        print("✓ Successful auth without permission requirement")
 
     @patch("apollo.server.auth.verify_api_key")
     def test_successful_authentication_with_valid_permission(self, mock_verify):
@@ -107,7 +106,6 @@ class TestAPIKeyAuth(unittest.TestCase):
 
         self.assertEqual(result, self.mock_api_key.user)
         mock_verify.assert_called_once_with(self.raw_key)
-        print("✓ Successful auth with valid permission")
 
     @patch("apollo.server.auth.verify_api_key")
     def test_authentication_with_wildcard_permission(self, mock_verify):
@@ -118,7 +116,6 @@ class TestAPIKeyAuth(unittest.TestCase):
         result = asyncio.run(api_key_auth(self.mock_request, "any:permission"))
 
         self.assertEqual(result, wildcard_api_key.user)
-        print("✓ Successful auth with wildcard permission")
 
     def test_missing_authorization_header(self):
         """Test authentication failure when Authorization header is missing."""
@@ -134,7 +131,6 @@ class TestAPIKeyAuth(unittest.TestCase):
         self.assertIn(
             "Missing or invalid Authorization header", context.exception.detail
         )
-        print("✓ Properly rejects missing Authorization header")
 
     def test_invalid_authorization_header_format(self):
         """Test authentication failure with invalid Authorization header format."""
@@ -156,7 +152,6 @@ class TestAPIKeyAuth(unittest.TestCase):
                     asyncio.run(api_key_auth(mock_request))
 
                 self.assertEqual(context.exception.status_code, 401)
-                print(f"✓ Rejected invalid header: {headers['Authorization']}")
 
     @patch("apollo.server.auth.verify_api_key")
     def test_invalid_api_key(self, mock_verify):
@@ -170,7 +165,6 @@ class TestAPIKeyAuth(unittest.TestCase):
 
         self.assertEqual(context.exception.status_code, 401)
         self.assertEqual(context.exception.detail, "Invalid API key")
-        print("✓ Properly rejects invalid API key")
 
     @patch("apollo.server.auth.verify_api_key")
     def test_insufficient_permissions(self, mock_verify):
@@ -186,7 +180,6 @@ class TestAPIKeyAuth(unittest.TestCase):
 
         self.assertEqual(context.exception.status_code, 403)
         self.assertIn("does not have required permission", context.exception.detail)
-        print("✓ Properly rejects insufficient permissions")
 
 
 class TestWorkflowAPIKeyAuth(unittest.TestCase):
@@ -210,7 +203,6 @@ class TestWorkflowAPIKeyAuth(unittest.TestCase):
 
         self.assertEqual(result, self.mock_user)
         mock_api_key_auth.assert_called_once_with(self.mock_request, "workflow:trigger")
-        print("✓ Workflow auth delegates correctly")
 
     @patch("apollo.server.auth.api_key_auth")
     def test_workflow_auth_failure(self, mock_api_key_auth):
@@ -226,7 +218,6 @@ class TestWorkflowAPIKeyAuth(unittest.TestCase):
             asyncio.run(workflow_api_key_auth(self.mock_request))
 
         self.assertEqual(context.exception.status_code, 403)
-        print("✓ Workflow auth properly propagates permission errors")
 
 
 class TestAPIKeyOrSessionAuth(unittest.TestCase):
@@ -248,7 +239,6 @@ class TestAPIKeyOrSessionAuth(unittest.TestCase):
 
         self.assertEqual(result, self.mock_user)
         mock_api_key_auth.assert_called_once_with(mock_request)
-        print("✓ API key auth takes priority")
 
     @patch("apollo.server.utils.admin_user_scheme")
     def test_session_authentication_fallback(self, mock_session_auth):
@@ -261,7 +251,6 @@ class TestAPIKeyOrSessionAuth(unittest.TestCase):
 
         self.assertEqual(result, self.mock_user)
         mock_session_auth.assert_called_once_with(mock_request)
-        print("✓ Falls back to session auth for non-API-key tokens")
 
     @patch("apollo.server.utils.admin_user_scheme")
     def test_session_authentication_no_header(self, mock_session_auth):
@@ -274,7 +263,6 @@ class TestAPIKeyOrSessionAuth(unittest.TestCase):
 
         self.assertEqual(result, self.mock_user)
         mock_session_auth.assert_called_once_with(mock_request)
-        print("✓ Falls back to session auth when no Authorization header")
 
 
 class TestAuthenticationSecurity(unittest.TestCase):
@@ -302,7 +290,6 @@ class TestAuthenticationSecurity(unittest.TestCase):
                     asyncio.run(api_key_auth(mock_request))
 
                 self.assertEqual(context.exception.status_code, 401)
-                print(f"✓ Rejected invalid format: {repr(auth_header)}")
 
     def test_api_key_format_validation(self):
         """Test that API key format is strictly validated."""
@@ -333,7 +320,6 @@ class TestAuthenticationSecurity(unittest.TestCase):
                 self.assertTrue(
                     any(msg in context.exception.detail for msg in expected_messages)
                 )
-                print(f"✓ Rejected invalid key format: {auth_header}")
 
     def test_case_sensitivity_enforcement(self):
         """Test that case sensitivity is properly enforced."""
@@ -355,7 +341,6 @@ class TestAuthenticationSecurity(unittest.TestCase):
                     asyncio.run(api_key_auth(mock_request))
 
                 self.assertEqual(context.exception.status_code, 401)
-                print(f"✓ Enforced case sensitivity: {auth_header}")
 
 
 class TestAPIKeyVerificationWithDatabase(unittest.TestCase):
@@ -369,7 +354,6 @@ class TestAPIKeyVerificationWithDatabase(unittest.TestCase):
             with self.subTest(invalid_key=invalid_key):
                 result = asyncio.run(verify_api_key(invalid_key))
                 self.assertIsNone(result)
-                print(f"✓ Invalid format rejected: {invalid_key}")
 
     @patch("apollo.server.auth.APIKey")
     def test_verify_valid_api_key_with_database_mock(self, mock_api_key_model):
@@ -397,7 +381,6 @@ class TestAPIKeyVerificationWithDatabase(unittest.TestCase):
         mock_api_key_model.filter.assert_called_once_with(
             key_prefix=mock_api_key.key_prefix, revoked_at__isnull=True
         )
-        print("✓ Valid API key verified with database mock")
 
     @patch("apollo.server.auth.APIKey")
     def test_verify_expired_key_with_database_mock(self, mock_api_key_model):
@@ -417,7 +400,6 @@ class TestAPIKeyVerificationWithDatabase(unittest.TestCase):
 
         # Save should not be called for expired key
         expired_key.save.assert_not_called()
-        print("✓ Expired key properly rejected")
 
     @patch("apollo.server.auth.APIKey")
     def test_verify_nonexistent_key_with_database_mock(self, mock_api_key_model):
@@ -429,7 +411,6 @@ class TestAPIKeyVerificationWithDatabase(unittest.TestCase):
 
         result = asyncio.run(verify_api_key(raw_key))
         self.assertIsNone(result)
-        print("✓ Non-existent key properly rejected")
 
 
 class TestAuthenticationEdgeCases(unittest.TestCase):
@@ -468,12 +449,10 @@ class TestAuthenticationEdgeCases(unittest.TestCase):
                         api_key_auth(mock_request, required_permission)
                     )
                     self.assertEqual(result, mock_api_key.user)
-                    print(f"✓ Permission '{required_permission}' correctly allowed")
                 else:
                     with self.assertRaises(HTTPException) as context:
                         asyncio.run(api_key_auth(mock_request, required_permission))
                     self.assertEqual(context.exception.status_code, 403)
-                    print(f"✓ Permission '{required_permission}' correctly denied")
 
     @patch("apollo.server.auth.verify_api_key")
     def test_permission_injection_resistance(self, mock_verify):
@@ -500,7 +479,6 @@ class TestAuthenticationEdgeCases(unittest.TestCase):
                     asyncio.run(api_key_auth(mock_request, malicious_permission))
 
                 self.assertEqual(context.exception.status_code, 403)
-                print(f"✓ Rejected malicious permission: {malicious_permission}")
 
 
 class TestDatabaseIntegrationScenarios(unittest.TestCase):
@@ -528,7 +506,6 @@ class TestDatabaseIntegrationScenarios(unittest.TestCase):
         filter_result = mock_api_key_model.filter.return_value
         filter_result.prefetch_related.assert_called_once_with("user")
 
-        print("✓ Database query optimization verified")
 
     @patch("apollo.server.auth.APIKey")
     def test_last_used_timestamp_update(self, mock_api_key_model):
@@ -549,7 +526,6 @@ class TestDatabaseIntegrationScenarios(unittest.TestCase):
         self.assertIsNotNone(mock_api_key.last_used_at)
         mock_api_key.save.assert_called_once()
 
-        print("✓ last_used_at timestamp update verified")
 
 
 if __name__ == "__main__":

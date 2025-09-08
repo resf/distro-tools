@@ -28,7 +28,6 @@ class TestAPIKeyGeneration(unittest.TestCase):
         self.assertNotEqual(key_hash, raw_key)
         self.assertGreater(len(key_hash), 50)
 
-        print(f"✓ Generated key format: {raw_key[:22]}...")
 
     def test_generate_api_key_randomness(self):
         """Test that generated keys are unique."""
@@ -44,7 +43,6 @@ class TestAPIKeyGeneration(unittest.TestCase):
         self.assertEqual(len(set(keys)), 10)
         self.assertEqual(len(set(hashes)), 10)
 
-        print("✓ Generated 10 unique keys and hashes")
 
     def test_get_api_key_prefix_valid(self):
         """Test prefix extraction from valid API keys."""
@@ -55,7 +53,6 @@ class TestAPIKeyGeneration(unittest.TestCase):
         self.assertEqual(len(prefix), 22)
         self.assertTrue(raw_key.startswith(prefix))
 
-        print(f"✓ Prefix: {prefix}")
 
     def test_get_api_key_prefix_invalid(self):
         """Test prefix extraction from invalid keys."""
@@ -70,7 +67,6 @@ class TestAPIKeyGeneration(unittest.TestCase):
             with self.subTest(invalid_key=invalid_key):
                 prefix = get_api_key_prefix(invalid_key)
                 self.assertEqual(prefix, expected_prefix)
-                print(f"✓ Invalid key '{invalid_key}' -> prefix '{prefix}'")
 
     def test_key_hash_verification(self):
         """Test that generated hashes can verify original keys."""
@@ -83,7 +79,6 @@ class TestAPIKeyGeneration(unittest.TestCase):
         other_key, _ = generate_api_key()
         self.assertFalse(api_key_context.verify(other_key, key_hash))
 
-        print("✓ Key verification works correctly")
 
 
 class TestAPIKeySecurityScenarios(unittest.TestCase):
@@ -103,7 +98,6 @@ class TestAPIKeySecurityScenarios(unittest.TestCase):
         raw_key2, key_hash2 = generate_api_key()
         self.assertNotEqual(key_hash, key_hash2)
 
-        print("✓ Hash security properties verified")
 
     def test_key_format_validation(self):
         """Test key format validation logic."""
@@ -124,7 +118,6 @@ class TestAPIKeySecurityScenarios(unittest.TestCase):
             key_chars = set(raw_key)
             self.assertTrue(key_chars.issubset(valid_chars))
 
-        print("✓ Key format validation passed")
 
 
 class TestAPIKeyEdgeCases(unittest.TestCase):
@@ -149,7 +142,6 @@ class TestAPIKeyEdgeCases(unittest.TestCase):
             with self.subTest(input_key=input_key):
                 actual_prefix = get_api_key_prefix(input_key)
                 self.assertEqual(actual_prefix, expected_prefix)
-                print(f"✓ '{input_key}' -> '{actual_prefix}'")
 
     def test_moderate_scale_generation(self):
         """Test generating a moderate number of keys."""
@@ -166,7 +158,6 @@ class TestAPIKeyEdgeCases(unittest.TestCase):
         self.assertEqual(len(keys), 20)
         self.assertEqual(len(hashes), 20)
 
-        print("✓ Generated 20 unique keys and hashes")
 
 
 class TestAPIKeyValidation(unittest.TestCase):
@@ -188,7 +179,6 @@ class TestAPIKeyValidation(unittest.TestCase):
         # Original key should start with the prefix
         self.assertTrue(raw_key.startswith(prefix1))
 
-        print("✓ Prefix extraction is consistent")
 
 
 class TestAPIKeyEntropy(unittest.TestCase):
@@ -218,8 +208,6 @@ class TestAPIKeyEntropy(unittest.TestCase):
         unique_chars = len(char_counts)
         self.assertGreater(unique_chars, 10)  # Should use variety of base64 charset
 
-        print("✓ Generated 15 unique keys")
-        print(f"✓ Character variety: {unique_chars} different characters")
 
     def test_hash_uniqueness(self):
         """Test that hashes are unique for different keys."""
@@ -235,7 +223,6 @@ class TestAPIKeyEntropy(unittest.TestCase):
         self.assertTrue(api_key_context.verify(raw_key2, hash2))
         self.assertFalse(api_key_context.verify(raw_key2, hash1))
 
-        print("✓ Hash uniqueness verified")
 
 
 if __name__ == "__main__":
