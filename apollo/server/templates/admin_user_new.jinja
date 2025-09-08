@@ -12,11 +12,12 @@
     <bx-input required name="email" type="email" form_id="new_user_form">
       <span slot="label-text">Email</span>
     </bx-input>
-    <bx-select label-text="Role" name="role" form_id="new_user_form">
-      <bx-select-item value=""></bx-select-item>
-      <bx-select-item value="admin">Admin</bx-select-item>
-      <bx-select-item value="elevated">Elevated</bx-select-item>
-    </bx-select>
+    <label for="role" style="display:block;margin-bottom:0.5rem;font-weight:500;">Role</label>
+    <select name="role" id="role" form="new_user_form" style="width:100%;padding:0.5rem;border:1px solid #8d8d8d;border-radius:0;background-color:#f4f4f4;font-size:0.875rem;line-height:1.125rem;" required>
+      <option value="">Select a role...</option>
+      <option value="admin">Admin</option>
+      <option value="elevated">Elevated</option>
+    </select>
     <p>A random password will be generated on creation</p>
     <bx-btn type="submit" style="margin-top:1rem;margin-bottom:1rem;display:block" form_id="new_user_form">
       Create new user

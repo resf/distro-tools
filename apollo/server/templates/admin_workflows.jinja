@@ -1,0 +1,430 @@
+{% extends "admin_layout.jinja" %}
+
+{% block admin_content %}
+<div class="bx--container">
+    <div style="padding: 2rem;">
+        <h1>Workflow Management</h1>
+        <p>Manually trigger workflows for development and testing purposes.</p>
+
+        <!-- Status Messages -->
+        {% if request.session.get('workflow_message') %}
+            {% set message_type = request.session.get('workflow_type', 'info') %}
+            <div class="status-message status-message-{{ message_type }}">
+                <strong>
+                    {% if message_type == 'success' %}✅ Success:{% elif message_type == 'error' %}❌ Error:{% else %}ℹ️ Info:{% endif %}
+                </strong>
+                {{ request.session.pop('workflow_message') }}
+                {% set _ = request.session.pop('workflow_type', None) %}
+            </div>
+        {% endif %}
+
+        <!-- RH Matcher Workflow Section -->
+        <div class="workflow-section">
+            <h2>RH Matcher Workflow</h2>
+            <p>Matches Red Hat advisories to Rocky Linux packages. Optionally filter by Rocky Linux major versions.</p>
+            
+            <form action="/admin/workflows/rh-matcher/trigger" method="post" style="margin-top: 1rem;">
+                <fieldset style="border: none; padding: 0; margin: 0;">
+                    <legend style="font-weight: bold; margin-bottom: 1rem;">Major Version Filter (optional):</legend>
+                    
+                    <div style="margin-bottom: 1rem;">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="major_versions" value="8" style="margin-right: 0.5rem;">
+                            Rocky Linux 8
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="major_versions" value="9" style="margin-right: 0.5rem;">
+                            Rocky Linux 9
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="major_versions" value="10" style="margin-right: 0.5rem;">
+                            Rocky Linux 10
+                        </label>
+                    </div>
+                    
+                    <p class="help-text">
+                        <em>Note: If no versions are selected, all available versions will be processed.</em>
+                    </p>
+                </fieldset>
+                
+                <button type="submit" class="btn btn-primary">
+                    Trigger RH Matcher Workflow
+                </button>
+            </form>
+        </div>
+
+        <!-- Poll RHCSAF Workflow Section -->
+        <div class="workflow-section">
+            <h2>Poll RH CSAF Advisories Workflow</h2>
+            <p>Polls Red Hat for new CSAF (Common Security Advisory Framework) advisories.</p>
+            
+            <form action="/admin/workflows/poll-rhcsaf/trigger" method="post" style="margin-top: 1rem;">
+                <button type="submit" class="btn btn-success">
+                    Trigger Poll RHCSAF Workflow
+                </button>
+            </form>
+        </div>
+
+        {% if reset_allowed %}
+        <!-- Database Operations Section (Development Only) -->
+        <div class="database-section">
+            <h2>⚠️ Database Operations ({{ env_name|title }} Only)</h2>
+            <div class="environment-warning">
+                <strong>Environment Notice:</strong> This feature is only available in non-production environments. 
+                Current environment: <code>{{ env_name }}</code>
+            </div>
+            
+            <p>Perform partial database reset by deleting Red Hat advisories created after a specified date. 
+               This will also delete all related records (packages, CVEs, bugzilla bugs, etc.) through CASCADE constraints.</p>
+            
+            <form id="reset-form" action="/admin/workflows/database/partial-reset" method="post" style="margin-top: 1.5rem;">
+                <div style="margin-bottom: 1rem;">
+                    <label for="cutoff_date" style="display: block; font-weight: bold; margin-bottom: 0.5rem;">
+                        Cutoff Date (delete advisories created after this date):
+                    </label>
+                    <input type="date" id="cutoff_date" name="cutoff_date" required 
+                           style="padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem;">
+                    <button type="button" id="preview-btn" class="btn btn-secondary" style="margin-left: 1rem;">
+                        Preview Impact
+                    </button>
+                </div>
+                
+                <div id="preview-results" style="display: none; margin: 1rem 0; padding: 1rem; border: 1px solid #ddd; border-radius: 4px; background-color: #f8f9fa;">
+                    <!-- Preview results will be populated here -->
+                </div>
+                
+                <div class="danger-zone" style="border: 2px solid #dc3545; border-radius: 4px; padding: 1rem; margin: 1rem 0; background-color: #f8d7da;">
+                    <h4 style="color: #721c24; margin-top: 0;">⚠️ Danger Zone</h4>
+                    <p style="color: #721c24; margin-bottom: 1rem;">
+                        <strong>WARNING:</strong> This operation will permanently delete data and cannot be undone. 
+                        Use only in development/testing environments.
+                    </p>
+                    
+                    <label class="checkbox-label" style="color: #721c24;">
+                        <input type="checkbox" id="confirm" name="confirm" value="true" required>
+                        I understand this will permanently delete Red Hat advisories and all related data
+                    </label>
+                </div>
+                
+                <button type="submit" id="reset-btn" class="btn btn-danger" disabled>
+                    Perform Partial Database Reset
+                </button>
+            </form>
+        </div>
+        {% endif %}
+
+        <!-- Information Section -->
+        <div class="info-section">
+            <h3>ℹ️ Workflow Information</h3>
+            <ul style="margin-left: 1.5rem; line-height: 1.6;">
+                <li><strong>RH Matcher Workflow:</strong> Runs on the <code>v2-rpmworker</code> task queue</li>
+                <li><strong>Poll RHCSAF Workflow:</strong> Runs on the <code>v2-rhworker</code> task queue</li>
+                <li><strong>Status Monitoring:</strong> Check workflow status via Temporal CLI or API endpoints</li>
+                <li><strong>Development Use:</strong> These manual triggers are intended for development and testing</li>
+                {% if reset_allowed %}
+                <li><strong>Database Reset:</strong> Available in {{ env_name }} environment for development purposes</li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Status Messages */
+.status-message {
+    margin-bottom: 2rem; 
+    padding: 1rem; 
+    border-radius: 4px;
+    border: 1px solid;
+}
+
+.status-message-success {
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+}
+
+.status-message-error {
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
+}
+
+.status-message-info {
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+    color: #0c5460;
+}
+
+/* Dark theme support */
+@media (prefers-color-scheme: dark) {
+    .status-message-success {
+        background-color: #1e3a1e;
+        border-color: #2e5a2e;
+        color: #a3d9a3;
+    }
+
+    .status-message-error {
+        background-color: #3a1e1e;
+        border-color: #5a2e2e;
+        color: #d9a3a3;
+    }
+
+    .status-message-info {
+        background-color: #1e2a3a;
+        border-color: #2e3e5a;
+        color: #a3c9d9;
+    }
+}
+
+/* Workflow Sections */
+.workflow-section {
+    margin-bottom: 3rem; 
+    padding: 1.5rem; 
+    border: 1px solid #ddd; 
+    border-radius: 8px; 
+    background-color: #f9f9f9;
+}
+
+@media (prefers-color-scheme: dark) {
+    .workflow-section {
+        background-color: #2a2a2a;
+        border-color: #555;
+        color: #e0e0e0;
+    }
+}
+
+/* Information Section */
+.info-section {
+    padding: 1.5rem; 
+    border: 1px solid #0f62fe; 
+    border-radius: 8px; 
+    background-color: #f0f4ff;
+}
+
+@media (prefers-color-scheme: dark) {
+    .info-section {
+        background-color: #1a1a2e;
+        border-color: #4a6cf7;
+        color: #e0e0e0;
+    }
+}
+
+/* Buttons */
+.btn {
+    padding: 0.75rem 1.5rem; 
+    border: none; 
+    border-radius: 4px; 
+    cursor: pointer; 
+    font-size: 1rem;
+    color: white;
+}
+
+.btn-primary {
+    background-color: #0f62fe;
+}
+
+.btn-success {
+    background-color: #24a148;
+}
+
+.btn:hover {
+    opacity: 0.9;
+}
+
+.btn:active {
+    transform: translateY(1px);
+}
+
+/* Checkboxes */
+.checkbox-label {
+    display: block; 
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+}
+
+.checkbox-label:hover {
+    background-color: #f5f5f5;
+    padding: 0.25rem;
+    margin: -0.25rem;
+    border-radius: 3px;
+}
+
+@media (prefers-color-scheme: dark) {
+    .checkbox-label:hover {
+        background-color: #404040;
+    }
+}
+
+input[type="checkbox"] {
+    transform: scale(1.2);
+    margin-right: 0.5rem;
+}
+
+/* Help Text */
+.help-text {
+    font-size: 0.9em; 
+    color: #666; 
+    margin-bottom: 1rem;
+}
+
+@media (prefers-color-scheme: dark) {
+    .help-text {
+        color: #aaa;
+    }
+}
+
+/* Database Operations Section */
+.database-section {
+    margin-bottom: 3rem; 
+    padding: 1.5rem; 
+    border: 2px solid #ffc107; 
+    border-radius: 8px; 
+    background-color: #fff3cd;
+}
+
+.environment-warning {
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background-color: #d1ecf1;
+    border: 1px solid #bee5eb;
+    border-radius: 4px;
+    color: #0c5460;
+}
+
+.danger-zone {
+    border: 2px solid #dc3545;
+    border-radius: 4px;
+    padding: 1rem;
+    margin: 1rem 0;
+    background-color: #f8d7da;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+@media (prefers-color-scheme: dark) {
+    .database-section {
+        background-color: #3a3a1e;
+        border-color: #ffc107;
+        color: #e0e0e0;
+    }
+    
+    .environment-warning {
+        background-color: #1e2a3a;
+        border-color: #2e3e5a;
+        color: #a3c9d9;
+    }
+    
+    .danger-zone {
+        background-color: #3a1e1e;
+        border-color: #dc3545;
+    }
+    
+    #preview-results {
+        background-color: #2a2a2a !important;
+        border-color: #555 !important;
+        color: #e0e0e0 !important;
+    }
+}
+
+/* Dark theme overrides for text */
+@media (prefers-color-scheme: dark) {
+    h1, h2, h3, p {
+        color: #e0e0e0;
+    }
+    
+    code {
+        background-color: #404040;
+        color: #f0f0f0;
+        padding: 0.2rem 0.4rem;
+        border-radius: 3px;
+    }
+}
+</style>
+
+{% if reset_allowed %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const confirmCheckbox = document.getElementById('confirm');
+    const resetBtn = document.getElementById('reset-btn');
+    const previewBtn = document.getElementById('preview-btn');
+    const cutoffDateInput = document.getElementById('cutoff_date');
+    const previewResults = document.getElementById('preview-results');
+    
+    // Enable/disable reset button based on confirmation checkbox
+    if (confirmCheckbox && resetBtn) {
+        confirmCheckbox.addEventListener('change', function() {
+            resetBtn.disabled = !this.checked;
+        });
+    }
+    
+    // Preview functionality
+    if (previewBtn && cutoffDateInput) {
+        previewBtn.addEventListener('click', async function() {
+            const cutoffDate = cutoffDateInput.value;
+            if (!cutoffDate) {
+                alert('Please select a cutoff date first');
+                return;
+            }
+            
+            previewBtn.disabled = true;
+            previewBtn.textContent = 'Loading...';
+            
+            try {
+                const response = await fetch(`/admin/workflows/database/preview-reset?cutoff_date=${cutoffDate}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    previewResults.innerHTML = `
+                        <h4>Preview Results:</h4>
+                        <ul>
+                            <li><strong>Cutoff Date:</strong> ${data.cutoff_date}</li>
+                            <li><strong>Red Hat Advisories to Delete:</strong> ${data.red_hat_advisories_count}</li>
+                            <li><strong>Note:</strong> ${data.note}</li>
+                        </ul>
+                        ${data.red_hat_advisories_count > 0 ? 
+                          '<p style="color: #dc3545;"><strong>Warning:</strong> This will permanently delete the above records!</p>' : 
+                          '<p style="color: #28a745;">No advisories will be deleted with this date.</p>'}
+                    `;
+                    previewResults.style.display = 'block';
+                } else {
+                    previewResults.innerHTML = `
+                        <h4>Preview Error:</h4>
+                        <p style="color: #dc3545;">${data.detail || 'Failed to preview reset'}</p>
+                    `;
+                    previewResults.style.display = 'block';
+                }
+            } catch (error) {
+                previewResults.innerHTML = `
+                    <h4>Preview Error:</h4>
+                    <p style="color: #dc3545;">Failed to connect to server: ${error.message}</p>
+                `;
+                previewResults.style.display = 'block';
+            } finally {
+                previewBtn.disabled = false;
+                previewBtn.textContent = 'Preview Impact';
+            }
+        });
+    }
+    
+    // Hide preview results when date changes
+    if (cutoffDateInput) {
+        cutoffDateInput.addEventListener('change', function() {
+            previewResults.style.display = 'none';
+        });
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

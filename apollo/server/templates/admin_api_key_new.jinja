@@ -1,0 +1,100 @@
+{% extends "admin_layout.jinja" %}
+
+{% block admin_content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+  <h2>Create New API Key</h2>
+  <bx-btn href="/admin/api-keys" kind="secondary">Back to API Keys</bx-btn>
+</div>
+
+{% if success %}
+<bx-inline-notification kind="success" title="API Key Created Successfully" hide-close-button>
+  <div>
+    <p><strong>Your new API key:</strong></p>
+    <div style="background:#f4f4f4;padding:1rem;margin:1rem 0;border-radius:4px;font-family:monospace;word-break:break-all;">
+      {{ api_key }}
+    </div>
+    <p><strong style="color:red;">⚠️ Important:</strong> Copy this key now. For security reasons, it will never be shown again.</p>
+    <p><strong>Key Details:</strong></p>
+    <ul>
+      <li><strong>Name:</strong> {{ key_info.name }}</li>
+      <li><strong>Permissions:</strong> {{ key_info.permissions|join(', ') }}</li>
+      <li><strong>Created:</strong> {{ key_info.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</li>
+      {% if key_info.expires_at %}
+      <li><strong>Expires:</strong> {{ key_info.expires_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</li>
+      {% else %}
+      <li><strong>Expires:</strong> Never</li>
+      {% endif %}
+    </ul>
+  </div>
+</bx-inline-notification>
+{% else %}
+
+{% if error %}
+<bx-inline-notification kind="error" title="Error" hide-close-button>
+  {{ error }}
+</bx-inline-notification>
+{% endif %}
+
+<form id="new_api_key_form" action="" method="POST">
+  <bx-form-item>
+    <bx-input 
+      required 
+      name="name" 
+      form_id="new_api_key_form"
+      value="{{ name or '' }}"
+      placeholder="e.g., CI/CD Pipeline, Development Testing"
+    >
+      <span slot="label-text">Name</span>
+      <span slot="helper-text">A descriptive name to help you identify this API key</span>
+    </bx-input>
+    
+    <div style="margin-top:1rem;">
+      <label style="display:block;margin-bottom:0.5rem;font-weight:bold;">Permissions</label>
+      <div style="margin-bottom:1rem;">
+        <div style="margin-bottom:0.5rem;">
+          <input 
+            type="checkbox" 
+            id="workflow_trigger" 
+            name="workflow_trigger" 
+            value="true"
+            {% if workflow_trigger %}checked{% endif %}
+            style="margin-right:0.5rem;"
+          />
+          <label for="workflow_trigger">Workflow Trigger - Allow triggering workflows (e.g., advisory matching)</label>
+        </div>
+        <div style="margin-bottom:0.5rem;">
+          <input 
+            type="checkbox" 
+            id="workflow_status" 
+            name="workflow_status" 
+            value="true"
+            {% if workflow_status %}checked{% endif %}
+            style="margin-right:0.5rem;"
+          />
+          <label for="workflow_status">Workflow Status - Allow checking workflow status and results</label>
+        </div>
+      </div>
+    </div>
+    
+    <bx-number-input
+      name="expires_days"
+      form_id="new_api_key_form"
+      value="{{ expires_days or '' }}"
+      placeholder="Leave empty for never expires"
+      min="1"
+      max="3650"
+    >
+      <span slot="label-text">Expires after (days)</span>
+      <span slot="helper-text">Leave empty if the key should never expire</span>
+    </bx-number-input>
+    
+    <button type="submit" 
+            style="padding:0.75rem 1rem;margin-top:1rem;margin-bottom:1rem;display:block;border:1px solid #0f62fe;background-color:#0f62fe;color:#ffffff;cursor:pointer;border-radius:0;font-size:0.875rem;">
+      Create API Key
+    </button>
+    <bx-btn kind="secondary" href="/admin/api-keys">Cancel</bx-btn>
+  </bx-form-item>
+</form>
+
+{% endif %}
+{% endblock %}

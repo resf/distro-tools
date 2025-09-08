@@ -148,11 +148,33 @@ class User(Model):
     name = fields.CharField(max_length=255)
     role = fields.CharField(max_length=255)
 
+    api_keys: fields.ReverseRelation["APIKey"]
+
     class Meta:
         table = "users"
 
     class PydanticMeta:
         exclude = ("password", )
+
+
+class APIKey(Model):
+    id = fields.BigIntField(pk=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True, null=True)
+    revoked_at = fields.DatetimeField(null=True)
+    name = fields.CharField(max_length=255)  # Human-readable name
+    key_hash = fields.CharField(max_length=255)  # Hashed API key
+    key_prefix = fields.CharField(max_length=32)  # First few chars for identification
+    user = fields.ForeignKeyField("models.User", related_name="api_keys")
+    permissions = fields.JSONField(default=list)  # ["workflow:trigger", "workflow:status"]
+    expires_at = fields.DatetimeField(null=True)
+    last_used_at = fields.DatetimeField(null=True)
+
+    class Meta:
+        table = "api_keys"
+
+    class PydanticMeta:
+        exclude = ("key_hash", )
 
 
 class Settings(Model):
