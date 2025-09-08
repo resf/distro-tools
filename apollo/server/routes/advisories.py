@@ -12,7 +12,6 @@ from apollo.server.utils import templates
 
 router = APIRouter(tags=["non-api"])
 
-
 @router.get(
     "/",
     response_class=HTMLResponse,
@@ -40,6 +39,7 @@ async def list_advisories(
             a.severity,
             a.topic,
             a.red_hat_advisory_id,
+            string_agg(distinct 'Rocky Linux ' || ap.major_version, ', ' order by 'Rocky Linux ' || ap.major_version) as affected_products,
             count(a.*) over () as total
         from
             advisories a
@@ -74,9 +74,42 @@ async def list_advisories(
             params,
         )
     else:
-        advisories = await paginate(
-            Advisory.all().order_by("-published_at"),
-            params=params,
+        # For non-search queries, we need to use raw SQL to include product info
+        b = """
+        select
+            a.id,
+            a.created_at,
+            a.updated_at,
+            a.published_at,
+            a.name,
+            a.synopsis,
+            a.description,
+            a.kind,
+            a.severity,
+            a.topic,
+            a.red_hat_advisory_id,
+            string_agg(distinct 'Rocky Linux ' || ap.major_version, ', ' order by 'Rocky Linux ' || ap.major_version) as affected_products,
+            count(a.*) over () as total
+        from
+            advisories a
+        left outer join advisory_affected_products ap on ap.advisory_id = a.id
+        group by a.id
+        order by a.published_at desc
+        limit $1 offset $2
+        """
+        connection = connections.get("default")
+        results = await connection.execute_query(
+            b, [params.size, params.size * (params.page - 1)]
+        )
+        count = 0
+        if results:
+            if results[1]:
+                count = results[1][0]["total"]
+
+        advisories = create_page(
+            results[1],
+            count,
+            params,
         )
     return templates.TemplateResponse(
         "advisories.jinja", {
@@ -88,20 +121,18 @@ async def list_advisories(
         }
     )
 
-
 @router.get(
     "/{advisory_name}",
     response_class=HTMLResponse,
 )
 async def get_advisory(request: Request, advisory_name: str):
-    advisory = await Advisory.get_or_none(name=advisory_name,
-                                         ).prefetch_related(
-                                             "red_hat_advisory",
-                                             "packages",
-                                             "cves",
-                                             "fixes",
-                                             "affected_products",
-                                         )
+    advisory = await Advisory.get_or_none(name=advisory_name).prefetch_related(
+        "red_hat_advisory",
+        "packages",
+        "cves",
+        "fixes",
+        "affected_products",
+    )
     if advisory is None:
         return templates.TemplateResponse(
             "error.jinja", {

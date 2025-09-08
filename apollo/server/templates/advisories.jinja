@@ -22,6 +22,7 @@
             <bx-table-header-row>
                 <bx-table-header-cell>Name</bx-table-header-cell>
                 <bx-table-header-cell>Synopsis</bx-table-header-cell>
+                <bx-table-header-cell>Products</bx-table-header-cell>
                 <bx-table-header-cell>Created at</bx-table-header-cell>
                 <bx-table-header-cell>Issued at</bx-table-header-cell>
                 <bx-table-header-cell>Kind</bx-table-header-cell>
@@ -33,6 +34,7 @@
             <bx-table-row>
                 <bx-table-cell><a href="/{{ advisory.name }}">{{ advisory.name }}</a></bx-table-cell>
                 <bx-table-cell>{{ advisory.synopsis }}</bx-table-cell>
+                <bx-table-cell>{{ advisory.affected_products if advisory.affected_products else 'N/A' }}</bx-table-cell>
                 <bx-table-cell>{{ advisory.created_at.date() }}</bx-table-cell>
                 <bx-table-cell>{{ advisory.published_at.date() }}</bx-table-cell>
                 <bx-table-cell>{{ advisory.kind }}</bx-table-cell>
