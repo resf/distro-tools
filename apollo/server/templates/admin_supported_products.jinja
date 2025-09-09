@@ -7,8 +7,119 @@
       <div class="bx--col">
         <h1 class="bx--type-expressive-heading-05">Supported Products</h1>
         <p class="bx--type-body-long-02">Manage supported products and their Red Hat mirror configurations.</p>
+
+        <div style="margin: 1rem 0; display: flex; gap: 2rem; align-items: center; flex-wrap: wrap;">
+          <div style="display: flex; gap: 1rem; align-items: center;">
+            <span class="bx--type-label-01">Export All Configurations:</span>
+            <a href="/admin/supported-products/export" class="bx--btn bx--btn--tertiary bx--btn--sm">
+              Export JSON
+            </a>
+          </div>
+
+          <div style="display: flex; gap: 1rem; align-items: center;">
+            <span class="bx--type-label-01">Import Configurations:</span>
+            <button type="button" class="bx--btn bx--btn--secondary bx--btn--sm" onclick="toggleImportForm()">
+              Import JSON
+            </button>
+          </div>
+        </div>
+
+        <div id="import-form" style="display: none; margin: 1rem 0; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 4px;">
+          <form method="post" action="/admin/supported-products/import" enctype="multipart/form-data" class="bx--form">
+            <div class="bx--form-item">
+              <label for="config-file" class="bx--label">Configuration File *</label>
+              <div class="bx--file">
+                <input
+                  id="config-file"
+                  name="file"
+                  type="file"
+                  accept=".json"
+                  class="bx--file-input"
+                  required
+                  onchange="updateFileName(this)"
+                >
+                <label for="config-file" class="bx--file-browse-btn bx--btn bx--btn--secondary">
+                  Choose file
+                </label>
+                <div class="bx--file-container">
+                  <div class="bx--file__selected-file">
+                    <p class="bx--file-filename" id="file-name">No file selected</p>
+                  </div>
+                </div>
+              </div>
+              <div class="bx--form__helper-text">
+                Select a JSON configuration file exported from this system
+              </div>
+            </div>
+
+            <div class="bx--form-item bx--checkbox-wrapper">
+              <input id="replace-existing" name="replace_existing" type="checkbox" class="bx--checkbox" value="true">
+              <label for="replace-existing" class="bx--checkbox-label">
+                <span class="bx--checkbox-label-text">Replace existing configurations</span>
+              </label>
+              <div class="bx--form__helper-text">
+                If unchecked, existing configurations will be skipped
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+              <button type="submit" class="bx--btn bx--btn--primary bx--btn--sm">
+                Import
+              </button>
+              <button type="button" class="bx--btn bx--btn--secondary bx--btn--sm" onclick="toggleImportForm()">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <script>
+          function toggleImportForm() {
+            const form = document.getElementById('import-form');
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+          }
+
+          function updateFileName(input) {
+            const fileName = document.getElementById('file-name');
+            if (input.files && input.files.length > 0) {
+              fileName.textContent = input.files[0].name;
+            } else {
+              fileName.textContent = 'No file selected';
+            }
+          }
+        </script>
       </div>
     </div>
+
+    {% if success %}
+    <div class="bx--row">
+      <div class="bx--col">
+        <div class="bx--inline-notification bx--inline-notification--success" role="alert">
+          <div class="bx--inline-notification__details">
+            <div class="bx--inline-notification__text-wrapper">
+              <div class="bx--inline-notification__title">Success</div>
+              <div class="bx--inline-notification__subtitle">{{ success }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if error %}
+    <div class="bx--row">
+      <div class="bx--col">
+        <div class="bx--inline-notification bx--inline-notification--error" role="alert">
+          <div class="bx--inline-notification__details">
+            <div class="bx--inline-notification__text-wrapper">
+              <div class="bx--inline-notification__title">Error</div>
+              <div class="bx--inline-notification__subtitle" style="white-space: pre-line;">{{ error }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
 
     {% if products.items %}
     <div class="bx--row">
@@ -65,9 +176,15 @@
                 </span>
               </td>
               <td>
-                <a href="/admin/supported-products/{{ product.id }}" class="bx--btn bx--btn--ghost bx--btn--sm">
-                  Manage
-                </a>
+                <div style="display: flex; gap: 0.25rem; flex-wrap: wrap;">
+                  <a href="/admin/supported-products/{{ product.id }}" class="bx--btn bx--btn--ghost bx--btn--sm">
+                    Manage
+                  </a>
+                  <a href="/admin/supported-products/{{ product.id }}/export" 
+                     class="bx--btn bx--btn--tertiary bx--btn--sm" title="Export as JSON">
+                    Export
+                  </a>
+                </div>
               </td>
             </tr>
             {% endfor %}

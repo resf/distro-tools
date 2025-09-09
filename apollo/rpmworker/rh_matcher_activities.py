@@ -628,7 +628,8 @@ async def process_repomd(
     logger = Logger()
     all_pkgs = []
     urls_to_fetch = [
-        rpm_repomd.url, rpm_repomd.debug_url, rpm_repomd.source_url
+        url for url in [rpm_repomd.url, rpm_repomd.debug_url, rpm_repomd.source_url] 
+        if url and url.strip()
     ]
     module_packages = {}
     for url in urls_to_fetch:
