@@ -17,7 +17,7 @@ from apollo.db import (
     RedHatAdvisory,
     AdvisoryPackage,
     AdvisoryAffectedProduct,
-    Code
+    Code,
 )
 from apollo.server.utils import templates
 
@@ -29,7 +29,7 @@ async def admin_supported_products(
     request: Request,
     params: Params = Depends(),
     success: Optional[str] = None,
-    error: Optional[str] = None
+    error: Optional[str] = None,
 ):
     params.size = 50
     products = await paginate(
@@ -39,7 +39,9 @@ async def admin_supported_products(
 
     # Get statistics for each product
     for product in products.items:
-        mirrors_count = await SupportedProductsRhMirror.filter(supported_product=product).count()
+        mirrors_count = await SupportedProductsRhMirror.filter(
+            supported_product=product
+        ).count()
         repomds_count = await SupportedProductsRpmRepomd.filter(
             supported_products_rh_mirror__supported_product=product
         ).count()
@@ -51,27 +53,29 @@ async def admin_supported_products(
         ).count()
 
         product.stats = {
-            'mirrors': mirrors_count,
-            'repomds': repomds_count,
-            'blocks': blocks_count,
-            'overrides': overrides_count,
+            "mirrors": mirrors_count,
+            "repomds": repomds_count,
+            "blocks": blocks_count,
+            "overrides": overrides_count,
         }
 
     return templates.TemplateResponse(
-        "admin_supported_products.jinja", {
+        "admin_supported_products.jinja",
+        {
             "request": request,
             "products": products,
             "products_pages": ceil(products.total / products.size),
             "success": success,
             "error": error,
-        }
+        },
     )
+
 
 @router.get("/export")
 async def export_all_configs(
     major_version: Optional[int] = Query(None),
     arch: Optional[str] = Query(None),
-    production_only: Optional[bool] = Query(None)
+    production_only: Optional[bool] = Query(None),
 ):
     """Export configurations for all supported products as JSON with optional filtering"""
     # Build query with filters
@@ -81,10 +85,7 @@ async def export_all_configs(
     if arch is not None:
         query = query.filter(match_arch=arch)
 
-    mirrors = await query.prefetch_related(
-        "supported_product",
-        "rpm_repomds"
-    ).all()
+    mirrors = await query.prefetch_related("supported_product", "rpm_repomds").all()
 
     # Filter repositories by production status if specified
     config_data = []
@@ -92,7 +93,8 @@ async def export_all_configs(
         mirror_data = await _get_mirror_config_data(mirror)
         if production_only is not None:
             mirror_data["repositories"] = [
-                repo for repo in mirror_data["repositories"]
+                repo
+                for repo in mirror_data["repositories"]
                 if repo["production"] == production_only
             ]
         config_data.append(mirror_data)
@@ -112,8 +114,9 @@ async def export_all_configs(
     return Response(
         content=formatted_data,
         media_type="application/json",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
 
 async def _validate_import_data(import_data: List[Dict[str, Any]]) -> List[str]:
     """Validate imported configuration data and return list of errors"""
@@ -153,11 +156,16 @@ async def _validate_import_data(import_data: List[Dict[str, Any]]) -> List[str]:
                 repo_required = ["repo_name", "arch", "production", "url"]
                 for key in repo_required:
                     if key not in repo or repo[key] is None:
-                        errors.append(f"Config {i+1}, Repo {j+1}: Missing required field '{key}'")
+                        errors.append(
+                            f"Config {i+1}, Repo {j+1}: Missing required field '{key}'"
+                        )
 
     return errors
 
-async def _import_configuration(import_data: List[Dict[str, Any]], replace_existing: bool = False) -> Dict[str, Any]:
+
+async def _import_configuration(
+    import_data: List[Dict[str, Any]], replace_existing: bool = False
+) -> Dict[str, Any]:
     """Import configuration data into database"""
     created_count = 0
     updated_count = 0
@@ -182,7 +190,7 @@ async def _import_configuration(import_data: List[Dict[str, Any]], replace_exist
             match_variant=mirror_data["match_variant"],
             match_major_version=mirror_data["match_major_version"],
             match_minor_version=mirror_data.get("match_minor_version"),
-            match_arch=mirror_data["match_arch"]
+            match_arch=mirror_data["match_arch"],
         )
 
         if existing_mirror and not replace_existing:
@@ -191,7 +199,9 @@ async def _import_configuration(import_data: List[Dict[str, Any]], replace_exist
 
         if existing_mirror and replace_existing:
             # Delete existing repositories
-            await SupportedProductsRpmRepomd.filter(supported_products_rh_mirror=existing_mirror).delete()
+            await SupportedProductsRpmRepomd.filter(
+                supported_products_rh_mirror=existing_mirror
+            ).delete()
             mirror = existing_mirror
             updated_count += 1
         else:
@@ -202,7 +212,7 @@ async def _import_configuration(import_data: List[Dict[str, Any]], replace_exist
                 match_variant=mirror_data["match_variant"],
                 match_major_version=mirror_data["match_major_version"],
                 match_minor_version=mirror_data.get("match_minor_version"),
-                match_arch=mirror_data["match_arch"]
+                match_arch=mirror_data["match_arch"],
             )
             await mirror.save()
             created_count += 1
@@ -216,57 +226,60 @@ async def _import_configuration(import_data: List[Dict[str, Any]], replace_exist
                 production=repo_data["production"],
                 url=repo_data["url"],
                 debug_url=repo_data.get("debug_url", ""),
-                source_url=repo_data.get("source_url", "")
+                source_url=repo_data.get("source_url", ""),
             )
             await repo.save()
 
     return {
         "created": created_count,
         "updated": updated_count,
-        "skipped": skipped_count
+        "skipped": skipped_count,
     }
+
 
 @router.post("/import")
 async def import_configurations(
-    request: Request,
-    file: UploadFile = File(...),
-    replace_existing: bool = Form(False)
+    request: Request, file: UploadFile = File(...), replace_existing: bool = Form(False)
 ):
     """Import repository configurations from JSON file"""
-    if not file.filename.endswith('.json'):
+    if not file.filename.endswith(".json"):
         return templates.TemplateResponse(
-            "admin_supported_products.jinja", {
+            "admin_supported_products.jinja",
+            {
                 "request": request,
                 "error": "File must be a JSON file (.json extension required)",
-            }
+            },
         )
 
     try:
         content = await file.read()
-        import_data = json.loads(content.decode('utf-8'))
+        import_data = json.loads(content.decode("utf-8"))
     except json.JSONDecodeError as e:
         return templates.TemplateResponse(
-            "admin_supported_products.jinja", {
+            "admin_supported_products.jinja",
+            {
                 "request": request,
                 "error": f"Invalid JSON file: {str(e)}",
-            }
+            },
         )
     except Exception as e:
         return templates.TemplateResponse(
-            "admin_supported_products.jinja", {
+            "admin_supported_products.jinja",
+            {
                 "request": request,
                 "error": f"Error reading file: {str(e)}",
-            }
+            },
         )
 
     # Validate import data
     validation_errors = await _validate_import_data(import_data)
     if validation_errors:
         return templates.TemplateResponse(
-            "admin_supported_products.jinja", {
+            "admin_supported_products.jinja",
+            {
                 "request": request,
                 "error": "Validation errors:\n" + "\n".join(validation_errors),
-            }
+            },
         )
 
     # Import the data
@@ -275,30 +288,30 @@ async def import_configurations(
         success_message = f"Import completed: {results['created']} created, {results['updated']} updated, {results['skipped']} skipped"
 
         return RedirectResponse(
-            f"/admin/supported-products?success={success_message}",
-            status_code=302
+            f"/admin/supported-products?success={success_message}", status_code=302
         )
     except Exception as e:
         return templates.TemplateResponse(
-            "admin_supported_products.jinja", {
+            "admin_supported_products.jinja",
+            {
                 "request": request,
                 "error": f"Import failed: {str(e)}",
-            }
+            },
         )
+
 
 @router.get("/{product_id}", response_class=HTMLResponse)
 async def admin_supported_product(request: Request, product_id: int):
     product = await SupportedProduct.get_or_none(id=product_id).prefetch_related(
-        "rh_mirrors",
-        "rh_mirrors__rpm_repomds",
-        "code"
+        "rh_mirrors", "rh_mirrors__rpm_repomds", "code"
     )
     if product is None:
         return templates.TemplateResponse(
-            "error.jinja", {
+            "error.jinja",
+            {
                 "request": request,
                 "message": f"Supported product with id {product_id} not found",
-            }
+            },
         )
 
     # Get detailed statistics for each mirror
@@ -314,40 +327,43 @@ async def admin_supported_product(request: Request, product_id: int):
         ).count()
 
         mirror.stats = {
-            'repomds': repomds_count,
-            'blocks': blocks_count,
-            'overrides': overrides_count,
+            "repomds": repomds_count,
+            "blocks": blocks_count,
+            "overrides": overrides_count,
         }
 
     return templates.TemplateResponse(
-        "admin_supported_product.jinja", {
+        "admin_supported_product.jinja",
+        {
             "request": request,
             "product": product,
-        }
+        },
     )
 
 
 @router.post("/{product_id}/delete", response_class=HTMLResponse)
-async def admin_supported_product_delete(
-    request: Request,
-    product_id: int
-):
+async def admin_supported_product_delete(request: Request, product_id: int):
     product = await SupportedProduct.get_or_none(id=product_id)
     if product is None:
         return templates.TemplateResponse(
-            "error.jinja", {
+            "error.jinja",
+            {
                 "request": request,
                 "message": f"Supported product with id {product_id} not found",
-            }
+            },
         )
 
     # Check for existing mirrors (which would contain blocks, overrides, and repomds)
-    mirrors_count = await SupportedProductsRhMirror.filter(supported_product=product).count()
-    
+    mirrors_count = await SupportedProductsRhMirror.filter(
+        supported_product=product
+    ).count()
+
     # Check for existing advisory packages and affected products
     packages_count = await AdvisoryPackage.filter(supported_product=product).count()
-    affected_products_count = await AdvisoryAffectedProduct.filter(supported_product=product).count()
-    
+    affected_products_count = await AdvisoryAffectedProduct.filter(
+        supported_product=product
+    ).count()
+
     if mirrors_count > 0 or packages_count > 0 or affected_products_count > 0:
         error_parts = []
         if mirrors_count > 0:
@@ -356,37 +372,47 @@ async def admin_supported_product_delete(
             error_parts.append(f"{packages_count} advisory package(s)")
         if affected_products_count > 0:
             error_parts.append(f"{affected_products_count} affected product(s)")
-        
-        error_message = (f"Cannot delete supported product '{product.name}' because it has associated "
-                        f"{', '.join(error_parts)}. Please remove these dependencies first.")
-        
+
+        error_message = (
+            f"Cannot delete supported product '{product.name}' because it has associated "
+            f"{', '.join(error_parts)}. Please remove these dependencies first."
+        )
+
         return templates.TemplateResponse(
-            "error.jinja", {
+            "error.jinja",
+            {
                 "request": request,
                 "message": error_message,
-            }
+            },
         )
 
     await product.delete()
-    return RedirectResponse("/admin/supported-products?success=Supported product deleted successfully", status_code=302)
+    return RedirectResponse(
+        "/admin/supported-products?success=Supported product deleted successfully",
+        status_code=302,
+    )
+
 
 @router.get("/{product_id}/mirrors/new", response_class=HTMLResponse)
 async def admin_supported_product_mirror_new(request: Request, product_id: int):
     product = await SupportedProduct.get_or_none(id=product_id)
     if product is None:
         return templates.TemplateResponse(
-            "error.jinja", {
+            "error.jinja",
+            {
                 "request": request,
                 "message": f"Supported product with id {product_id} not found",
-            }
+            },
         )
 
     return templates.TemplateResponse(
-        "admin_supported_product_mirror_new.jinja", {
+        "admin_supported_product_mirror_new.jinja",
+        {
             "request": request,
             "product": product,
-        }
+        },
     )
+
 
 @router.post("/{product_id}/mirrors/new", response_class=HTMLResponse)
 async def admin_supported_product_mirror_new_post(
@@ -401,16 +427,18 @@ async def admin_supported_product_mirror_new_post(
     product = await SupportedProduct.get_or_none(id=product_id)
     if product is None:
         return templates.TemplateResponse(
-            "error.jinja", {
+            "error.jinja",
+            {
                 "request": request,
                 "message": f"Supported product with id {product_id} not found",
-            }
+            },
         )
 
     # Validation
     if not name or len(name.strip()) < 3:
         return templates.TemplateResponse(
-            "admin_supported_product_mirror_new.jinja", {
+            "admin_supported_product_mirror_new.jinja",
+            {
                 "request": request,
                 "product": product,
                 "error": "Mirror name must be at least 3 characters long",
@@ -420,8 +448,8 @@ async def admin_supported_product_mirror_new_post(
                     "match_major_version": match_major_version,
                     "match_minor_version": match_minor_version,
                     "match_arch": match_arch,
-                }
-            }
+                },
+            },
         )
 
     mirror = SupportedProductsRhMirror(
@@ -436,33 +464,37 @@ async def admin_supported_product_mirror_new_post(
 
     return RedirectResponse(f"/admin/supported-products/{product_id}", status_code=302)
 
+
 @router.get("/{product_id}/mirrors/{mirror_id}", response_class=HTMLResponse)
-async def admin_supported_product_mirror(request: Request, product_id: int, mirror_id: int):
+async def admin_supported_product_mirror(
+    request: Request, product_id: int, mirror_id: int
+):
     mirror = await SupportedProductsRhMirror.get_or_none(
-        id=mirror_id,
-        supported_product_id=product_id
+        id=mirror_id, supported_product_id=product_id
     ).prefetch_related(
         "supported_product",
         "rpm_repomds",
         "rh_blocks",
         "rh_blocks__red_hat_advisory",
         "rpm_rh_overrides",
-        "rpm_rh_overrides__red_hat_advisory"
+        "rpm_rh_overrides__red_hat_advisory",
     )
 
     if mirror is None:
         return templates.TemplateResponse(
-            "error.jinja", {
+            "error.jinja",
+            {
                 "request": request,
                 "message": f"Mirror with id {mirror_id} not found",
-            }
+            },
         )
 
     return templates.TemplateResponse(
-        "admin_supported_product_mirror.jinja", {
+        "admin_supported_product_mirror.jinja",
+        {
             "request": request,
             "mirror": mirror,
-        }
+        },
     )
 
 
@@ -478,33 +510,34 @@ async def admin_supported_product_mirror_post(
     match_arch: str = Form(),
 ):
     mirror = await SupportedProductsRhMirror.get_or_none(
-        id=mirror_id,
-        supported_product_id=product_id
+        id=mirror_id, supported_product_id=product_id
     ).prefetch_related(
         "supported_product",
         "rpm_repomds",
         "rh_blocks",
         "rh_blocks__red_hat_advisory",
         "rpm_rh_overrides",
-        "rpm_rh_overrides__red_hat_advisory"
+        "rpm_rh_overrides__red_hat_advisory",
     )
 
     if mirror is None:
         return templates.TemplateResponse(
-            "error.jinja", {
+            "error.jinja",
+            {
                 "request": request,
                 "message": f"Mirror with id {mirror_id} not found",
-            }
+            },
         )
 
     # Validation
     if not name or len(name.strip()) < 3:
         return templates.TemplateResponse(
-            "admin_supported_product_mirror.jinja", {
+            "admin_supported_product_mirror.jinja",
+            {
                 "request": request,
                 "mirror": mirror,
                 "error": "Mirror name must be at least 3 characters long",
-            }
+            },
         )
 
     mirror.name = name.strip()
@@ -516,43 +549,41 @@ async def admin_supported_product_mirror_post(
 
     # Re-fetch the mirror with all required relations after saving
     mirror = await SupportedProductsRhMirror.get_or_none(
-        id=mirror_id,
-        supported_product_id=product_id
+        id=mirror_id, supported_product_id=product_id
     ).prefetch_related(
         "supported_product",
         "rpm_repomds",
         "rh_blocks",
         "rh_blocks__red_hat_advisory",
         "rpm_rh_overrides",
-        "rpm_rh_overrides__red_hat_advisory"
+        "rpm_rh_overrides__red_hat_advisory",
     )
 
     return templates.TemplateResponse(
-        "admin_supported_product_mirror.jinja", {
+        "admin_supported_product_mirror.jinja",
+        {
             "request": request,
             "mirror": mirror,
             "success": "Mirror updated successfully",
-        }
+        },
     )
 
 
 @router.post("/{product_id}/mirrors/{mirror_id}/delete", response_class=HTMLResponse)
 async def admin_supported_product_mirror_delete(
-    request: Request,
-    product_id: int,
-    mirror_id: int
+    request: Request, product_id: int, mirror_id: int
 ):
     mirror = await SupportedProductsRhMirror.get_or_none(
-        id=mirror_id,
-        supported_product_id=product_id
+        id=mirror_id, supported_product_id=product_id
     ).prefetch_related("supported_product")
 
     if mirror is None:
         return templates.TemplateResponse(
-            "error.jinja", {
+            "error.jinja",
+            {
                 "request": request,
                 "message": f"Mirror with id {mirror_id} not found",
-            }
+            },
         )
 
     # Check for existing blocks and overrides
@@ -562,34 +593,125 @@ async def admin_supported_product_mirror_delete(
     overrides_count = await SupportedProductsRpmRhOverride.filter(
         supported_products_rh_mirror=mirror
     ).count()
-    
+
     if blocks_count > 0 or overrides_count > 0:
         error_parts = []
         if blocks_count > 0:
             error_parts.append(f"{blocks_count} blocked product(s)")
         if overrides_count > 0:
             error_parts.append(f"{overrides_count} override(s)")
-        
-        error_message = (f"Cannot delete mirror '{mirror.name}' because it has associated "
-                        f"{' and '.join(error_parts)}. Please remove these dependencies first.")
-        
+
+        error_message = (
+            f"Cannot delete mirror '{mirror.name}' because it has associated "
+            f"{' and '.join(error_parts)}. Please remove these dependencies first."
+        )
+
         return templates.TemplateResponse(
-            "error.jinja", {
+            "error.jinja",
+            {
                 "request": request,
                 "message": error_message,
-            }
+            },
         )
 
     await mirror.delete()
     return RedirectResponse(f"/admin/supported-products/{product_id}", status_code=302)
 
 
-# Repository (repomd) management routes
-@router.get("/{product_id}/mirrors/{mirror_id}/repomds/new", response_class=HTMLResponse)
-async def admin_supported_product_mirror_repomd_new(
+@router.post("/{product_id}/bulk-delete-mirrors", response_class=HTMLResponse)
+async def admin_supported_product_mirrors_bulk_delete(
     request: Request,
     product_id: int,
-    mirror_id: int
+    mirror_ids: str = Form(),
+):
+    """Bulk delete multiple mirrors with dependency checking"""
+    if not mirror_ids or mirror_ids.strip() == "":
+        return RedirectResponse(
+            f"/admin/supported-products/{product_id}?error=No mirrors selected for deletion",
+            status_code=302,
+        )
+
+    # Parse comma-separated mirror IDs
+    try:
+        mirror_id_list = [
+            int(mid.strip()) for mid in mirror_ids.split(",") if mid.strip()
+        ]
+    except ValueError:
+        return RedirectResponse(
+            f"/admin/supported-products/{product_id}?error=Invalid mirror IDs provided",
+            status_code=302,
+        )
+
+    if not mirror_id_list:
+        return RedirectResponse(
+            f"/admin/supported-products/{product_id}?error=No valid mirror IDs provided",
+            status_code=302,
+        )
+
+    # Get all mirrors to delete
+    mirrors = await SupportedProductsRhMirror.filter(
+        id__in=mirror_id_list, supported_product_id=product_id
+    ).prefetch_related("supported_product")
+
+    if not mirrors:
+        return RedirectResponse(
+            f"/admin/supported-products/{product_id}?error=No mirrors found with provided IDs",
+            status_code=302,
+        )
+
+    # Check dependencies for each mirror
+    blocked_mirrors = []
+    for mirror in mirrors:
+        blocks_count = await SupportedProductsRhBlock.filter(
+            supported_products_rh_mirror=mirror
+        ).count()
+        overrides_count = await SupportedProductsRpmRhOverride.filter(
+            supported_products_rh_mirror=mirror
+        ).count()
+
+        if blocks_count > 0 or overrides_count > 0:
+            error_parts = []
+            if blocks_count > 0:
+                error_parts.append(f"{blocks_count} block(s)")
+            if overrides_count > 0:
+                error_parts.append(f"{overrides_count} override(s)")
+
+            blocked_mirrors.append(f"'{mirror.name}' ({' and '.join(error_parts)})")
+
+    if blocked_mirrors:
+        error_message = (
+            f"Cannot delete {len(blocked_mirrors)} mirror(s) due to dependencies: "
+            f"{', '.join(blocked_mirrors)}. Please remove dependencies first."
+        )
+
+        return RedirectResponse(
+            f"/admin/supported-products/{product_id}?error={error_message}",
+            status_code=302,
+        )
+
+    # Delete all mirrors (they have no dependencies)
+    deleted_count = 0
+    deleted_names = []
+    for mirror in mirrors:
+        deleted_names.append(mirror.name)
+        await mirror.delete()
+        deleted_count += 1
+
+    success_message = (
+        f"Successfully deleted {deleted_count} mirror(s): {', '.join(deleted_names)}"
+    )
+    return RedirectResponse(
+        f"/admin/supported-products/{product_id}?success={success_message}",
+        status_code=302,
+    )
+
+
+# Repository (repomd) management routes
+@router.get(
+    "/{product_id}/mirrors/{mirror_id}/repomds/new", response_class=HTMLResponse
+)
+async def admin_supported_product_mirror_repomd_new(
+    request: Request, product_id: int, mirror_id: int
 ):
     mirror = await SupportedProductsRhMirror.get_or_none(
         id=mirror_id, supported_product_id=product_id
@@ -597,21 +719,25 @@ async def admin_supported_product_mirror_repomd_new(
 
     if mirror is None:
         return templates.TemplateResponse(
-            "error.jinja", {
+            "error.jinja",
+            {
                 "request": request,
                 "message": f"Mirror with id {mirror_id} not found",
-            }
+            },
         )
 
     return templates.TemplateResponse(
-        "admin_supported_product_repomd_new.jinja", {
+        "admin_supported_product_repomd_new.jinja",
+        {
             "request": request,
             "mirror": mirror,
-        }
+        },
     )
 
 
-@router.post("/{product_id}/mirrors/{mirror_id}/repomds/new", response_class=HTMLResponse)
+@router.post(
+    "/{product_id}/mirrors/{mirror_id}/repomds/new", response_class=HTMLResponse
+)
 async def admin_supported_product_mirror_repomd_new_post(
     request: Request,
     product_id: int,
@@ -629,16 +755,18 @@ async def admin_supported_product_mirror_repomd_new_post(
 
     if mirror is None:
         return templates.TemplateResponse(
-            "error.jinja", {
+            "error.jinja",
+            {
                 "request": request,
                 "message": f"Mirror with id {mirror_id} not found",
-            }
+            },
         )
 
     # Validation
     if not repo_name or len(repo_name.strip()) < 2:
         return templates.TemplateResponse(
-            "admin_supported_product_repomd_new.jinja", {
+            "admin_supported_product_repomd_new.jinja",
+            {
                 "request": request,
                 "mirror": mirror,
                 "error": "Repository name must be at least 2 characters long",
@@ -649,13 +777,14 @@ async def admin_supported_product_mirror_repomd_new_post(
                     "debug_url": debug_url,
                     "source_url": source_url,
                     "repo_name": repo_name,
-                }
-            }
+                },
+            },
         )
 
-    if not url.startswith(('http://', 'https://')):
+    if not url.startswith(("http://", "https://")):
         return templates.TemplateResponse(
-            "admin_supported_product_repomd_new.jinja", {
+            "admin_supported_product_repomd_new.jinja",
+            {
                 "request": request,
                 "mirror": mirror,
                 "error": "Repository URL must start with http:// or https://",
@@ -666,8 +795,8 @@ async def admin_supported_product_mirror_repomd_new_post(
                     "debug_url": debug_url,
                     "source_url": source_url,
                     "repo_name": repo_name,
-                }
-            }
+                },
+            },
         )
 
     repomd = SupportedProductsRpmRepomd(
@@ -681,39 +810,47 @@ async def admin_supported_product_mirror_repomd_new_post(
     )
     await repomd.save()
 
-    return RedirectResponse(f"/admin/supported-products/{product_id}/mirrors/{mirror_id}", status_code=302)
+    return RedirectResponse(
+        f"/admin/supported-products/{product_id}/mirrors/{mirror_id}", status_code=302
+    )
 
 
-@router.get("/{product_id}/mirrors/{mirror_id}/repomds/{repomd_id}", response_class=HTMLResponse)
+@router.get(
+    "/{product_id}/mirrors/{mirror_id}/repomds/{repomd_id}", response_class=HTMLResponse
+)
 async def admin_supported_product_mirror_repomd(
-    request: Request,
-    product_id: int,
-    mirror_id: int,
-    repomd_id: int
+    request: Request, product_id: int, mirror_id: int, repomd_id: int
 ):
     repomd = await SupportedProductsRpmRepomd.get_or_none(
         id=repomd_id,
         supported_products_rh_mirror_id=mirror_id,
-        supported_products_rh_mirror__supported_product_id=product_id
-    ).prefetch_related("supported_products_rh_mirror", "supported_products_rh_mirror__supported_product")
+        supported_products_rh_mirror__supported_product_id=product_id,
+    ).prefetch_related(
+        "supported_products_rh_mirror",
+        "supported_products_rh_mirror__supported_product",
+    )
 
     if repomd is None:
         return templates.TemplateResponse(
-            "error.jinja", {
+            "error.jinja",
+            {
                 "request": request,
                 "message": f"Repository configuration with id {repomd_id} not found",
-            }
+            },
         )
 
     return templates.TemplateResponse(
-        "admin_supported_product_repomd.jinja", {
+        "admin_supported_product_repomd.jinja",
+        {
             "request": request,
             "repomd": repomd,
-        }
+        },
     )
 
 
-@router.post("/{product_id}/mirrors/{mirror_id}/repomds/{repomd_id}", response_class=HTMLResponse)
+@router.post(
+    "/{product_id}/mirrors/{mirror_id}/repomds/{repomd_id}", response_class=HTMLResponse
+)
 async def admin_supported_product_mirror_repomd_post(
     request: Request,
     product_id: int,
@@ -729,34 +866,40 @@ async def admin_supported_product_mirror_repomd_post(
     repomd = await SupportedProductsRpmRepomd.get_or_none(
         id=repomd_id,
         supported_products_rh_mirror_id=mirror_id,
-        supported_products_rh_mirror__supported_product_id=product_id
-    ).prefetch_related("supported_products_rh_mirror", "supported_products_rh_mirror__supported_product")
+        supported_products_rh_mirror__supported_product_id=product_id,
+    ).prefetch_related(
+        "supported_products_rh_mirror",
+        "supported_products_rh_mirror__supported_product",
+    )
 
     if repomd is None:
         return templates.TemplateResponse(
-            "error.jinja", {
+            "error.jinja",
+            {
                 "request": request,
                 "message": f"Repository configuration with id {repomd_id} not found",
-            }
+            },
         )
 
     # Validation
     if not repo_name or len(repo_name.strip()) < 2:
         return templates.TemplateResponse(
-            "admin_supported_product_repomd.jinja", {
+            "admin_supported_product_repomd.jinja",
+            {
                 "request": request,
                 "repomd": repomd,
                 "error": "Repository name must be at least 2 characters long",
-            }
+            },
         )
 
-    if not url.startswith(('http://', 'https://')):
+    if not url.startswith(("http://", "https://")):
         return templates.TemplateResponse(
-            "admin_supported_product_repomd.jinja", {
+            "admin_supported_product_repomd.jinja",
+            {
                 "request": request,
                 "repomd": repomd,
                 "error": "Repository URL must start with http:// or https://",
-            }
+            },
         )
 
     repomd.production = production
@@ -768,60 +911,62 @@ async def admin_supported_product_mirror_repomd_post(
     await repomd.save()
 
     return templates.TemplateResponse(
-        "admin_supported_product_repomd.jinja", {
+        "admin_supported_product_repomd.jinja",
+        {
             "request": request,
             "repomd": repomd,
             "success": "Repository configuration updated successfully",
-        }
+        },
     )
 
 
-@router.post("/{product_id}/mirrors/{mirror_id}/repomds/{repomd_id}/delete", response_class=HTMLResponse)
+@router.post(
+    "/{product_id}/mirrors/{mirror_id}/repomds/{repomd_id}/delete",
+    response_class=HTMLResponse,
+)
 async def admin_supported_product_mirror_repomd_delete(
-    request: Request,
-    product_id: int,
-    mirror_id: int,
-    repomd_id: int
+    request: Request, product_id: int, mirror_id: int, repomd_id: int
 ):
     repomd = await SupportedProductsRpmRepomd.get_or_none(
         id=repomd_id,
         supported_products_rh_mirror_id=mirror_id,
-        supported_products_rh_mirror__supported_product_id=product_id
+        supported_products_rh_mirror__supported_product_id=product_id,
     ).prefetch_related("supported_products_rh_mirror")
 
     if repomd is None:
         return templates.TemplateResponse(
-            "error.jinja", {
+            "error.jinja",
+            {
                 "request": request,
                 "message": f"Repository configuration with id {repomd_id} not found",
-            }
+            },
         )
 
     # Check for existing advisory packages using this repository
     packages_count = await AdvisoryPackage.filter(
         supported_products_rh_mirror=repomd.supported_products_rh_mirror,
-        repo_name=repomd.repo_name
+        repo_name=repomd.repo_name,
     ).count()
-    
+
     if packages_count > 0:
         return templates.TemplateResponse(
-            "error.jinja", {
+            "error.jinja",
+            {
                 "request": request,
                 "message": f"Cannot delete repository '{repomd.repo_name}' because it has {packages_count} associated advisory package(s). Please remove these dependencies first.",
-            }
+            },
         )
 
     await repomd.delete()
-    return RedirectResponse(f"/admin/supported-products/{product_id}/mirrors/{mirror_id}", status_code=302)
+    return RedirectResponse(
+        f"/admin/supported-products/{product_id}/mirrors/{mirror_id}", status_code=302
+    )
 
 
 # Blocks management routes
 @router.get("/{product_id}/mirrors/{mirror_id}/blocks/new", response_class=HTMLResponse)
 async def admin_supported_product_mirror_block_new(
-    request: Request,
-    product_id: int,
-    mirror_id: int,
-    search: str = None
+    request: Request, product_id: int, mirror_id: int, search: str = None
 ):
     mirror = await SupportedProductsRhMirror.get_or_none(
         id=mirror_id, supported_product_id=product_id
@@ -829,10 +974,11 @@ async def admin_supported_product_mirror_block_new(
 
     if mirror is None:
         return templates.TemplateResponse(
-            "error.jinja", {
+            "error.jinja",
+            {
                 "request": request,
                 "message": f"Mirror with id {mirror_id} not found",
-            }
+            },
         )
 
     # Get advisories that are not already blocked
@@ -847,16 +993,19 @@ async def admin_supported_product_mirror_block_new(
     advisories = await query.order_by("-red_hat_issued_at").limit(50)
 
     return templates.TemplateResponse(
-        "admin_supported_product_block_new.jinja", {
+        "admin_supported_product_block_new.jinja",
+        {
             "request": request,
             "mirror": mirror,
             "advisories": advisories,
             "search": search,
-        }
+        },
     )
 
 
-@router.post("/{product_id}/mirrors/{mirror_id}/blocks/new", response_class=HTMLResponse)
+@router.post(
+    "/{product_id}/mirrors/{mirror_id}/blocks/new", response_class=HTMLResponse
+)
 async def admin_supported_product_mirror_block_new_post(
     request: Request,
     product_id: int,
@@ -869,33 +1018,35 @@ async def admin_supported_product_mirror_block_new_post(
 
     if mirror is None:
         return templates.TemplateResponse(
-            "error.jinja", {
+            "error.jinja",
+            {
                 "request": request,
                 "message": f"Mirror with id {mirror_id} not found",
-            }
+            },
         )
 
     advisory = await RedHatAdvisory.get_or_none(id=advisory_id)
     if advisory is None:
         return templates.TemplateResponse(
-            "error.jinja", {
+            "error.jinja",
+            {
                 "request": request,
                 "message": f"Advisory with id {advisory_id} not found",
-            }
+            },
         )
 
     # Check if block already exists
     existing_block = await SupportedProductsRhBlock.get_or_none(
-        supported_products_rh_mirror=mirror,
-        red_hat_advisory=advisory
+        supported_products_rh_mirror=mirror, red_hat_advisory=advisory
     )
 
     if existing_block:
         return templates.TemplateResponse(
-            "error.jinja", {
+            "error.jinja",
+            {
                 "request": request,
                 "message": f"Advisory {advisory.name} is already blocked for this mirror",
-            }
+            },
         )
 
     block = SupportedProductsRhBlock(
@@ -904,41 +1055,45 @@ async def admin_supported_product_mirror_block_new_post(
     )
     await block.save()
 
-    return RedirectResponse(f"/admin/supported-products/{product_id}/mirrors/{mirror_id}", status_code=302)
+    return RedirectResponse(
+        f"/admin/supported-products/{product_id}/mirrors/{mirror_id}", status_code=302
+    )
 
 
-@router.post("/{product_id}/mirrors/{mirror_id}/blocks/{block_id}/delete", response_class=HTMLResponse)
+@router.post(
+    "/{product_id}/mirrors/{mirror_id}/blocks/{block_id}/delete",
+    response_class=HTMLResponse,
+)
 async def admin_supported_product_mirror_block_delete(
-    request: Request,
-    product_id: int,
-    mirror_id: int,
-    block_id: int
+    request: Request, product_id: int, mirror_id: int, block_id: int
 ):
     block = await SupportedProductsRhBlock.get_or_none(
         id=block_id,
         supported_products_rh_mirror_id=mirror_id,
-        supported_products_rh_mirror__supported_product_id=product_id
+        supported_products_rh_mirror__supported_product_id=product_id,
     )
 
     if block is None:
         return templates.TemplateResponse(
-            "error.jinja", {
+            "error.jinja",
+            {
                 "request": request,
                 "message": f"Block with id {block_id} not found",
-            }
+            },
         )
 
     await block.delete()
-    return RedirectResponse(f"/admin/supported-products/{product_id}/mirrors/{mirror_id}", status_code=302)
+    return RedirectResponse(
+        f"/admin/supported-products/{product_id}/mirrors/{mirror_id}", status_code=302
+    )
 
 
 # Overrides management routes (similar structure to blocks)
-@router.get("/{product_id}/mirrors/{mirror_id}/overrides/new", response_class=HTMLResponse)
+@router.get(
+    "/{product_id}/mirrors/{mirror_id}/overrides/new", response_class=HTMLResponse
+)
 async def admin_supported_product_mirror_override_new(
-    request: Request,
-    product_id: int,
-    mirror_id: int,
-    search: str = None
+    request: Request, product_id: int, mirror_id: int, search: str = None
 ):
     mirror = await SupportedProductsRhMirror.get_or_none(
         id=mirror_id, supported_product_id=product_id
@@ -946,10 +1101,11 @@ async def admin_supported_product_mirror_override_new(
 
     if mirror is None:
         return templates.TemplateResponse(
-            "error.jinja", {
+            "error.jinja",
+            {
                 "request": request,
                 "message": f"Mirror with id {mirror_id} not found",
-            }
+            },
         )
 
     # Get advisories that don't already have overrides
@@ -964,16 +1120,19 @@ async def admin_supported_product_mirror_override_new(
     advisories = await query.order_by("-red_hat_issued_at").limit(50)
 
     return templates.TemplateResponse(
-        "admin_supported_product_override_new.jinja", {
+        "admin_supported_product_override_new.jinja",
+        {
             "request": request,
             "mirror": mirror,
             "advisories": advisories,
             "search": search,
-        }
+        },
     )
 
 
-@router.post("/{product_id}/mirrors/{mirror_id}/overrides/new", response_class=HTMLResponse)
+@router.post(
+    "/{product_id}/mirrors/{mirror_id}/overrides/new", response_class=HTMLResponse
+)
 async def admin_supported_product_mirror_override_new_post(
     request: Request,
     product_id: int,
@@ -986,33 +1145,35 @@ async def admin_supported_product_mirror_override_new_post(
 
     if mirror is None:
         return templates.TemplateResponse(
-            "error.jinja", {
+            "error.jinja",
+            {
                 "request": request,
                 "message": f"Mirror with id {mirror_id} not found",
-            }
+            },
         )
 
     advisory = await RedHatAdvisory.get_or_none(id=advisory_id)
     if advisory is None:
         return templates.TemplateResponse(
-            "error.jinja", {
+            "error.jinja",
+            {
                 "request": request,
                 "message": f"Advisory with id {advisory_id} not found",
-            }
+            },
         )
 
     # Check if override already exists
     existing_override = await SupportedProductsRpmRhOverride.get_or_none(
-        supported_products_rh_mirror=mirror,
-        red_hat_advisory=advisory
+        supported_products_rh_mirror=mirror, red_hat_advisory=advisory
     )
 
     if existing_override:
         return templates.TemplateResponse(
-            "error.jinja", {
+            "error.jinja",
+            {
                 "request": request,
                 "message": f"Advisory {advisory.name} already has an override for this mirror",
-            }
+            },
         )
 
     override = SupportedProductsRpmRhOverride(
@@ -1021,32 +1182,38 @@ async def admin_supported_product_mirror_override_new_post(
     )
     await override.save()
 
-    return RedirectResponse(f"/admin/supported-products/{product_id}/mirrors/{mirror_id}", status_code=302)
+    return RedirectResponse(
+        f"/admin/supported-products/{product_id}/mirrors/{mirror_id}", status_code=302
+    )
 
 
-@router.post("/{product_id}/mirrors/{mirror_id}/overrides/{override_id}/delete", response_class=HTMLResponse)
+@router.post(
+    "/{product_id}/mirrors/{mirror_id}/overrides/{override_id}/delete",
+    response_class=HTMLResponse,
+)
 async def admin_supported_product_mirror_override_delete(
-    request: Request,
-    product_id: int,
-    mirror_id: int,
-    override_id: int
+    request: Request, product_id: int, mirror_id: int, override_id: int
 ):
     override = await SupportedProductsRpmRhOverride.get_or_none(
         id=override_id,
         supported_products_rh_mirror_id=mirror_id,
-        supported_products_rh_mirror__supported_product_id=product_id
+        supported_products_rh_mirror__supported_product_id=product_id,
     )
 
     if override is None:
         return templates.TemplateResponse(
-            "error.jinja", {
+            "error.jinja",
+            {
                 "request": request,
                 "message": f"Override with id {override_id} not found",
-            }
+            },
         )
 
     await override.delete()
-    return RedirectResponse(f"/admin/supported-products/{product_id}/mirrors/{mirror_id}", status_code=302)
+    return RedirectResponse(
+        f"/admin/supported-products/{product_id}/mirrors/{mirror_id}", status_code=302
+    )
+
 
 async def _get_mirror_config_data(mirror: SupportedProductsRhMirror) -> Dict[str, Any]:
     """Extract mirror configuration data including all related repositories"""
@@ -1080,8 +1247,9 @@ async def _get_mirror_config_data(mirror: SupportedProductsRhMirror) -> Dict[str
                 "updated_at": repo.updated_at.isoformat() if repo.updated_at else None,
             }
             for repo in mirror.rpm_repomds
-        ]
+        ],
     }
+
 
 def _json_serializer(obj):
     """Custom JSON serializer for non-standard types"""
@@ -1089,26 +1257,24 @@ def _json_serializer(obj):
         return float(obj)
     raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
 
+
 def _format_export_data(data: List[Dict[str, Any]]) -> str:
     """Format configuration data for JSON export"""
     return json.dumps(data, indent=2, default=_json_serializer)
+
 
 @router.get("/{product_id}/mirrors/{mirror_id}/export")
 async def export_mirror_config(product_id: int, mirror_id: int):
     """Export configuration for a single mirror as JSON"""
     mirror = await SupportedProductsRhMirror.get_or_none(
-        id=mirror_id,
-        supported_product_id=product_id
-    ).prefetch_related(
-        "supported_product",
-        "rpm_repomds"
-    )
+        id=mirror_id, supported_product_id=product_id
+    ).prefetch_related("supported_product", "rpm_repomds")
 
     if mirror is None:
         return Response(
             content=f"Mirror with id {mirror_id} not found",
             status_code=404,
-            media_type="text/plain"
+            media_type="text/plain",
         )
 
     config_data = await _get_mirror_config_data(mirror)
@@ -1119,15 +1285,16 @@ async def export_mirror_config(product_id: int, mirror_id: int):
     return Response(
         content=formatted_data,
         media_type="application/json",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
 
 @router.get("/{product_id}/export")
 async def export_product_config(
     product_id: int,
     major_version: Optional[int] = Query(None),
     arch: Optional[str] = Query(None),
-    production_only: Optional[bool] = Query(None)
+    production_only: Optional[bool] = Query(None),
 ):
     """Export configurations for all mirrors of a product as JSON with optional filtering"""
     product = await SupportedProduct.get_or_none(id=product_id)
@@ -1135,7 +1302,7 @@ async def export_product_config(
         return Response(
             content=f"Product with id {product_id} not found",
             status_code=404,
-            media_type="text/plain"
+            media_type="text/plain",
         )
 
     # Build query with filters
@@ -1145,10 +1312,7 @@ async def export_product_config(
     if arch is not None:
         query = query.filter(match_arch=arch)
 
-    mirrors = await query.prefetch_related(
-        "supported_product",
-        "rpm_repomds"
-    ).all()
+    mirrors = await query.prefetch_related("supported_product", "rpm_repomds").all()
 
     # Filter repositories by production status if specified
     config_data = []
@@ -1156,14 +1320,15 @@ async def export_product_config(
         mirror_data = await _get_mirror_config_data(mirror)
         if production_only is not None:
             mirror_data["repositories"] = [
-                repo for repo in mirror_data["repositories"]
+                repo
+                for repo in mirror_data["repositories"]
                 if repo["production"] == production_only
             ]
         config_data.append(mirror_data)
 
     formatted_data = _format_export_data(config_data)
 
-    filename_parts = [product.name.replace(' ', '_').lower(), "config"]
+    filename_parts = [product.name.replace(" ", "_").lower(), "config"]
     if major_version is not None:
         filename_parts.append(f"v{major_version}")
     if arch is not None:
@@ -1176,6 +1341,5 @@ async def export_product_config(
     return Response(
         content=formatted_data,
         media_type="application/json",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
-

@@ -129,6 +129,10 @@ def parse_repomd_path(repomd_url: str, base_url: str) -> Dict[str, str]:
     relative_path = repomd_url.replace(base_url, '').replace('/repodata/repomd.xml', '')
     path_parts = [p for p in relative_path.split('/') if p]
     
+    # Also parse the base_url to extract version if present
+    base_url_parts = [p for p in base_url.rstrip('/').split('/') if p]
+    full_path_parts = base_url_parts + path_parts
+    
     metadata = {
         'arch': 'unknown',
         'repo_name': 'unknown',
@@ -137,11 +141,11 @@ def parse_repomd_path(repomd_url: str, base_url: str) -> Dict[str, str]:
     }
     
     # Common patterns for Rocky Linux repositories
-    architectures = ['x86_64', 'aarch64', 'ppc64le', 's390x', 'noarch', 'source', 'SRPMS']
-    repo_names = ['BaseOS', 'AppStream', 'CRB', 'PowerTools', 'extras', 'devel', 'RT', 'NFV', 'ResilientStorage']
+    architectures = ['x86_64', 'aarch64', 'ppc64le', 's390x', 'riscv64', 'i686', 'noarch', 'source', 'SRPMS']
+    repo_names = ['BaseOS', 'AppStream', 'CRB', 'PowerTools', 'extras', 'devel', 'RT', 'NFV', 'ResilientStorage', 'plus', 'Devel']
     
-    # Try to identify components from path
-    for part in path_parts:
+    # Try to identify components from both base URL and relative path
+    for part in full_path_parts:
         # Check for architecture
         if part in architectures:
             metadata['arch'] = part
@@ -150,7 +154,7 @@ def parse_repomd_path(repomd_url: str, base_url: str) -> Dict[str, str]:
         if part in repo_names:
             metadata['repo_name'] = part
         
-        # Check for version pattern (e.g., 9.6, 10.0, 10)
+        # Check for version pattern (e.g., 9.6, 10.0, 10, 8.10)
         if re.match(r'^\d+(\.\d+)?$', part):
             metadata['version'] = part
         
@@ -324,7 +328,7 @@ def generate_static_config(
     This is the original implementation as a fallback.
     """
     if architectures is None:
-        architectures = ["x86_64", "aarch64", "ppc64le", "s390x"]
+        architectures = ["x86_64", "aarch64", "ppc64le", "s390x", "riscv64", "i686"]
     
     repositories = ["BaseOS", "AppStream", "CRB"]
     
@@ -430,7 +434,7 @@ Examples:
     parser.add_argument(
         "--arch",
         nargs="+",
-        choices=["x86_64", "aarch64", "ppc64le", "s390x"],
+        choices=["x86_64", "aarch64", "ppc64le", "s390x", "riscv64", "i686"],
         help="Architectures to include (default: auto-detect when crawling, all when static)"
     )
     
