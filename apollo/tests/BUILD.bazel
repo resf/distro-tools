@@ -44,3 +44,19 @@ py_test(
         "//apollo/server:server_lib",
     ],
 )
+
+py_test(
+    name = "test_supported_products_logic",
+    srcs = ["test_supported_products_logic.py"],
+    deps = [
+        "//common:common_lib",
+    ],
+)
+
+py_test(
+    name = "test_generate_rocky_config", 
+    srcs = ["test_generate_rocky_config.py"],
+    deps = [
+        "//common:common_lib",
+    ],
+)
