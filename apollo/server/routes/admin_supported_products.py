@@ -16,6 +16,8 @@ from apollo.db import (
     SupportedProductsRhBlock,
     SupportedProductsRpmRhOverride,
     RedHatAdvisory,
+    AdvisoryPackage,
+    AdvisoryAffectedProduct,
     Code
 )
 from apollo.server.utils import templates
@@ -325,6 +327,50 @@ async def admin_supported_product(request: Request, product_id: int):
         }
     )
 
+
+@router.post("/{product_id}/delete", response_class=HTMLResponse)
+async def admin_supported_product_delete(
+    request: Request,
+    product_id: int
+):
+    product = await SupportedProduct.get_or_none(id=product_id)
+    if product is None:
+        return templates.TemplateResponse(
+            "error.jinja", {
+                "request": request,
+                "message": f"Supported product with id {product_id} not found",
+            }
+        )
+
+    # Check for existing mirrors (which would contain blocks, overrides, and repomds)
+    mirrors_count = await SupportedProductsRhMirror.filter(supported_product=product).count()
+    
+    # Check for existing advisory packages and affected products
+    packages_count = await AdvisoryPackage.filter(supported_product=product).count()
+    affected_products_count = await AdvisoryAffectedProduct.filter(supported_product=product).count()
+    
+    if mirrors_count > 0 or packages_count > 0 or affected_products_count > 0:
+        error_parts = []
+        if mirrors_count > 0:
+            error_parts.append(f"{mirrors_count} mirror(s)")
+        if packages_count > 0:
+            error_parts.append(f"{packages_count} advisory package(s)")
+        if affected_products_count > 0:
+            error_parts.append(f"{affected_products_count} affected product(s)")
+        
+        error_message = (f"Cannot delete supported product '{product.name}' because it has associated "
+                        f"{', '.join(error_parts)}. Please remove these dependencies first.")
+        
+        return templates.TemplateResponse(
+            "error.jinja", {
+                "request": request,
+                "message": error_message,
+            }
+        )
+
+    await product.delete()
+    return RedirectResponse("/admin/supported-products?success=Supported product deleted successfully", status_code=302)
+
 @router.get("/{product_id}/mirrors/new", response_class=HTMLResponse)
 async def admin_supported_product_mirror_new(request: Request, product_id: int):
     product = await get_entity_or_error_response(
@@ -522,6 +568,31 @@ async def admin_supported_product_mirror_delete(
     )
     if isinstance(mirror, Response):
         return mirror
+
+    # Check for existing blocks and overrides
+    blocks_count = await SupportedProductsRhBlock.filter(
+        supported_products_rh_mirror=mirror
+    ).count()
+    overrides_count = await SupportedProductsRpmRhOverride.filter(
+        supported_products_rh_mirror=mirror
+    ).count()
+    
+    if blocks_count > 0 or overrides_count > 0:
+        error_parts = []
+        if blocks_count > 0:
+            error_parts.append(f"{blocks_count} blocked product(s)")
+        if overrides_count > 0:
+            error_parts.append(f"{overrides_count} override(s)")
+        
+        error_message = (f"Cannot delete mirror '{mirror.name}' because it has associated "
+                        f"{' and '.join(error_parts)}. Please remove these dependencies first.")
+        
+        return templates.TemplateResponse(
+            "error.jinja", {
+                "request": request,
+                "message": error_message,
+            }
+        )
 
     await mirror.delete()
     return RedirectResponse(f"/admin/supported-products/{product_id}", status_code=302)
@@ -724,6 +795,20 @@ async def admin_supported_product_mirror_repomd_delete(
     )
     if isinstance(repomd, Response):
         return repomd
+
+    # Check for existing advisory packages using this repository
+    packages_count = await AdvisoryPackage.filter(
+        supported_products_rh_mirror=repomd.supported_products_rh_mirror,
+        repo_name=repomd.repo_name
+    ).count()
+    
+    if packages_count > 0:
+        return templates.TemplateResponse(
+            "error.jinja", {
+                "request": request,
+                "message": f"Cannot delete repository '{repomd.repo_name}' because it has {packages_count} associated advisory package(s). Please remove these dependencies first.",
+            }
+        )
 
     await repomd.delete()
     return RedirectResponse(f"/admin/supported-products/{product_id}/mirrors/{mirror_id}", status_code=302)
