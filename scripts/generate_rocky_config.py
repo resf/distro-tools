@@ -128,20 +128,24 @@ def parse_repomd_path(repomd_url: str, base_url: str) -> Dict[str, str]:
     # Remove base_url and repodata/repomd.xml to get the path structure
     relative_path = repomd_url.replace(base_url, '').replace('/repodata/repomd.xml', '')
     path_parts = [p for p in relative_path.split('/') if p]
-    
+
+    # Also parse the base_url to extract version if present
+    base_url_parts = [p for p in base_url.rstrip('/').split('/') if p]
+    full_path_parts = base_url_parts + path_parts
+
     metadata = {
         'arch': 'unknown',
         'repo_name': 'unknown',
         'repo_type': 'main',
         'version': 'unknown'
     }
-    
+
     # Common patterns for Rocky Linux repositories
-    architectures = ['x86_64', 'aarch64', 'ppc64le', 's390x', 'noarch', 'source', 'SRPMS']
-    repo_names = ['BaseOS', 'AppStream', 'CRB', 'PowerTools', 'extras', 'devel', 'RT', 'NFV', 'ResilientStorage']
-    
-    # Try to identify components from path
-    for part in path_parts:
+    architectures = ['x86_64', 'aarch64', 'ppc64le', 's390x', 'riscv64', 'i686', 'noarch', 'source', 'SRPMS']
+    repo_names = ['BaseOS', 'AppStream', 'CRB', 'PowerTools', 'extras', 'devel', 'RT', 'NFV', 'ResilientStorage', 'plus', 'Devel']
+
+    # Try to identify components from both base URL and relative path
+    for part in full_path_parts:
         # Check for architecture
         if part in architectures:
             metadata['arch'] = part
@@ -150,7 +154,7 @@ def parse_repomd_path(repomd_url: str, base_url: str) -> Dict[str, str]:
         if part in repo_names:
             metadata['repo_name'] = part
         
-        # Check for version pattern (e.g., 9.6, 10.0, 10)
+        # Check for version pattern (e.g., 9.6, 10.0, 10, 8.10)
         if re.match(r'^\d+(\.\d+)?$', part):
             metadata['version'] = part
         
@@ -167,13 +171,14 @@ def parse_repomd_path(repomd_url: str, base_url: str) -> Dict[str, str]:
 
 
 def generate_rocky_config(
-    base_url: str, 
+    base_url: str,
     version: Optional[str] = None,
     production: bool = True,
     include_debug: bool = True,
     include_source: bool = True,
     architectures: List[str] = None,
-    crawl: bool = True
+    crawl: bool = True,
+    name_suffix: Optional[str] = None
 ) -> List[Dict[str, Any]]:
     """
     Generate Rocky Linux configuration by discovering repository structure.
@@ -186,6 +191,7 @@ def generate_rocky_config(
         include_source: Whether to include source repository URLs (default: True)
         architectures: List of architectures to include (default: auto-detect)
         crawl: Whether to crawl for repositories (default: True)
+        name_suffix: Optional suffix to append to mirror names
     
     Returns:
         List of configuration dictionaries ready for JSON export
@@ -250,6 +256,13 @@ def generate_rocky_config(
                 if not detected_version:
                     detected_version = "unknown"
             
+            # Generate mirror name with optional suffix
+            mirror_name_parts = ["Rocky Linux", detected_version]
+            if name_suffix:
+                mirror_name_parts.append(name_suffix)
+            mirror_name_parts.append(arch)
+            mirror_name = " ".join(mirror_name_parts)
+
             mirror_config = {
                 "product": {
                     "name": "Rocky Linux",
@@ -257,7 +270,7 @@ def generate_rocky_config(
                     "vendor": "Rocky Enterprise Software Foundation"
                 },
                 "mirror": {
-                    "name": f"Rocky Linux {detected_version} {arch}",
+                    "name": mirror_name,
                     "match_variant": "Red Hat Enterprise Linux",
                     "match_major_version": int(detected_version.split('.')[0]) if detected_version != "unknown" else 10,
                     "match_minor_version": None,
@@ -308,23 +321,24 @@ def generate_rocky_config(
     
     else:
         # Fallback to old static method
-        return generate_static_config(base_url, version or "10.0", production, include_debug, include_source, architectures)
+        return generate_static_config(base_url, version or "10.0", production, include_debug, include_source, architectures, name_suffix)
 
 
 def generate_static_config(
-    base_url: str, 
+    base_url: str,
     version: str = "10.0",
     production: bool = True,
     include_debug: bool = True,
     include_source: bool = True,
-    architectures: List[str] = None
+    architectures: List[str] = None,
+    name_suffix: Optional[str] = None
 ) -> List[Dict[str, Any]]:
     """
     Generate Rocky Linux configuration using static repository structure.
     This is the original implementation as a fallback.
     """
     if architectures is None:
-        architectures = ["x86_64", "aarch64", "ppc64le", "s390x"]
+        architectures = ["x86_64", "aarch64", "ppc64le", "s390x", "riscv64", "i686"]
     
     repositories = ["BaseOS", "AppStream", "CRB"]
     
@@ -334,6 +348,13 @@ def generate_static_config(
     config_data = []
     
     for arch in architectures:
+        # Generate mirror name with optional suffix
+        mirror_name_parts = ["Rocky Linux", version]
+        if name_suffix:
+            mirror_name_parts.append(name_suffix)
+        mirror_name_parts.append(arch)
+        mirror_name = " ".join(mirror_name_parts)
+
         mirror_config = {
             "product": {
                 "name": "Rocky Linux",
@@ -341,7 +362,7 @@ def generate_static_config(
                 "vendor": "Rocky Enterprise Software Foundation"
             },
             "mirror": {
-                "name": f"Rocky Linux {version} {arch}",
+                "name": mirror_name,
                 "match_variant": "Red Hat Enterprise Linux",
                 "match_major_version": int(version.split('.')[0]),
                 "match_minor_version": None,
@@ -430,7 +451,7 @@ Examples:
     parser.add_argument(
         "--arch",
         nargs="+",
-        choices=["x86_64", "aarch64", "ppc64le", "s390x"],
+        choices=["x86_64", "aarch64", "ppc64le", "s390x", "riscv64", "i686"],
         help="Architectures to include (default: auto-detect when crawling, all when static)"
     )
     
@@ -447,6 +468,11 @@ Examples:
         help="Maximum crawling depth (default: 4)"
     )
     
+    parser.add_argument(
+        "--name-suffix",
+        help="Optional suffix to append to mirror names (e.g., 'test' for 'Rocky Linux 9.6 test aarch64')"
+    )
+
     parser.add_argument(
         "--output", "-o",
         help="Output file path (default: stdout)"
@@ -478,7 +504,8 @@ Examples:
             include_debug=not args.no_debug,
             include_source=not args.no_source,
             architectures=args.arch,
-            crawl=not args.no_crawl
+            crawl=not args.no_crawl,
+            name_suffix=args.name_suffix
         )
         
         if not config:
