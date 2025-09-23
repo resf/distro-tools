@@ -19,6 +19,14 @@
 
         <h1 class="bx--type-expressive-heading-05">{{ mirror.name }}</h1>
         <p class="bx--type-body-long-02">Manage Red Hat mirror configuration and associated repositories.</p>
+
+        <div style="margin: 1rem 0; display: flex; gap: 1rem; align-items: center;">
+          <span class="bx--type-label-01">Export Mirror Configuration:</span>
+          <a href="/admin/supported-products/{{ mirror.supported_product.id }}/mirrors/{{ mirror.id }}/export"
+             class="bx--btn bx--btn--tertiary bx--btn--sm">
+            Export JSON
+          </a>
+        </div>
       </div>
     </div>
 
