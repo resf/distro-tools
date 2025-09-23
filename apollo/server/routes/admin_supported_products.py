@@ -1,7 +1,7 @@
 import json
 from decimal import Decimal
 from math import ceil
-from typing import Optional, Union, Type, Dict, Any, List
+from typing import Optional, Union, Type, Dict, Any, List, Tuple
 from urllib.parse import quote
 
 from fastapi import APIRouter, Request, Depends, Form, Query, UploadFile, File
@@ -63,6 +63,83 @@ async def get_entity_or_error_response(
             }
         )
     return entity
+
+
+async def check_mirror_dependencies(mirror) -> Tuple[int, int]:
+    """
+    Check dependencies for a single mirror.
+
+    Args:
+        mirror: The mirror object to check
+
+    Returns:
+        Tuple[int, int]: (blocks_count, overrides_count)
+    """
+    blocks_count = await SupportedProductsRhBlock.filter(
+        supported_products_rh_mirror=mirror
+    ).count()
+    overrides_count = await SupportedProductsRpmRhOverride.filter(
+        supported_products_rh_mirror=mirror
+    ).count()
+
+    return blocks_count, overrides_count
+
+
+def format_dependency_error_parts(blocks_count: int, overrides_count: int) -> List[str]:
+    """
+    Format dependency counts into error message parts.
+
+    Args:
+        blocks_count: Number of blocks
+        overrides_count: Number of overrides
+
+    Returns:
+        List[str]: List of formatted error parts
+    """
+    error_parts = []
+    if blocks_count > 0:
+        error_parts.append(f"{blocks_count} blocked product(s)")
+    if overrides_count > 0:
+        error_parts.append(f"{overrides_count} override(s)")
+
+    return error_parts
+
+
+
+
+def create_error_redirect(base_url: str, error_message: str) -> RedirectResponse:
+    """
+    Create a RedirectResponse with URL-encoded error message.
+
+    Args:
+        base_url: Base URL to redirect to
+        error_message: Error message to include
+
+    Returns:
+        RedirectResponse: Configured redirect response
+    """
+    return RedirectResponse(
+        f"{base_url}?error={quote(error_message)}",
+        status_code=302
+    )
+
+
+def create_success_redirect(base_url: str, success_message: str) -> RedirectResponse:
+    """
+    Create a RedirectResponse with URL-encoded success message.
+
+    Args:
+        base_url: Base URL to redirect to
+        success_message: Success message to include
+
+    Returns:
+        RedirectResponse: Configured redirect response
+    """
+    return RedirectResponse(
+        f"{base_url}?success={quote(success_message)}",
+        status_code=302
+    )
+
 
 router = APIRouter(tags=["non-api"])
 
@@ -568,21 +645,11 @@ async def admin_supported_product_mirror_delete(
     if isinstance(mirror, Response):
         return mirror
 
-    # Check for existing blocks and overrides
-    blocks_count = await SupportedProductsRhBlock.filter(
-        supported_products_rh_mirror=mirror
-    ).count()
-    overrides_count = await SupportedProductsRpmRhOverride.filter(
-        supported_products_rh_mirror=mirror
-    ).count()
+    # Check for existing blocks and overrides using shared logic
+    blocks_count, overrides_count = await check_mirror_dependencies(mirror)
 
     if blocks_count > 0 or overrides_count > 0:
-        error_parts = []
-        if blocks_count > 0:
-            error_parts.append(f"{blocks_count} blocked product(s)")
-        if overrides_count > 0:
-            error_parts.append(f"{overrides_count} override(s)")
-
+        error_parts = format_dependency_error_parts(blocks_count, overrides_count)
         error_message = (f"Cannot delete mirror '{mirror.name}' because it has associated "
                         f"{' and '.join(error_parts)}. Please remove these dependencies first.")
 
@@ -595,6 +662,81 @@ async def admin_supported_product_mirror_delete(
 
     await mirror.delete()
     return RedirectResponse(f"/admin/supported-products/{product_id}", status_code=302)
+
+
+@router.post("/{product_id}/bulk-delete-mirrors", response_class=HTMLResponse)
+async def admin_supported_product_mirrors_bulk_delete(
+    request: Request,
+    product_id: int,
+    mirror_ids: str = Form(),
+):
+    """Bulk delete multiple mirrors by calling individual delete logic for each mirror"""
+    base_url = f"/admin/supported-products/{product_id}"
+
+    # Parse and validate mirror IDs
+    if not mirror_ids or not mirror_ids.strip():
+        return create_error_redirect(base_url, "No mirror IDs provided")
+
+    try:
+        mirror_id_list = [int(id_str.strip()) for id_str in mirror_ids.split(",") if id_str.strip()]
+        if not mirror_id_list:
+            return create_error_redirect(base_url, "No valid mirror IDs provided")
+        # Validate all IDs are positive
+        for id_val in mirror_id_list:
+            if id_val <= 0:
+                return create_error_redirect(base_url, "All mirror IDs must be positive numbers")
+    except ValueError:
+        return create_error_redirect(base_url, "Invalid mirror IDs: must be comma-separated numbers")
+
+    # Get all mirrors to delete
+    mirrors = await SupportedProductsRhMirror.filter(
+        id__in=mirror_id_list, supported_product_id=product_id
+    ).prefetch_related("supported_product")
+
+    if not mirrors:
+        return create_error_redirect(base_url, "No mirrors found with provided IDs")
+
+    # Process each mirror individually using existing single delete logic
+    successful_deletes = []
+    failed_deletes = []
+
+    for mirror in mirrors:
+        # Check for existing blocks and overrides using shared logic
+        blocks_count, overrides_count = await check_mirror_dependencies(mirror)
+
+        if blocks_count > 0 or overrides_count > 0:
+            # Mirror has dependencies, cannot delete
+            error_parts = format_dependency_error_parts(blocks_count, overrides_count)
+            error_reason = f"{' and '.join(error_parts)}"
+            failed_deletes.append({"name": mirror.name, "reason": error_reason})
+        else:
+            # Mirror can be deleted
+            try:
+                await mirror.delete()
+                successful_deletes.append(mirror.name)
+            except Exception as e:
+                failed_deletes.append({"name": mirror.name, "reason": f"deletion failed: {str(e)}"})
+
+    # Build result message with clear formatting
+    message_parts = []
+
+    if successful_deletes:
+        message_parts.append(f"✓ DELETED {len(successful_deletes)} mirror(s): {', '.join(successful_deletes)}")
+
+    if failed_deletes:
+        failed_summary = []
+        for item in failed_deletes:
+            failed_summary.append(f"{item['name']} ({item['reason']})")
+        message_parts.append(f"✗ FAILED TO DELETE {len(failed_deletes)} mirror(s): {'; '.join(failed_summary)}")
+
+    message = ". ".join(message_parts)
+
+    # If we had any successful deletes, treat as success even if some failed
+    if successful_deletes:
+        return create_success_redirect(base_url, message)
+    else:
+        # All deletes failed
+        return create_error_redirect(base_url, message)
 
 
 # Repository (repomd) management routes

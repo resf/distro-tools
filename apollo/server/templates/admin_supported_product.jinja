@@ -42,15 +42,31 @@
       <div class="bx--col">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
           <h2 class="bx--type-productive-heading-04">Red Hat Mirrors ({{ product.rh_mirrors|length }})</h2>
-          <a href="/admin/supported-products/{{ product.id }}/mirrors/new" class="bx--btn bx--btn--primary">
-            Add Mirror
-          </a>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            {% if product.rh_mirrors %}
+            <form id="bulkDeleteForm" method="post" action="/admin/supported-products/{{ product.id }}/bulk-delete-mirrors" style="display: flex; gap: 0.5rem; align-items: center;">
+              <input type="hidden" name="mirror_ids" id="mirror_ids" value="">
+              <button type="button" id="selectAllBtn" class="bx--btn bx--btn--ghost bx--btn--sm">Select All</button>
+              <button type="button" id="selectNoneBtn" class="bx--btn bx--btn--ghost bx--btn--sm">Select None</button>
+              <button type="submit" id="bulkDeleteBtn" class="bx--btn bx--btn--danger bx--btn--sm" disabled>
+                Delete Selected
+              </button>
+            </form>
+            {% endif %}
+            <a href="/admin/supported-products/{{ product.id }}/mirrors/new" class="bx--btn bx--btn--primary">
+              Add Mirror
+            </a>
+          </div>
         </div>
 
         {% if product.rh_mirrors %}
+        <div style="max-height: 500px; overflow-y: auto;">
         <table class="bx--data-table bx--data-table--sticky-header">
-          <thead>
+          <thead style="position: sticky; top: 0; background: #f4f4f4; z-index: 1;">
             <tr>
+              <th style="width: 30px; min-width: 30px; max-width: 30px; padding: 0.5rem 0.25rem;">
+                <span class="bx--table-header-label" style="font-size: 0.75rem;">☐</span>
+              </th>
               <th>
                 <span class="bx--table-header-label">Name</span>
               </th>
@@ -77,6 +93,15 @@
           <tbody>
             {% for mirror in product.rh_mirrors %}
             <tr>
+              <td style="width: 30px; min-width: 30px; max-width: 30px; padding: 0.5rem 0.25rem; text-align: center;">
+                <input type="checkbox"
+                       class="bx--checkbox mirror-checkbox"
+                       id="mirror_{{ mirror.id }}"
+                       data-mirror-id="{{ mirror.id }}"
+                       data-mirror-name="{{ mirror.name }}"
+                       style="margin: 0;">
+                <label for="mirror_{{ mirror.id }}" class="bx--checkbox-label" style="margin: 0;"></label>
+              </td>
               <td>
                 <a href="/admin/supported-products/{{ product.id }}/mirrors/{{ mirror.id }}" class="bx--link">
                   {{ mirror.name }}
@@ -116,6 +141,7 @@
             {% endfor %}
           </tbody>
         </table>
+        </div>
         {% else %}
         <div class="bx--tile">
           <p>No Red Hat mirrors configured for this product.</p>
@@ -127,4 +153,81 @@
       </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const checkboxes = document.querySelectorAll('.mirror-checkbox');
+  const selectAllBtn = document.getElementById('selectAllBtn');
+  const selectNoneBtn = document.getElementById('selectNoneBtn');
+  const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+  const bulkDeleteForm = document.getElementById('bulkDeleteForm');
+  const mirrorIdsInput = document.getElementById('mirror_ids');
+
+  function updateBulkDeleteButton() {
+    const selectedCheckboxes = document.querySelectorAll('.mirror-checkbox:checked');
+    const selectedCount = selectedCheckboxes.length;
+
+    if (selectedCount > 0) {
+      bulkDeleteBtn.disabled = false;
+      bulkDeleteBtn.textContent = `Delete Selected (${selectedCount})`;
+
+      // Update hidden input with selected mirror IDs
+      const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.dataset.mirrorId);
+      mirrorIdsInput.value = selectedIds.join(',');
+    } else {
+      bulkDeleteBtn.disabled = true;
+      bulkDeleteBtn.textContent = 'Delete Selected';
+      mirrorIdsInput.value = '';
+    }
+  }
+
+  // Add event listeners to checkboxes
+  checkboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', updateBulkDeleteButton);
+  });
+
+  // Select All button
+  if (selectAllBtn) {
+    selectAllBtn.addEventListener('click', function() {
+      checkboxes.forEach(checkbox => {
+        checkbox.checked = true;
+      });
+      updateBulkDeleteButton();
+    });
+  }
+
+  // Select None button
+  if (selectNoneBtn) {
+    selectNoneBtn.addEventListener('click', function() {
+      checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+      });
+      updateBulkDeleteButton();
+    });
+  }
+
+  // Bulk delete form submission
+  if (bulkDeleteForm) {
+    bulkDeleteForm.addEventListener('submit', function(e) {
+      const selectedCheckboxes = document.querySelectorAll('.mirror-checkbox:checked');
+      if (selectedCheckboxes.length === 0) {
+        e.preventDefault();
+        alert('Please select at least one mirror to delete.');
+        return false;
+      }
+
+      const selectedNames = Array.from(selectedCheckboxes).map(cb => cb.dataset.mirrorName);
+      const confirmMessage = `Are you sure you want to delete ${selectedCheckboxes.length} mirror(s)?\n\nSelected mirrors:\n${selectedNames.join('\n')}\n\nThis action cannot be undone.`;
+
+      if (!confirm(confirmMessage)) {
+        e.preventDefault();
+        return false;
+      }
+    });
+  }
+
+  // Initial update
+  updateBulkDeleteButton();
+});
+</script>
 {% endblock %}
