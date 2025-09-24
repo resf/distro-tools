@@ -1,11 +1,13 @@
 from math import ceil
-from typing import Optional
+from typing import Optional, Union, Type, Dict, List
 
 from fastapi import APIRouter, Request, Depends, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
+from starlette.responses import Response
 from fastapi_pagination import Params
 from fastapi_pagination.ext.tortoise import paginate
 
+from tortoise.models import Model
 from apollo.db import (
     SupportedProduct,
     SupportedProductsRhMirror,
@@ -16,6 +18,40 @@ from apollo.db import (
     Code
 )
 from apollo.server.utils import templates
+
+
+async def get_entity_or_error_response(
+    request: Request,
+    model_class: Type[Model],
+    error_name: str,
+    entity_id: Optional[int] = None,
+    filters: Optional[Dict] = None,
+    prefetch_related: Optional[List[str]] = None
+) -> Union[Model, Response]:
+    """Get an entity by ID or filters, or return error template response."""
+
+    # Build the query
+    if entity_id is not None:
+        query = model_class.get_or_none(id=entity_id)
+    elif filters:
+        query = model_class.get_or_none(**filters)
+    else:
+        raise ValueError("Either entity_id or filters must be provided")
+
+    # Add prefetch_related if specified
+    if prefetch_related:
+        query = query.prefetch_related(*prefetch_related)
+
+    entity = await query
+
+    if entity is None:
+        return templates.TemplateResponse(
+            "error.jinja", {
+                "request": request,
+                "message": f"{error_name} not found",
+            }
+        )
+    return entity
 
 router = APIRouter(tags=["non-api"])
 
@@ -59,18 +95,15 @@ async def admin_supported_products(request: Request, params: Params = Depends())
 
 @router.get("/{product_id}", response_class=HTMLResponse)
 async def admin_supported_product(request: Request, product_id: int):
-    product = await SupportedProduct.get_or_none(id=product_id).prefetch_related(
-        "rh_mirrors",
-        "rh_mirrors__rpm_repomds",
-        "code"
+    product = await get_entity_or_error_response(
+        request,
+        SupportedProduct,
+        f"Supported product with id {product_id}",
+        entity_id=product_id,
+        prefetch_related=["rh_mirrors", "rh_mirrors__rpm_repomds", "code"]
     )
-    if product is None:
-        return templates.TemplateResponse(
-            "error.jinja", {
-                "request": request,
-                "message": f"Supported product with id {product_id} not found",
-            }
-        )
+    if isinstance(product, Response):
+        return product
 
     # Get detailed statistics for each mirror
     for mirror in product.rh_mirrors:
@@ -99,14 +132,14 @@ async def admin_supported_product(request: Request, product_id: int):
 
 @router.get("/{product_id}/mirrors/new", response_class=HTMLResponse)
 async def admin_supported_product_mirror_new(request: Request, product_id: int):
-    product = await SupportedProduct.get_or_none(id=product_id)
-    if product is None:
-        return templates.TemplateResponse(
-            "error.jinja", {
-                "request": request,
-                "message": f"Supported product with id {product_id} not found",
-            }
-        )
+    product = await get_entity_or_error_response(
+        request,
+        SupportedProduct,
+        f"Supported product with id {product_id}",
+        entity_id=product_id
+    )
+    if isinstance(product, Response):
+        return product
 
     return templates.TemplateResponse(
         "admin_supported_product_mirror_new.jinja", {
@@ -125,14 +158,14 @@ async def admin_supported_product_mirror_new_post(
     match_minor_version: Optional[int] = Form(default=None),
     match_arch: str = Form(),
 ):
-    product = await SupportedProduct.get_or_none(id=product_id)
-    if product is None:
-        return templates.TemplateResponse(
-            "error.jinja", {
-                "request": request,
-                "message": f"Supported product with id {product_id} not found",
-            }
-        )
+    product = await get_entity_or_error_response(
+        request,
+        SupportedProduct,
+        f"Supported product with id {product_id}",
+        entity_id=product_id
+    )
+    if isinstance(product, Response):
+        return product
 
     # Validation
     if not name or len(name.strip()) < 3:
@@ -165,25 +198,22 @@ async def admin_supported_product_mirror_new_post(
 
 @router.get("/{product_id}/mirrors/{mirror_id}", response_class=HTMLResponse)
 async def admin_supported_product_mirror(request: Request, product_id: int, mirror_id: int):
-    mirror = await SupportedProductsRhMirror.get_or_none(
-        id=mirror_id,
-        supported_product_id=product_id
-    ).prefetch_related(
-        "supported_product",
-        "rpm_repomds",
-        "rh_blocks",
-        "rh_blocks__red_hat_advisory",
-        "rpm_rh_overrides",
-        "rpm_rh_overrides__red_hat_advisory"
+    mirror = await get_entity_or_error_response(
+        request,
+        SupportedProductsRhMirror,
+        f"Mirror with id {mirror_id}",
+        filters={"id": mirror_id, "supported_product_id": product_id},
+        prefetch_related=[
+            "supported_product",
+            "rpm_repomds",
+            "rh_blocks",
+            "rh_blocks__red_hat_advisory",
+            "rpm_rh_overrides",
+            "rpm_rh_overrides__red_hat_advisory"
+        ]
     )
-
-    if mirror is None:
-        return templates.TemplateResponse(
-            "error.jinja", {
-                "request": request,
-                "message": f"Mirror with id {mirror_id} not found",
-            }
-        )
+    if isinstance(mirror, Response):
+        return mirror
 
     return templates.TemplateResponse(
         "admin_supported_product_mirror.jinja", {
@@ -204,18 +234,15 @@ async def admin_supported_product_mirror_post(
     match_minor_version: Optional[int] = Form(default=None),
     match_arch: str = Form(),
 ):
-    mirror = await SupportedProductsRhMirror.get_or_none(
-        id=mirror_id,
-        supported_product_id=product_id
-    ).prefetch_related("supported_product")
-
-    if mirror is None:
-        return templates.TemplateResponse(
-            "error.jinja", {
-                "request": request,
-                "message": f"Mirror with id {mirror_id} not found",
-            }
-        )
+    mirror = await get_entity_or_error_response(
+        request,
+        SupportedProductsRhMirror,
+        f"Mirror with id {mirror_id}",
+        filters={"id": mirror_id, "supported_product_id": product_id},
+        prefetch_related=["supported_product"]
+    )
+    if isinstance(mirror, Response):
+        return mirror
 
     # Validation
     if not name or len(name.strip()) < 3:
@@ -249,18 +276,15 @@ async def admin_supported_product_mirror_delete(
     product_id: int,
     mirror_id: int
 ):
-    mirror = await SupportedProductsRhMirror.get_or_none(
-        id=mirror_id,
-        supported_product_id=product_id
+    mirror = await get_entity_or_error_response(
+        request,
+        SupportedProductsRhMirror,
+        f"Mirror with id {mirror_id}",
+        filters={"id": mirror_id, "supported_product_id": product_id},
+        prefetch_related=["supported_product"]
     )
-
-    if mirror is None:
-        return templates.TemplateResponse(
-            "error.jinja", {
-                "request": request,
-                "message": f"Mirror with id {mirror_id} not found",
-            }
-        )
+    if isinstance(mirror, Response):
+        return mirror
 
     await mirror.delete()
     return RedirectResponse(f"/admin/supported-products/{product_id}", status_code=302)
@@ -273,17 +297,15 @@ async def admin_supported_product_mirror_repomd_new(
     product_id: int,
     mirror_id: int
 ):
-    mirror = await SupportedProductsRhMirror.get_or_none(
-        id=mirror_id, supported_product_id=product_id
-    ).prefetch_related("supported_product")
-
-    if mirror is None:
-        return templates.TemplateResponse(
-            "error.jinja", {
-                "request": request,
-                "message": f"Mirror with id {mirror_id} not found",
-            }
-        )
+    mirror = await get_entity_or_error_response(
+        request,
+        SupportedProductsRhMirror,
+        f"Mirror with id {mirror_id}",
+        filters={"id": mirror_id, "supported_product_id": product_id},
+        prefetch_related=["supported_product"]
+    )
+    if isinstance(mirror, Response):
+        return mirror
 
     return templates.TemplateResponse(
         "admin_supported_product_repomd_new.jinja", {
@@ -305,17 +327,15 @@ async def admin_supported_product_mirror_repomd_new_post(
     source_url: str = Form(""),
     repo_name: str = Form(),
 ):
-    mirror = await SupportedProductsRhMirror.get_or_none(
-        id=mirror_id, supported_product_id=product_id
-    ).prefetch_related("supported_product")
-
-    if mirror is None:
-        return templates.TemplateResponse(
-            "error.jinja", {
-                "request": request,
-                "message": f"Mirror with id {mirror_id} not found",
-            }
-        )
+    mirror = await get_entity_or_error_response(
+        request,
+        SupportedProductsRhMirror,
+        f"Mirror with id {mirror_id}",
+        filters={"id": mirror_id, "supported_product_id": product_id},
+        prefetch_related=["supported_product"]
+    )
+    if isinstance(mirror, Response):
+        return mirror
 
     # Validation
     if not repo_name or len(repo_name.strip()) < 2:
@@ -373,19 +393,19 @@ async def admin_supported_product_mirror_repomd(
     mirror_id: int,
     repomd_id: int
 ):
-    repomd = await SupportedProductsRpmRepomd.get_or_none(
-        id=repomd_id,
-        supported_products_rh_mirror_id=mirror_id,
-        supported_products_rh_mirror__supported_product_id=product_id
-    ).prefetch_related("supported_products_rh_mirror", "supported_products_rh_mirror__supported_product")
-
-    if repomd is None:
-        return templates.TemplateResponse(
-            "error.jinja", {
-                "request": request,
-                "message": f"Repository configuration with id {repomd_id} not found",
-            }
-        )
+    repomd = await get_entity_or_error_response(
+        request,
+        SupportedProductsRpmRepomd,
+        f"Repository configuration with id {repomd_id}",
+        filters={
+            "id": repomd_id,
+            "supported_products_rh_mirror_id": mirror_id,
+            "supported_products_rh_mirror__supported_product_id": product_id
+        },
+        prefetch_related=["supported_products_rh_mirror", "supported_products_rh_mirror__supported_product"]
+    )
+    if isinstance(repomd, Response):
+        return repomd
 
     return templates.TemplateResponse(
         "admin_supported_product_repomd.jinja", {
@@ -408,19 +428,19 @@ async def admin_supported_product_mirror_repomd_post(
     source_url: str = Form(""),
     repo_name: str = Form(),
 ):
-    repomd = await SupportedProductsRpmRepomd.get_or_none(
-        id=repomd_id,
-        supported_products_rh_mirror_id=mirror_id,
-        supported_products_rh_mirror__supported_product_id=product_id
-    ).prefetch_related("supported_products_rh_mirror", "supported_products_rh_mirror__supported_product")
-
-    if repomd is None:
-        return templates.TemplateResponse(
-            "error.jinja", {
-                "request": request,
-                "message": f"Repository configuration with id {repomd_id} not found",
-            }
-        )
+    repomd = await get_entity_or_error_response(
+        request,
+        SupportedProductsRpmRepomd,
+        f"Repository configuration with id {repomd_id}",
+        filters={
+            "id": repomd_id,
+            "supported_products_rh_mirror_id": mirror_id,
+            "supported_products_rh_mirror__supported_product_id": product_id
+        },
+        prefetch_related=["supported_products_rh_mirror", "supported_products_rh_mirror__supported_product"]
+    )
+    if isinstance(repomd, Response):
+        return repomd
 
     # Validation
     if not repo_name or len(repo_name.strip()) < 2:
@@ -465,19 +485,19 @@ async def admin_supported_product_mirror_repomd_delete(
     mirror_id: int,
     repomd_id: int
 ):
-    repomd = await SupportedProductsRpmRepomd.get_or_none(
-        id=repomd_id,
-        supported_products_rh_mirror_id=mirror_id,
-        supported_products_rh_mirror__supported_product_id=product_id
+    repomd = await get_entity_or_error_response(
+        request,
+        SupportedProductsRpmRepomd,
+        f"Repository configuration with id {repomd_id}",
+        filters={
+            "id": repomd_id,
+            "supported_products_rh_mirror_id": mirror_id,
+            "supported_products_rh_mirror__supported_product_id": product_id
+        },
+        prefetch_related=["supported_products_rh_mirror", "supported_products_rh_mirror__supported_product"]
     )
-
-    if repomd is None:
-        return templates.TemplateResponse(
-            "error.jinja", {
-                "request": request,
-                "message": f"Repository configuration with id {repomd_id} not found",
-            }
-        )
+    if isinstance(repomd, Response):
+        return repomd
 
     await repomd.delete()
     return RedirectResponse(f"/admin/supported-products/{product_id}/mirrors/{mirror_id}", status_code=302)
@@ -491,17 +511,15 @@ async def admin_supported_product_mirror_block_new(
     mirror_id: int,
     search: str = None
 ):
-    mirror = await SupportedProductsRhMirror.get_or_none(
-        id=mirror_id, supported_product_id=product_id
-    ).prefetch_related("supported_product")
-
-    if mirror is None:
-        return templates.TemplateResponse(
-            "error.jinja", {
-                "request": request,
-                "message": f"Mirror with id {mirror_id} not found",
-            }
-        )
+    mirror = await get_entity_or_error_response(
+        request,
+        SupportedProductsRhMirror,
+        f"Mirror with id {mirror_id}",
+        filters={"id": mirror_id, "supported_product_id": product_id},
+        prefetch_related=["supported_product"]
+    )
+    if isinstance(mirror, Response):
+        return mirror
 
     # Get advisories that are not already blocked
     existing_blocks = await SupportedProductsRhBlock.filter(
@@ -531,26 +549,24 @@ async def admin_supported_product_mirror_block_new_post(
     mirror_id: int,
     advisory_id: int = Form(),
 ):
-    mirror = await SupportedProductsRhMirror.get_or_none(
-        id=mirror_id, supported_product_id=product_id
-    ).prefetch_related("supported_product")
+    mirror = await get_entity_or_error_response(
+        request,
+        SupportedProductsRhMirror,
+        f"Mirror with id {mirror_id}",
+        filters={"id": mirror_id, "supported_product_id": product_id},
+        prefetch_related=["supported_product"]
+    )
+    if isinstance(mirror, Response):
+        return mirror
 
-    if mirror is None:
-        return templates.TemplateResponse(
-            "error.jinja", {
-                "request": request,
-                "message": f"Mirror with id {mirror_id} not found",
-            }
-        )
-
-    advisory = await RedHatAdvisory.get_or_none(id=advisory_id)
-    if advisory is None:
-        return templates.TemplateResponse(
-            "error.jinja", {
-                "request": request,
-                "message": f"Advisory with id {advisory_id} not found",
-            }
-        )
+    advisory = await get_entity_or_error_response(
+        request,
+        RedHatAdvisory,
+        f"Advisory with id {advisory_id}",
+        entity_id=advisory_id
+    )
+    if isinstance(advisory, Response):
+        return advisory
 
     # Check if block already exists
     existing_block = await SupportedProductsRhBlock.get_or_none(
@@ -608,17 +624,15 @@ async def admin_supported_product_mirror_override_new(
     mirror_id: int,
     search: str = None
 ):
-    mirror = await SupportedProductsRhMirror.get_or_none(
-        id=mirror_id, supported_product_id=product_id
-    ).prefetch_related("supported_product")
-
-    if mirror is None:
-        return templates.TemplateResponse(
-            "error.jinja", {
-                "request": request,
-                "message": f"Mirror with id {mirror_id} not found",
-            }
-        )
+    mirror = await get_entity_or_error_response(
+        request,
+        SupportedProductsRhMirror,
+        f"Mirror with id {mirror_id}",
+        filters={"id": mirror_id, "supported_product_id": product_id},
+        prefetch_related=["supported_product"]
+    )
+    if isinstance(mirror, Response):
+        return mirror
 
     # Get advisories that don't already have overrides
     existing_overrides = await SupportedProductsRpmRhOverride.filter(
@@ -648,26 +662,24 @@ async def admin_supported_product_mirror_override_new_post(
     mirror_id: int,
     advisory_id: int = Form(),
 ):
-    mirror = await SupportedProductsRhMirror.get_or_none(
-        id=mirror_id, supported_product_id=product_id
-    ).prefetch_related("supported_product")
+    mirror = await get_entity_or_error_response(
+        request,
+        SupportedProductsRhMirror,
+        f"Mirror with id {mirror_id}",
+        filters={"id": mirror_id, "supported_product_id": product_id},
+        prefetch_related=["supported_product"]
+    )
+    if isinstance(mirror, Response):
+        return mirror
 
-    if mirror is None:
-        return templates.TemplateResponse(
-            "error.jinja", {
-                "request": request,
-                "message": f"Mirror with id {mirror_id} not found",
-            }
-        )
-
-    advisory = await RedHatAdvisory.get_or_none(id=advisory_id)
-    if advisory is None:
-        return templates.TemplateResponse(
-            "error.jinja", {
-                "request": request,
-                "message": f"Advisory with id {advisory_id} not found",
-            }
-        )
+    advisory = await get_entity_or_error_response(
+        request,
+        RedHatAdvisory,
+        f"Advisory with id {advisory_id}",
+        entity_id=advisory_id
+    )
+    if isinstance(advisory, Response):
+        return advisory
 
     # Check if override already exists
     existing_override = await SupportedProductsRpmRhOverride.get_or_none(
