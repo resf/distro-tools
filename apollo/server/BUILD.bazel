@@ -32,6 +32,7 @@ py_library(
         "services/workflow_service.py",
         "settings.py",
         "utils.py",
+        "validation.py",
     ],
     data = [
         ":assets",

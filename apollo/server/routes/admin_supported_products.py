@@ -18,6 +18,12 @@ from apollo.db import (
     Code
 )
 from apollo.server.utils import templates
+from apollo.server.validation import (
+    FieldValidator,
+    FormValidator,
+    ValidationError,
+    get_supported_architectures
+)
 
 
 async def get_entity_or_error_response(
@@ -167,30 +173,42 @@ async def admin_supported_product_mirror_new_post(
     if isinstance(product, Response):
         return product
 
-    # Validation
-    if not name or len(name.strip()) < 3:
+    # Validation using centralized validation utility
+    form_data = {
+        "name": name,
+        "match_variant": match_variant,
+        "match_major_version": match_major_version,
+        "match_minor_version": match_minor_version,
+        "match_arch": match_arch,
+    }
+
+    try:
+        validated_name = FieldValidator.validate_name(
+            name,
+            min_length=3,
+            field_name="mirror name"
+        )
+        validated_arch = FieldValidator.validate_architecture(
+            match_arch,
+            field_name="architecture"
+        )
+    except ValidationError as e:
         return templates.TemplateResponse(
             "admin_supported_product_mirror_new.jinja", {
                 "request": request,
                 "product": product,
-                "error": "Mirror name must be at least 3 characters long",
-                "form_data": {
-                    "name": name,
-                    "match_variant": match_variant,
-                    "match_major_version": match_major_version,
-                    "match_minor_version": match_minor_version,
-                    "match_arch": match_arch,
-                }
+                "error": e.message,
+                "form_data": form_data
             }
         )
 
     mirror = SupportedProductsRhMirror(
         supported_product=product,
-        name=name.strip(),
+        name=validated_name,
         match_variant=match_variant,
         match_major_version=match_major_version,
         match_minor_version=match_minor_version,
-        match_arch=match_arch,
+        match_arch=validated_arch,
     )
     await mirror.save()
 
@@ -244,21 +262,31 @@ async def admin_supported_product_mirror_post(
     if isinstance(mirror, Response):
         return mirror
 
-    # Validation
-    if not name or len(name.strip()) < 3:
+    # Validation using centralized validation utility
+    try:
+        validated_name = FieldValidator.validate_name(
+            name,
+            min_length=3,
+            field_name="mirror name"
+        )
+        validated_arch = FieldValidator.validate_architecture(
+            match_arch,
+            field_name="architecture"
+        )
+    except ValidationError as e:
         return templates.TemplateResponse(
             "admin_supported_product_mirror.jinja", {
                 "request": request,
                 "mirror": mirror,
-                "error": "Mirror name must be at least 3 characters long",
+                "error": e.message,
             }
         )
 
-    mirror.name = name.strip()
+    mirror.name = validated_name
     mirror.match_variant = match_variant
     mirror.match_major_version = match_major_version
     mirror.match_minor_version = match_minor_version
-    mirror.match_arch = match_arch
+    mirror.match_arch = validated_arch
     await mirror.save()
 
     return templates.TemplateResponse(
@@ -337,49 +365,36 @@ async def admin_supported_product_mirror_repomd_new_post(
     if isinstance(mirror, Response):
         return mirror
 
-    # Validation
-    if not repo_name or len(repo_name.strip()) < 2:
-        return templates.TemplateResponse(
-            "admin_supported_product_repomd_new.jinja", {
-                "request": request,
-                "mirror": mirror,
-                "error": "Repository name must be at least 2 characters long",
-                "form_data": {
-                    "production": production,
-                    "arch": arch,
-                    "url": url,
-                    "debug_url": debug_url,
-                    "source_url": source_url,
-                    "repo_name": repo_name,
-                }
-            }
-        )
+    # Validation using centralized validation utility
+    form_data = {
+        "production": production,
+        "arch": arch,
+        "url": url,
+        "debug_url": debug_url,
+        "source_url": source_url,
+        "repo_name": repo_name,
+    }
 
-    if not url.startswith(('http://', 'https://')):
+    validated_data, validation_errors = FormValidator.validate_repomd_form(form_data)
+
+    if validation_errors:
         return templates.TemplateResponse(
             "admin_supported_product_repomd_new.jinja", {
                 "request": request,
                 "mirror": mirror,
-                "error": "Repository URL must start with http:// or https://",
-                "form_data": {
-                    "production": production,
-                    "arch": arch,
-                    "url": url,
-                    "debug_url": debug_url,
-                    "source_url": source_url,
-                    "repo_name": repo_name,
-                }
+                "error": validation_errors[0],  # Show first error
+                "form_data": form_data
             }
         )
 
     repomd = SupportedProductsRpmRepomd(
         supported_products_rh_mirror=mirror,
-        production=production,
-        arch=arch,
-        url=url.strip(),
-        debug_url=debug_url.strip(),
-        source_url=source_url.strip(),
-        repo_name=repo_name.strip(),
+        production=validated_data['production'],
+        arch=validated_data['arch'],
+        url=validated_data['url'],
+        debug_url=validated_data['debug_url'],
+        source_url=validated_data['source_url'],
+        repo_name=validated_data['repo_name'],
     )
     await repomd.save()
 
@@ -442,31 +457,33 @@ async def admin_supported_product_mirror_repomd_post(
     if isinstance(repomd, Response):
         return repomd
 
-    # Validation
-    if not repo_name or len(repo_name.strip()) < 2:
+    # Validation using centralized validation utility
+    form_data = {
+        "production": production,
+        "arch": arch,
+        "url": url,
+        "debug_url": debug_url,
+        "source_url": source_url,
+        "repo_name": repo_name,
+    }
+
+    validated_data, validation_errors = FormValidator.validate_repomd_form(form_data)
+
+    if validation_errors:
         return templates.TemplateResponse(
             "admin_supported_product_repomd.jinja", {
                 "request": request,
                 "repomd": repomd,
-                "error": "Repository name must be at least 2 characters long",
+                "error": validation_errors[0],  # Show first error
             }
         )
 
-    if not url.startswith(('http://', 'https://')):
-        return templates.TemplateResponse(
-            "admin_supported_product_repomd.jinja", {
-                "request": request,
-                "repomd": repomd,
-                "error": "Repository URL must start with http:// or https://",
-            }
-        )
-
-    repomd.production = production
-    repomd.arch = arch
-    repomd.url = url.strip()
-    repomd.debug_url = debug_url.strip()
-    repomd.source_url = source_url.strip()
-    repomd.repo_name = repo_name.strip()
+    repomd.production = validated_data['production']
+    repomd.arch = validated_data['arch']
+    repomd.url = validated_data['url']
+    repomd.debug_url = validated_data['debug_url']
+    repomd.source_url = validated_data['source_url']
+    repomd.repo_name = validated_data['repo_name']
     await repomd.save()
 
     return templates.TemplateResponse(
