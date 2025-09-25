@@ -105,7 +105,7 @@ class FieldValidator:
 
         if not ValidationPatterns.NAME_PATTERN.match(trimmed_name):
             raise ValidationError(
-                f"{field_name.title()} can only contain letters, numbers, dots, hyphens, and underscores",
+                f"{field_name.title()} can only contain letters, numbers, spaces, dots, hyphens, and underscores",
                 ValidationErrorType.INVALID_FORMAT,
                 field_name,
             )
@@ -337,7 +337,7 @@ class ConfigValidator:
                     product["name"], min_length=1, field_name="product name"
                 )
             except ValidationError as e:
-                errors.append(f"Config {config_index}: Product {e.message}")
+                errors.append(f"Config {config_index}: Product name '{product['name']}' - {e.message}")
 
         return errors
 
@@ -374,7 +374,7 @@ class ConfigValidator:
                     mirror["name"], min_length=3, field_name="mirror name"
                 )
             except ValidationError as e:
-                errors.append(f"Config {config_index}: Mirror {e.message}")
+                errors.append(f"Config {config_index}: Mirror name '{mirror['name']}' - {e.message}")
 
         # Validate architecture if present
         if mirror.get("match_arch"):
@@ -383,7 +383,7 @@ class ConfigValidator:
                     mirror["match_arch"], field_name="architecture"
                 )
             except ValidationError as e:
-                errors.append(f"Config {config_index}: Mirror {e.message}")
+                errors.append(f"Config {config_index}: Mirror architecture '{mirror['match_arch']}' - {e.message}")
 
         # Validate major version is numeric if present
         if mirror.get("match_major_version") is not None:
@@ -471,7 +471,7 @@ class ConfigValidator:
                     repo["repo_name"], min_length=2, field_name="repository name"
                 )
             except ValidationError as e:
-                errors.append(f"Config {config_index}, Repo {repo_index}: {e.message}")
+                errors.append(f"Config {config_index}, Repo {repo_index}: Repository name '{repo['repo_name']}' - {e.message}")
 
         # Validate architecture if present
         if repo.get("arch"):
@@ -480,7 +480,7 @@ class ConfigValidator:
                     repo["arch"], field_name="architecture"
                 )
             except ValidationError as e:
-                errors.append(f"Config {config_index}, Repo {repo_index}: {e.message}")
+                errors.append(f"Config {config_index}, Repo {repo_index}: Architecture '{repo['arch']}' - {e.message}")
 
         # Validate URLs if present
         for url_field in ["url", "debug_url", "source_url"]:
@@ -494,14 +494,14 @@ class ConfigValidator:
                     )
                 except ValidationError as e:
                     errors.append(
-                        f"Config {config_index}, Repo {repo_index}: {e.message}"
+                        f"Config {config_index}, Repo {repo_index}: {url_field.replace('_', ' ').title()} '{url_value}' - {e.message}"
                     )
 
         # Validate production is boolean if present
         if "production" in repo and repo["production"] is not None:
             if not isinstance(repo["production"], bool):
                 errors.append(
-                    f"Config {config_index}, Repo {repo_index}: production must be true or false"
+                    f"Config {config_index}, Repo {repo_index}: Production value '{repo['production']}' must be true or false"
                 )
 
         return errors

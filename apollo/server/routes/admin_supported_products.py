@@ -2,6 +2,7 @@ import json
 from decimal import Decimal
 from math import ceil
 from typing import Optional, Union, Type, Dict, Any, List
+from urllib.parse import quote
 
 from fastapi import APIRouter, Request, Depends, Form, Query, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -238,39 +239,39 @@ async def import_configurations(
 ):
     """Import repository configurations from JSON file"""
     if not file.filename.endswith('.json'):
-        return templates.TemplateResponse(
-            "admin_supported_products.jinja", {
-                "request": request,
-                "error": "File must be a JSON file (.json extension required)",
-            }
+        return RedirectResponse(
+            f"/admin/supported-products?error={quote('File must be a JSON file (.json extension required)')}",
+            status_code=302
         )
 
     try:
         content = await file.read()
         import_data = json.loads(content.decode('utf-8'))
     except json.JSONDecodeError as e:
-        return templates.TemplateResponse(
-            "admin_supported_products.jinja", {
-                "request": request,
-                "error": f"Invalid JSON file: {str(e)}",
-            }
+        return RedirectResponse(
+            f"/admin/supported-products?error={quote(f'Invalid JSON file: {str(e)}')}",
+            status_code=302
         )
     except Exception as e:
-        return templates.TemplateResponse(
-            "admin_supported_products.jinja", {
-                "request": request,
-                "error": f"Error reading file: {str(e)}",
-            }
+        return RedirectResponse(
+            f"/admin/supported-products?error={quote(f'Error reading file: {str(e)}')}",
+            status_code=302
         )
 
     # Validate import data
     validation_errors = await _validate_import_data(import_data)
     if validation_errors:
-        return templates.TemplateResponse(
-            "admin_supported_products.jinja", {
-                "request": request,
-                "error": "Validation errors:\n" + "\n".join(validation_errors),
-            }
+        # Limit the number of errors shown to avoid overwhelming the user
+        max_errors = 20
+        if len(validation_errors) > max_errors:
+            shown_errors = validation_errors[:max_errors]
+            error_message = f"Validation errors ({len(validation_errors)} total, showing first {max_errors}):\n" + "\n".join(shown_errors)
+        else:
+            error_message = "Validation errors:\n" + "\n".join(validation_errors)
+
+        return RedirectResponse(
+            f"/admin/supported-products?error={quote(error_message)}",
+            status_code=302
         )
 
     # Import the data
@@ -279,15 +280,13 @@ async def import_configurations(
         success_message = f"Import completed: {results['created']} created, {results['updated']} updated, {results['skipped']} skipped"
 
         return RedirectResponse(
-            f"/admin/supported-products?success={success_message}",
+            f"/admin/supported-products?success={quote(success_message)}",
             status_code=302
         )
     except Exception as e:
-        return templates.TemplateResponse(
-            "admin_supported_products.jinja", {
-                "request": request,
-                "error": f"Import failed: {str(e)}",
-            }
+        return RedirectResponse(
+            f"/admin/supported-products?error={quote(f'Import failed: {str(e)}')}",
+            status_code=302
         )
 
 @router.get("/{product_id}", response_class=HTMLResponse)
@@ -344,11 +343,11 @@ async def admin_supported_product_delete(
 
     # Check for existing mirrors (which would contain blocks, overrides, and repomds)
     mirrors_count = await SupportedProductsRhMirror.filter(supported_product=product).count()
-    
+
     # Check for existing advisory packages and affected products
     packages_count = await AdvisoryPackage.filter(supported_product=product).count()
     affected_products_count = await AdvisoryAffectedProduct.filter(supported_product=product).count()
-    
+
     if mirrors_count > 0 or packages_count > 0 or affected_products_count > 0:
         error_parts = []
         if mirrors_count > 0:
@@ -357,10 +356,10 @@ async def admin_supported_product_delete(
             error_parts.append(f"{packages_count} advisory package(s)")
         if affected_products_count > 0:
             error_parts.append(f"{affected_products_count} affected product(s)")
-        
+
         error_message = (f"Cannot delete supported product '{product.name}' because it has associated "
                         f"{', '.join(error_parts)}. Please remove these dependencies first.")
-        
+
         return templates.TemplateResponse(
             "error.jinja", {
                 "request": request,
@@ -576,17 +575,17 @@ async def admin_supported_product_mirror_delete(
     overrides_count = await SupportedProductsRpmRhOverride.filter(
         supported_products_rh_mirror=mirror
     ).count()
-    
+
     if blocks_count > 0 or overrides_count > 0:
         error_parts = []
         if blocks_count > 0:
             error_parts.append(f"{blocks_count} blocked product(s)")
         if overrides_count > 0:
             error_parts.append(f"{overrides_count} override(s)")
-        
+
         error_message = (f"Cannot delete mirror '{mirror.name}' because it has associated "
                         f"{' and '.join(error_parts)}. Please remove these dependencies first.")
-        
+
         return templates.TemplateResponse(
             "error.jinja", {
                 "request": request,
@@ -801,7 +800,7 @@ async def admin_supported_product_mirror_repomd_delete(
         supported_products_rh_mirror=repomd.supported_products_rh_mirror,
         repo_name=repomd.repo_name
     ).count()
-    
+
     if packages_count > 0:
         return templates.TemplateResponse(
             "error.jinja", {
