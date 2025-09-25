@@ -19,6 +19,7 @@ class Architecture(str, Enum):
     PPC64 = "ppc64"
     PPC64LE = "ppc64le"
     S390X = "s390x"
+    RISCV64 = "riscv64"
     NOARCH = "noarch"
 
 
@@ -58,11 +59,11 @@ class ValidationPatterns:
     # URL validation - must start with http:// or https://
     URL_PATTERN = re.compile(r"^https?://.+")
 
-    # Name patterns - alphanumeric with common special characters
-    NAME_PATTERN = re.compile(r"^[a-zA-Z0-9._-]+$")
+    # Name patterns - alphanumeric with common special characters and spaces
+    NAME_PATTERN = re.compile(r"^[a-zA-Z0-9._\s-]+$")
 
     # Architecture validation
-    ARCH_PATTERN = re.compile(r"^(x86_64|aarch64|i386|ppc64|ppc64le|s390x|noarch)$")
+    ARCH_PATTERN = re.compile(r"^(x86_64|aarch64|i386|ppc64|ppc64le|s390x|riscv64|noarch)$")
 
     # Repository name - more permissive for repo naming conventions
     REPO_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9._-]+$")
