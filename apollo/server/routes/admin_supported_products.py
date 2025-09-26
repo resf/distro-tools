@@ -1153,7 +1153,7 @@ async def admin_supported_product_mirror_override_new_post(
     )
     await override.save()
 
-    return RedirectResponse(f"/admin/supported-products/{product_id}/mirrors/{mirror_id}", status_code=302)
+    return RedirectResponse(f"/admin/supported-products/{product_id}/mirrors/{mirror_id}/overrides/new", status_code=302)
 
 
 @router.post("/{product_id}/mirrors/{mirror_id}/overrides/{override_id}/delete", response_class=HTMLResponse)

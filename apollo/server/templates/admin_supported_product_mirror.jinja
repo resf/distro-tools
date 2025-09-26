@@ -369,9 +369,19 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  // Initialize first tab as active
+  // Initialize tab based on URL hash or default to first tab
   if (tabs.length > 0) {
-    tabs[0].click();
+    const hash = window.location.hash;
+    let targetTab = tabs[0]; // default to first tab
+
+    if (hash) {
+      const hashTab = document.querySelector(`.bx--tabs__nav-link[href="${hash}"]`);
+      if (hashTab) {
+        targetTab = hashTab;
+      }
+    }
+
+    targetTab.click();
   }
 });
 </script>
