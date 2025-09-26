@@ -34,8 +34,15 @@ class TestEnumsAndPatterns(unittest.TestCase):
     def test_architecture_enum_values(self):
         """Test all Architecture enum values."""
         expected_architectures = [
-            "x86_64", "aarch64", "i386", "i686", "ppc64", "ppc64le",
-            "s390x", "riscv64", "noarch"
+            "x86_64",
+            "aarch64",
+            "i386",
+            "i686",
+            "ppc64",
+            "ppc64le",
+            "s390x",
+            "riscv64",
+            "noarch",
         ]
 
         for arch in expected_architectures:
@@ -50,8 +57,12 @@ class TestEnumsAndPatterns(unittest.TestCase):
     def test_validation_error_type_enum(self):
         """Test ValidationErrorType enum values."""
         expected_types = [
-            "required", "min_length", "max_length", "invalid_format",
-            "invalid_url", "invalid_architecture"
+            "required",
+            "min_length",
+            "max_length",
+            "invalid_format",
+            "invalid_url",
+            "invalid_architecture",
         ]
 
         for error_type in expected_types:
@@ -143,7 +154,10 @@ class TestFieldValidator(unittest.TestCase):
         """Test successful URL validation."""
         test_cases = [
             ("http://example.com", "http://example.com"),
-            ("https://mirror.rockylinux.org/pub/rocky/", "https://mirror.rockylinux.org/pub/rocky/"),
+            (
+                "https://mirror.rockylinux.org/pub/rocky/",
+                "https://mirror.rockylinux.org/pub/rocky/",
+            ),
             ("  https://example.com  ", "https://example.com"),  # Trimmed
         ]
 
@@ -179,8 +193,15 @@ class TestFieldValidator(unittest.TestCase):
     def test_validate_architecture_success(self):
         """Test successful architecture validation."""
         valid_architectures = [
-            "x86_64", "aarch64", "i386", "i686", "ppc64",
-            "ppc64le", "s390x", "riscv64", "noarch"
+            "x86_64",
+            "aarch64",
+            "i386",
+            "i686",
+            "ppc64",
+            "ppc64le",
+            "s390x",
+            "riscv64",
+            "noarch",
         ]
 
         for arch in valid_architectures:
@@ -251,23 +272,23 @@ class TestConfigValidator(unittest.TestCase):
                 "product": {
                     "name": "Rocky Linux",
                     "variant": "Rocky Linux",
-                    "vendor": "Rocky Enterprise Software Foundation"
+                    "vendor": "Rocky Enterprise Software Foundation",
                 },
                 "mirror": {
                     "name": "Rocky Linux 9.6 x86_64",
                     "match_variant": "Red Hat Enterprise Linux",
                     "match_major_version": 9,
                     "match_minor_version": None,
-                    "match_arch": "x86_64"
+                    "match_arch": "x86_64",
                 },
                 "repositories": [
                     {
                         "repo_name": "BaseOS",
                         "arch": "x86_64",
                         "production": True,
-                        "url": "https://example.com/repo"
+                        "url": "https://example.com/repo",
                     }
-                ]
+                ],
             }
         ]
 
@@ -288,22 +309,22 @@ class TestConfigValidator(unittest.TestCase):
             "product": {
                 "name": "Rocky Linux",
                 "variant": "Rocky Linux",
-                "vendor": "RESF"
+                "vendor": "RESF",
             },
             "mirror": {
                 "name": "Test Mirror",
                 "match_variant": "Red Hat Enterprise Linux",
                 "match_major_version": 9,
-                "match_arch": "x86_64"
+                "match_arch": "x86_64",
             },
             "repositories": [
                 {
                     "repo_name": "BaseOS",
                     "arch": "x86_64",
                     "production": True,
-                    "url": "https://example.com/repo"
+                    "url": "https://example.com/repo",
                 }
-            ]
+            ],
         }
 
         errors = ConfigValidator.validate_config_structure(valid_config, 1)
@@ -336,7 +357,7 @@ class TestConfigValidator(unittest.TestCase):
         valid_product = {
             "name": "Rocky Linux",
             "variant": "Rocky Linux",
-            "vendor": "Rocky Enterprise Software Foundation"
+            "vendor": "Rocky Enterprise Software Foundation",
         }
 
         errors = ConfigValidator.validate_product_config(valid_product, 1)
@@ -352,7 +373,9 @@ class TestConfigValidator(unittest.TestCase):
         errors = ConfigValidator.validate_product_config(invalid_product, 1)
 
         self.assertGreater(len(errors), 0)
-        missing_fields = [error for error in errors if "missing required field" in error]
+        missing_fields = [
+            error for error in errors if "missing required field" in error
+        ]
         self.assertEqual(len(missing_fields), 2)  # Should have 2 missing fields
 
     def test_validate_product_config_not_dict(self):
@@ -371,7 +394,7 @@ class TestConfigValidator(unittest.TestCase):
             "match_variant": "Red Hat Enterprise Linux",
             "match_major_version": 9,
             "match_minor_version": 6,
-            "match_arch": "x86_64"
+            "match_arch": "x86_64",
         }
 
         errors = ConfigValidator.validate_mirror_config(valid_mirror, 1)
@@ -384,7 +407,7 @@ class TestConfigValidator(unittest.TestCase):
             "match_variant": "Red Hat Enterprise Linux",
             "match_major_version": 10,
             "match_minor_version": None,
-            "match_arch": "riscv64"
+            "match_arch": "riscv64",
         }
 
         errors = ConfigValidator.validate_mirror_config(riscv64_mirror, 1)
@@ -397,7 +420,7 @@ class TestConfigValidator(unittest.TestCase):
             "match_variant": "Red Hat Enterprise Linux",
             "match_major_version": 8,
             "match_minor_version": 10,
-            "match_arch": "i686"
+            "match_arch": "i686",
         }
 
         errors = ConfigValidator.validate_mirror_config(i686_mirror, 1)
@@ -409,7 +432,7 @@ class TestConfigValidator(unittest.TestCase):
             "name": "Test Mirror",
             "match_variant": "Red Hat Enterprise Linux",
             "match_major_version": 9,
-            "match_arch": "invalid_arch"
+            "match_arch": "invalid_arch",
         }
 
         errors = ConfigValidator.validate_mirror_config(invalid_mirror, 1)
@@ -425,7 +448,7 @@ class TestConfigValidator(unittest.TestCase):
             "match_variant": "Red Hat Enterprise Linux",
             "match_major_version": -1,  # Invalid: negative
             "match_minor_version": "not_a_number",  # Invalid: not an int
-            "match_arch": "x86_64"
+            "match_arch": "x86_64",
         }
 
         errors = ConfigValidator.validate_mirror_config(invalid_mirror, 1)
@@ -449,14 +472,14 @@ class TestConfigValidator(unittest.TestCase):
                 "repo_name": "BaseOS",
                 "arch": "x86_64",
                 "production": True,
-                "url": "https://example.com/BaseOS"
+                "url": "https://example.com/BaseOS",
             },
             {
                 "repo_name": "AppStream",
                 "arch": "x86_64",
                 "production": True,
-                "url": "https://example.com/AppStream"
-            }
+                "url": "https://example.com/AppStream",
+            },
         ]
 
         errors = ConfigValidator.validate_repositories_config(valid_repositories, 1)
@@ -480,7 +503,7 @@ class TestConfigValidator(unittest.TestCase):
             "production": True,
             "url": "https://example.com/BaseOS/riscv64/os/repodata/repomd.xml",
             "debug_url": "https://example.com/debug",
-            "source_url": "https://example.com/source"
+            "source_url": "https://example.com/source",
         }
 
         errors = ConfigValidator.validate_repository_config(valid_repo, 1, 1)
@@ -495,7 +518,9 @@ class TestConfigValidator(unittest.TestCase):
 
         errors = ConfigValidator.validate_repository_config(invalid_repo, 1, 1)
 
-        missing_fields = [error for error in errors if "Missing required field" in error]
+        missing_fields = [
+            error for error in errors if "Missing required field" in error
+        ]
         self.assertEqual(len(missing_fields), 3)  # arch, production, url
 
     def test_validate_repository_config_invalid_production(self):
@@ -504,12 +529,14 @@ class TestConfigValidator(unittest.TestCase):
             "repo_name": "BaseOS",
             "arch": "x86_64",
             "production": "not_a_boolean",  # Invalid
-            "url": "https://example.com/repo"
+            "url": "https://example.com/repo",
         }
 
         errors = ConfigValidator.validate_repository_config(invalid_repo, 1, 1)
 
-        production_errors = [error for error in errors if "must be true or false" in error]
+        production_errors = [
+            error for error in errors if "must be true or false" in error
+        ]
         self.assertEqual(len(production_errors), 1)
 
     def test_validate_repository_config_not_dict(self):
@@ -532,7 +559,7 @@ class TestFormValidator(unittest.TestCase):
             "match_variant": "Red Hat Enterprise Linux",
             "match_major_version": 9,
             "match_minor_version": 6,
-            "match_arch": "x86_64"
+            "match_arch": "x86_64",
         }
 
         validated_data, errors = FormValidator.validate_mirror_form(valid_form_data)
@@ -564,7 +591,7 @@ class TestFormValidator(unittest.TestCase):
             "production": True,
             "url": "https://example.com/BaseOS",
             "debug_url": "https://example.com/debug",
-            "source_url": "https://example.com/source"
+            "source_url": "https://example.com/source",
         }
 
         validated_data, errors = FormValidator.validate_repomd_form(valid_form_data)
@@ -583,7 +610,7 @@ class TestFormValidator(unittest.TestCase):
             "production": False,
             "url": "https://example.com/BaseOS",
             "debug_url": "",  # Empty optional URL
-            "source_url": ""  # Empty optional URL
+            "source_url": "",  # Empty optional URL
         }
 
         validated_data, errors = FormValidator.validate_repomd_form(form_data)
@@ -617,8 +644,15 @@ class TestUtilityFunctions(unittest.TestCase):
         architectures = get_supported_architectures()
 
         expected = [
-            "x86_64", "aarch64", "i386", "i686", "ppc64",
-            "ppc64le", "s390x", "riscv64", "noarch"
+            "x86_64",
+            "aarch64",
+            "i386",
+            "i686",
+            "ppc64",
+            "ppc64le",
+            "s390x",
+            "riscv64",
+            "noarch",
         ]
 
         self.assertEqual(sorted(architectures), sorted(expected))
@@ -629,7 +663,7 @@ class TestUtilityFunctions(unittest.TestCase):
         valid_urls = [
             "http://example.com",
             "https://mirror.rockylinux.org/pub/rocky/",
-            "https://example.com/path/to/resource?param=value"
+            "https://example.com/path/to/resource?param=value",
         ]
 
         for url in valid_urls:
@@ -637,13 +671,7 @@ class TestUtilityFunctions(unittest.TestCase):
                 self.assertTrue(is_valid_url(url))
 
         # Invalid URLs
-        invalid_urls = [
-            "",
-            "example.com",
-            "ftp://example.com",
-            "http://",
-            None
-        ]
+        invalid_urls = ["", "example.com", "ftp://example.com", "http://", None]
 
         for url in invalid_urls:
             with self.subTest(url=url):
@@ -657,8 +685,15 @@ class TestUtilityFunctions(unittest.TestCase):
         """Test is_valid_architecture function."""
         # Valid architectures
         valid_archs = [
-            "x86_64", "aarch64", "i386", "i686", "ppc64",
-            "ppc64le", "s390x", "riscv64", "noarch"
+            "x86_64",
+            "aarch64",
+            "i386",
+            "i686",
+            "ppc64",
+            "ppc64le",
+            "s390x",
+            "riscv64",
+            "noarch",
         ]
 
         for arch in valid_archs:
@@ -666,13 +701,7 @@ class TestUtilityFunctions(unittest.TestCase):
                 self.assertTrue(is_valid_architecture(arch))
 
         # Invalid architectures
-        invalid_archs = [
-            "",
-            "invalid_arch",
-            "x86",
-            "arm64",  # Should be aarch64
-            None
-        ]
+        invalid_archs = ["", "invalid_arch", "x86", "arm64", None]  # Should be aarch64
 
         for arch in invalid_archs:
             with self.subTest(arch=arch):

@@ -14,6 +14,7 @@ from typing import Dict, List, Any
 # Add the project root to the Python path
 import sys
 import os
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from apollo.server.routes.admin_supported_products import (
@@ -23,7 +24,7 @@ from apollo.server.routes.admin_supported_products import (
     _json_serializer,
     _format_export_data,
     _get_mirror_config_data,
-    _validate_import_data
+    _validate_import_data,
 )
 
 
@@ -96,7 +97,9 @@ class TestRedirectHelpers(unittest.TestCase):
         self.assertIn("error=", location)
         # Ensure special characters are encoded
         self.assertNotIn("'", location)
-        self.assertNotIn("&", location.split("error=")[1])  # & in error part should be encoded
+        self.assertNotIn(
+            "&", location.split("error=")[1]
+        )  # & in error part should be encoded
 
     def test_create_success_redirect_basic(self):
         """Test creating success redirect with basic message."""
@@ -106,7 +109,9 @@ class TestRedirectHelpers(unittest.TestCase):
         response = create_success_redirect(base_url, success_message)
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn("success=Product%20created%20successfully", response.headers["location"])
+        self.assertIn(
+            "success=Product%20created%20successfully", response.headers["location"]
+        )
         self.assertTrue(response.headers["location"].startswith(base_url))
 
     def test_create_success_redirect_with_numbers(self):
@@ -154,14 +159,14 @@ class TestJSONSerialization(unittest.TestCase):
 
     def test_json_serializer_decimal(self):
         """Test JSON serializer with Decimal objects."""
-        decimal_val = Decimal('123.456')
+        decimal_val = Decimal("123.456")
         result = _json_serializer(decimal_val)
         self.assertEqual(result, 123.456)
         self.assertIsInstance(result, float)
 
     def test_json_serializer_decimal_integer(self):
         """Test JSON serializer with integer Decimal."""
-        decimal_val = Decimal('42')
+        decimal_val = Decimal("42")
         result = _json_serializer(decimal_val)
         self.assertEqual(result, 42.0)
         self.assertIsInstance(result, float)
@@ -185,10 +190,7 @@ class TestJSONSerialization(unittest.TestCase):
 
     def test_format_export_data_basic(self):
         """Test formatting basic export data."""
-        data = [
-            {"name": "test", "value": 123},
-            {"name": "test2", "value": 456}
-        ]
+        data = [{"name": "test", "value": 123}, {"name": "test2", "value": 456}]
 
         result = _format_export_data(data)
 
@@ -203,8 +205,8 @@ class TestJSONSerialization(unittest.TestCase):
     def test_format_export_data_with_decimal(self):
         """Test formatting export data containing Decimal objects."""
         data = [
-            {"name": "test", "price": Decimal('19.99')},
-            {"name": "test2", "price": Decimal('99')}
+            {"name": "test", "price": Decimal("19.99")},
+            {"name": "test2", "price": Decimal("99")},
         ]
 
         result = _format_export_data(data)
@@ -230,8 +232,8 @@ class TestJSONSerialization(unittest.TestCase):
                 "product": {"name": "Rocky Linux", "version": 9},
                 "repositories": [
                     {"name": "BaseOS", "arch": "x86_64"},
-                    {"name": "AppStream", "arch": "x86_64"}
-                ]
+                    {"name": "AppStream", "arch": "x86_64"},
+                ],
             }
         ]
 
@@ -301,7 +303,9 @@ class TestMirrorConfigDataExtraction(unittest.TestCase):
         self.assertEqual(result["product"]["id"], 1)
         self.assertEqual(result["product"]["name"], "Rocky Linux")
         self.assertEqual(result["product"]["variant"], "Rocky Linux")
-        self.assertEqual(result["product"]["vendor"], "Rocky Enterprise Software Foundation")
+        self.assertEqual(
+            result["product"]["vendor"], "Rocky Enterprise Software Foundation"
+        )
 
         # Verify mirror data
         self.assertEqual(result["mirror"]["id"], 10)
@@ -389,23 +393,23 @@ class TestImportValidation(unittest.TestCase):
                 "product": {
                     "name": "Rocky Linux",
                     "variant": "Rocky Linux",
-                    "vendor": "RESF"
+                    "vendor": "RESF",
                 },
                 "mirror": {
                     "name": "Rocky Linux 9.6 x86_64",
                     "match_variant": "Red Hat Enterprise Linux",
                     "match_major_version": 9,
                     "match_minor_version": 6,
-                    "match_arch": "x86_64"
+                    "match_arch": "x86_64",
                 },
                 "repositories": [
                     {
                         "repo_name": "BaseOS",
                         "arch": "x86_64",
                         "production": True,
-                        "url": "https://example.com/repo"
+                        "url": "https://example.com/repo",
                     }
-                ]
+                ],
             }
         ]
 
@@ -423,7 +427,7 @@ class TestImportValidation(unittest.TestCase):
                 "mirror": {
                     # Missing required fields
                 },
-                "repositories": []
+                "repositories": [],
             }
         ]
 
