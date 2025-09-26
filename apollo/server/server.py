@@ -177,7 +177,7 @@ async def render_template_exception_handler(
 @app.on_event("startup")
 async def startup():
     global temporal_client
-    
+
     # Generate secret-key if it does not exist in the database
     secret_key = await get_setting(SECRET_KEY)
     if not secret_key:
@@ -191,16 +191,8 @@ async def startup():
         secret_key=secret_key,
         max_age=60 * 60 * 24 * 7,  # 1 week
     )
-    
+
     # Initialize Temporal client for workflow management
     temporal = Temporal(True)
     await temporal.connect()
     temporal_client = temporal
-
-
-@app.on_event("shutdown")
-async def shutdown():
-    global temporal_client
-    # Close Temporal client connection if it exists
-    if temporal_client and temporal_client.client:
-        await temporal_client.client.close()
