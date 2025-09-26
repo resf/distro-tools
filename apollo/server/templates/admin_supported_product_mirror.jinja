@@ -385,4 +385,25 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 </script>
+
+<style>
+/* Fix tab text truncation */
+.bx--tabs__nav-link {
+  white-space: nowrap !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  max-width: none !important;
+  width: auto !important;
+}
+
+.bx--tabs__nav-item {
+  max-width: none !important;
+  width: auto !important;
+}
+
+/* Ensure tabs container doesn't constrain width */
+.bx--tabs__nav {
+  width: 100% !important;
+}
+</style>
 {% endblock %}
