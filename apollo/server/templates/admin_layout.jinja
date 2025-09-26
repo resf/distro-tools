@@ -61,6 +61,14 @@
   bx-side-nav-link:not([active]) {
     background-color: transparent !important;
   }
+
+  /* Custom hover effect for action buttons to match Carbon danger button highlighting */
+  .edit-btn-hover:hover,
+  .manage-btn-hover:hover {
+    background-color: var(--cds-hover-primary) !important;
+    border-color: var(--cds-hover-primary) !important;
+    color: var(--cds-inverse-01) !important;
+  }
 </style>
 {% endblock %}
 

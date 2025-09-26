@@ -206,7 +206,7 @@
                 <td>
                   <div style="display: flex; gap: 0.5rem;">
                     <a href="/admin/supported-products/{{ mirror.supported_product.id }}/mirrors/{{ mirror.id }}/repomds/{{ repomd.id }}"
-                       class="bx--btn bx--btn--ghost bx--btn--sm">Edit</a>
+                       class="bx--btn bx--btn--ghost bx--btn--sm edit-btn-hover">Edit</a>
                     <form method="post" action="/admin/supported-products/{{ mirror.supported_product.id }}/mirrors/{{ mirror.id }}/repomds/{{ repomd.id }}/delete"
                           style="display: inline;"
                           onsubmit="return confirm('Are you sure you want to delete this repository configuration?')">
