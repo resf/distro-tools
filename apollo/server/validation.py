@@ -16,6 +16,7 @@ class Architecture(str, Enum):
     X86_64 = "x86_64"
     AARCH64 = "aarch64"
     I386 = "i386"
+    I686 = "i686"
     PPC64 = "ppc64"
     PPC64LE = "ppc64le"
     S390X = "s390x"
@@ -63,7 +64,7 @@ class ValidationPatterns:
     NAME_PATTERN = re.compile(r"^[a-zA-Z0-9._\s-]+$")
 
     # Architecture validation
-    ARCH_PATTERN = re.compile(r"^(x86_64|aarch64|i386|ppc64|ppc64le|s390x|riscv64|noarch)$")
+    ARCH_PATTERN = re.compile(r"^(x86_64|aarch64|i386|i686|ppc64|ppc64le|s390x|riscv64|noarch)$")
 
     # Repository name - more permissive for repo naming conventions
     REPO_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9._-]+$")
