@@ -252,7 +252,7 @@
               {% for block in mirror.rh_blocks %}
               <tr>
                 <td>
-                  <a href="/red-hat-advisories/{{ block.red_hat_advisory.id }}" class="bx--link" target="_blank">
+                  <a href="/red_hat/advisories/{{ block.red_hat_advisory.name }}" class="bx--link" target="_blank">
                     {{ block.red_hat_advisory.name }}
                   </a>
                 </td>
@@ -305,7 +305,7 @@
               {% for override in mirror.rpm_rh_overrides %}
               <tr>
                 <td>
-                  <a href="/red-hat-advisories/{{ override.red_hat_advisory.id }}" class="bx--link" target="_blank">
+                  <a href="/red_hat/advisories/{{ override.red_hat_advisory.name }}" class="bx--link" target="_blank">
                     {{ override.red_hat_advisory.name }}
                   </a>
                 </td>
