@@ -60,9 +60,9 @@
         </div>
 
         {% if product.rh_mirrors %}
-        <div style="max-height: 500px; overflow-y: auto;">
-        <table class="bx--data-table bx--data-table--sticky-header">
-          <thead style="position: sticky; top: 0; background: #f4f4f4; z-index: 1;">
+        <div style="max-height: calc(100vh - 24rem); overflow-y: auto;">
+        <table class="bx--data-table" style="width: 100%;">
+          <thead style="background: #f4f4f4; position: sticky; top: 0; z-index: 10;">
             <tr>
               <th style="width: 30px; min-width: 30px; max-width: 30px; padding: 0.5rem 0.25rem;">
                 <span class="bx--table-header-label" style="font-size: 0.75rem;">☐</span>
