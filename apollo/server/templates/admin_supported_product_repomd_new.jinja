@@ -53,19 +53,19 @@
             </div>
           </div>
 
-          <div class="bx--row">
-            <div class="bx--col-sm-6">
-              <div class="bx--form-item">
-                <label for="arch" class="bx--label">Architecture *</label>
-                <select id="arch" name="arch" class="bx--select-input" required>
-                  <option value="">Select architecture</option>
-                  <option value="x86_64" {% if form_data and form_data.arch == 'x86_64' %}selected{% endif %}>x86_64</option>
-                  <option value="aarch64" {% if form_data and form_data.arch == 'aarch64' %}selected{% endif %}>aarch64</option>
-                  <option value="ppc64le" {% if form_data and form_data.arch == 'ppc64le' %}selected{% endif %}>ppc64le</option>
-                  <option value="s390x" {% if form_data and form_data.arch == 's390x' %}selected{% endif %}>s390x</option>
-                </select>
-              </div>
+          <div class="bx--form-item">
+            <label for="arch" class="bx--label">Architecture *</label>
+            <select id="arch" name="arch" class="bx--select-input" required>
+              <option value="">Select architecture</option>
+              <option value="x86_64" {% if form_data and form_data.arch == 'x86_64' %}selected{% endif %}>x86_64</option>
+              <option value="aarch64" {% if form_data and form_data.arch == 'aarch64' %}selected{% endif %}>aarch64</option>
+              <option value="ppc64le" {% if form_data and form_data.arch == 'ppc64le' %}selected{% endif %}>ppc64le</option>
+              <option value="s390x" {% if form_data and form_data.arch == 's390x' %}selected{% endif %}>s390x</option>
+            </select>
+            <div class="bx--form__helper-text">
+              The target architecture for this repository
             </div>
+<<<<<<< Updated upstream
             <div class="bx--col-sm-6">
               <div class="bx--form-item">
                 <fieldset class="bx--fieldset">
@@ -81,7 +81,24 @@
                 <div class="bx--form__helper-text">
                   Check if this is a production repository
                 </div>
+=======
+          </div>
+
+          <div class="bx--form-item">
+            <fieldset class="bx--fieldset">
+              <legend class="bx--label">Environment *</legend>
+              <div class="bx--form-item bx--checkbox-wrapper">
+                <input type="hidden" name="production" value="false">
+                <input id="production" name="production" type="checkbox" class="bx--checkbox"
+                       value="true" {% if form_data and form_data.production %}checked{% endif %}>
+                <label for="production" class="bx--checkbox-label">
+                  <span class="bx--checkbox-label-text">Production</span>
+                </label>
+>>>>>>> Stashed changes
               </div>
+            </fieldset>
+            <div class="bx--form__helper-text">
+              Check if this is a production repository
             </div>
           </div>
 
