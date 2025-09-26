@@ -80,6 +80,7 @@
                 <fieldset class="bx--fieldset">
                   <legend class="bx--label">Environment *</legend>
                   <div class="bx--form-item bx--checkbox-wrapper">
+                    <input type="hidden" name="production" value="false">
                     <input id="production" name="production" type="checkbox" class="bx--checkbox"
                            value="true" {% if repomd.production %}checked{% endif %}>
                     <label for="production" class="bx--checkbox-label">
