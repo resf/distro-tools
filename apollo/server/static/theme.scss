@@ -221,6 +221,12 @@ $feature-flags: (
   margin-top: 1rem;
 }
 
+.apollo-form-actions-spaced {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
 // Product info styles
 .apollo-product-info {
   margin-bottom: 2rem;
@@ -295,6 +301,35 @@ $feature-flags: (
 .apollo-inline-form {
   display: inline-flex;
   margin: 0;
+}
+
+// Mirror page styles
+.apollo-export-section {
+  margin: 1rem 0;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.apollo-mirror-config {
+  margin-bottom: 2rem;
+}
+
+.apollo-section-title-margin {
+  margin-bottom: 1rem;
+}
+
+.apollo-form-row {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.apollo-no-padding-left {
+  padding-left: 0;
+}
+
+.apollo-helper-margin {
+  margin-bottom: 1rem;
 }
 
 // Action button styles
