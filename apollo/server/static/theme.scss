@@ -215,8 +215,6 @@ $feature-flags: (
   padding-bottom: 0.3rem;
 }
 
-// Import/export controls (kept for potential future use, but admin_supported_products uses inline styles due to Carbon conflicts)
-
 .apollo-form-actions {
   display: flex;
   gap: 1rem;

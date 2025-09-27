@@ -17,13 +17,13 @@
 
           <div style="display: flex; gap: 1rem; align-items: center;">
             <span class="bx--type-label-01">Import Configurations:</span>
-            <button type="button" class="bx--btn bx--btn--secondary bx--btn--sm" onclick="toggleImportForm()">
+            <button type="button" class="bx--btn bx--btn--tertiary bx--btn--sm" onclick="toggleImportForm()">
               Import JSON
             </button>
           </div>
         </div>
 
-        <div id="import-form" style="display: none; margin: 1rem 0; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 4px;">
+        <div id="import-form" class="apollo-import-form" style="display: none;">
           <form method="post" action="/admin/supported-products/import" enctype="multipart/form-data" class="bx--form">
             <div class="bx--form-item">
               <label for="config-file" class="bx--label">Configuration File *</label>
@@ -121,74 +121,62 @@
     {% endif %}
 
     {% if products.items %}
-    <div class="bx--row">
+    <div class="bx--row" style="margin-top: 2rem;">
       <div class="bx--col">
-        <table class="bx--data-table bx--data-table--sticky-header">
-          <thead>
-            <tr>
-              <th>
-                <span class="bx--table-header-label">Name</span>
-              </th>
-              <th>
-                <span class="bx--table-header-label">Variant</span>
-              </th>
-              <th>
-                <span class="bx--table-header-label">Vendor</span>
-              </th>
-              <th>
-                <span class="bx--table-header-label">Mirrors</span>
-              </th>
-              <th>
-                <span class="bx--table-header-label">Repositories</span>
-              </th>
-              <th>
-                <span class="bx--table-header-label">Blocks</span>
-              </th>
-              <th>
-                <span class="bx--table-header-label">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for product in products.items %}
-            <tr>
-              <td>
-                <a href="/admin/supported-products/{{ product.id }}" class="bx--link">
-                  {{ product.name }}
-                </a>
-              </td>
-              <td>{{ product.variant }}</td>
-              <td>{{ product.vendor }}</td>
-              <td>
-                <span class="bx--tag bx--tag--cool-gray">
-                  {{ product.stats.mirrors }} mirrors
-                </span>
-              </td>
-              <td>
-                <span class="bx--tag bx--tag--blue">
-                  {{ product.stats.repomds }} repos
-                </span>
-              </td>
-              <td>
-                <span class="bx--tag bx--tag--red">
-                  {{ product.stats.blocks }} blocks
-                </span>
-              </td>
-              <td>
-                <div class="apollo-actions-row">
-                  <a href="/admin/supported-products/{{ product.id }}" class="bx--btn bx--btn--ghost bx--btn--sm edit-btn-hover">
-                    Manage
+        <bx-data-table>
+          <bx-table>
+            <bx-table-head>
+              <bx-table-header-row>
+                <bx-table-header-cell>Name</bx-table-header-cell>
+                <bx-table-header-cell>Variant</bx-table-header-cell>
+                <bx-table-header-cell>Vendor</bx-table-header-cell>
+                <bx-table-header-cell>Mirrors</bx-table-header-cell>
+                <bx-table-header-cell>Repositories</bx-table-header-cell>
+                <bx-table-header-cell>Blocks</bx-table-header-cell>
+                <bx-table-header-cell>Actions</bx-table-header-cell>
+              </bx-table-header-row>
+            </bx-table-head>
+            <bx-table-body>
+              {% for product in products.items %}
+              <bx-table-row>
+                <bx-table-cell>
+                  <a href="/admin/supported-products/{{ product.id }}" class="bx--link">
+                    {{ product.name }}
                   </a>
-                  <a href="/admin/supported-products/{{ product.id }}/export"
-                     class="bx--btn bx--btn--tertiary bx--btn--sm" title="Export as JSON">
-                    Export
-                  </a>
-                </div>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+                </bx-table-cell>
+                <bx-table-cell>{{ product.variant }}</bx-table-cell>
+                <bx-table-cell>{{ product.vendor }}</bx-table-cell>
+                <bx-table-cell>
+                  <bx-tag type="cool-gray">
+                    {{ product.stats.mirrors }} mirrors
+                  </bx-tag>
+                </bx-table-cell>
+                <bx-table-cell>
+                  <bx-tag type="blue">
+                    {{ product.stats.repomds }} repos
+                  </bx-tag>
+                </bx-table-cell>
+                <bx-table-cell>
+                  <bx-tag type="red">
+                    {{ product.stats.blocks }} blocks
+                  </bx-tag>
+                </bx-table-cell>
+                <bx-table-cell>
+                  <div class="apollo-actions-row">
+                    <a href="/admin/supported-products/{{ product.id }}" class="bx--btn bx--btn--tertiary bx--btn--sm">
+                      Manage
+                    </a>
+                    <a href="/admin/supported-products/{{ product.id }}/export"
+                       class="bx--btn bx--btn--tertiary bx--btn--sm" title="Export as JSON">
+                      Export
+                    </a>
+                  </div>
+                </bx-table-cell>
+              </bx-table-row>
+              {% endfor %}
+            </bx-table-body>
+          </bx-table>
+        </bx-data-table>
       </div>
     </div>
 
