@@ -61,3 +61,204 @@ $feature-flags: (
 .bx--inline-notification__text-wrapper {
   width: 100%;
 }
+
+// Apollo Custom Component Styles
+
+// Layout utilities
+.apollo-flex {
+  display: flex;
+}
+
+.apollo-flex-column {
+  flex-direction: column;
+}
+
+.apollo-flex-center {
+  justify-content: center;
+  align-items: center;
+}
+
+.apollo-flex-between {
+  justify-content: space-between;
+}
+
+.apollo-flex-wrap {
+  flex-wrap: wrap;
+}
+
+.apollo-flex-nowrap {
+  flex-wrap: nowrap;
+}
+
+.apollo-fullscreen {
+  width: 100vw;
+  height: 100vh;
+}
+
+// Spacing utilities
+.apollo-mt-1 { margin-top: 0.5rem; }
+.apollo-mt-2 { margin-top: 1rem; }
+.apollo-mt-3 { margin-top: 2rem; }
+.apollo-mt-4 { margin-top: 3rem; }
+
+.apollo-mb-1 { margin-bottom: 0.5rem; }
+.apollo-mb-2 { margin-bottom: 1rem; }
+.apollo-mb-3 { margin-bottom: 2rem; }
+
+.apollo-mr-1 { margin-right: 0.5rem; }
+.apollo-mr-2 { margin-right: 1rem; }
+
+.apollo-ml-auto { margin-left: auto; }
+.apollo-pl-0 { padding-left: 0; }
+
+.apollo-p-2 { padding: 1rem; }
+.apollo-p-3 { padding: 2rem; }
+
+.apollo-pt-1 { padding-top: 0.3rem; }
+.apollo-pr-1 { padding-right: 0.4rem; }
+.apollo-pl-2 { padding-left: 1rem; }
+.apollo-pb-1 { padding-bottom: 0.3rem; }
+
+// Typography utilities
+.apollo-font-weight-400 { font-weight: 400; }
+.apollo-font-weight-500 { font-weight: 500; }
+.apollo-font-weight-600 { font-weight: 600; }
+
+.apollo-text-nowrap { white-space: nowrap; }
+.apollo-text-pre-line { white-space: pre-line; }
+
+// Login page styles
+.apollo-login-container {
+  display: flex;
+  flex-flow: column;
+  justify-content: center;
+  align-items: center;
+  width: 100vw;
+  height: 100vh;
+}
+
+.apollo-login-header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.apollo-login-title {
+  padding-left: 1rem;
+  font-weight: 600;
+}
+
+.apollo-login-form {
+  width: 100%;
+  max-width: 450px;
+  margin-top: 2rem;
+}
+
+.apollo-login-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-direction: row-reverse;
+  margin-top: 25px;
+  width: 100%;
+}
+
+.apollo-login-button {
+  margin-left: auto;
+  display: block;
+}
+
+// Form styles
+.apollo-form-select {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #8d8d8d;
+  border-radius: 0;
+  background-color: #f4f4f4;
+  font-size: 0.875rem;
+  line-height: 1.125rem;
+}
+
+.apollo-form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+// Notification styles
+.apollo-notification-error {
+  color: #fa4d56;
+  border-left: 0;
+  margin: 0;
+}
+
+.apollo-notification-success {
+  color: #198038;
+  border-left: 0;
+  margin: 0;
+}
+
+.apollo-notification-wrapper {
+  margin-top: 3rem;
+}
+
+// Content card styles
+.apollo-content-card {
+  background: var(--cds-ui-01);
+  color: var(--cds-text-01);
+  padding: 2rem;
+}
+
+.apollo-section-title {
+  font-weight: 600;
+  color: var(--cds-text-01);
+  padding-bottom: 0.3rem;
+}
+
+// Import/export controls (kept for potential future use, but admin_supported_products uses inline styles due to Carbon conflicts)
+
+.apollo-form-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+// Action button styles
+.apollo-actions-row {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+// Tag link styles
+.apollo-tag-link {
+  color: var(--cds-tag-color-blue);
+  margin-left: 0.2rem;
+}
+
+// Header metadata styles
+.apollo-header-meta {
+  display: flex;
+  align-items: center;
+  padding-top: 0.3rem;
+}
+
+.apollo-meta-item {
+  font-weight: 500;
+  margin-right: 1rem;
+}
+
+.apollo-meta-value {
+  font-weight: 400;
+}
+
+// Advisory content grid
+.apollo-advisory-grid {
+  margin: 3rem 0;
+}
+
+// List item font size
+.apollo-list-item {
+  font-size: var(--cds-body-short-02-font-size);
+}

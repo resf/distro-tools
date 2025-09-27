@@ -61,7 +61,7 @@
               </div>
             </div>
 
-            <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+            <div class="apollo-form-actions">
               <button type="submit" class="bx--btn bx--btn--primary bx--btn--sm">
                 Import
               </button>
@@ -112,7 +112,7 @@
           <div class="bx--inline-notification__details">
             <div class="bx--inline-notification__text-wrapper">
               <div class="bx--inline-notification__title">Error</div>
-              <div class="bx--inline-notification__subtitle" style="white-space: pre-line;">{{ error }}</div>
+              <div class="bx--inline-notification__subtitle apollo-text-pre-line">{{ error }}</div>
             </div>
           </div>
         </div>
@@ -175,7 +175,7 @@
                 </span>
               </td>
               <td>
-                <div style="display: flex; gap: 0.25rem; flex-wrap: nowrap; white-space: nowrap;">
+                <div class="apollo-actions-row">
                   <a href="/admin/supported-products/{{ product.id }}" class="bx--btn bx--btn--ghost bx--btn--sm edit-btn-hover">
                     Manage
                   </a>
