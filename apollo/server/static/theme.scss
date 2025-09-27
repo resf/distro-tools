@@ -332,6 +332,33 @@ $feature-flags: (
   margin-bottom: 1rem;
 }
 
+// Summary cards styles
+.apollo-summary-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.apollo-summary-card {
+  padding: 1.5rem;
+}
+
+.apollo-summary-card h3 {
+  margin-bottom: 0.5rem;
+}
+
+.apollo-summary-card p {
+  color: var(--cds-text-02);
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 672px) {
+  .apollo-summary-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
 // Action button styles
 .apollo-actions-row {
   display: flex;

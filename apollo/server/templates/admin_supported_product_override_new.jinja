@@ -24,73 +24,68 @@
       </div>
     </div>
 
+
+    {% if advisories.items %}
     <div class="bx--row">
       <div class="bx--col">
-        <form method="get" class="bx--form" style="margin-bottom: 2rem;">
-          <div class="bx--form-item">
-            <label for="search" class="bx--label">Search Advisories</label>
-            <input id="search" name="search" type="text" class="bx--text-input"
-                   value="{{ search if search else '' }}"
-                   placeholder="Search by advisory name (e.g., RHSA-2023-1234)">
-          </div>
-          <button type="submit" class="bx--btn bx--btn--secondary bx--btn--sm" style="margin-top: 1rem;">
-            Search
-          </button>
-        </form>
-      </div>
-    </div>
+        <bx-pagination page-size="{{ advisories.size }}" start="{{ (advisories.page-1) * advisories.size }}" total="{{ advisories.total }}">
+          <bx-page-sizes-select slot="page-sizes-select">
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </bx-page-sizes-select>
+          <bx-pages-select value="{{ advisories.page - 1 }}" total="{{ advisories_pages }}"></bx-pages-select>
+        </bx-pagination>
 
-    {% if advisories %}
-    <div class="bx--row">
-      <div class="bx--col">
-        <h2 class="bx--type-productive-heading-04">Available Red Hat Advisories</h2>
-        <p class="bx--type-body-short-02" style="margin-bottom: 1rem;">
-          Select an advisory to add an override rule. Showing up to 50 results.
-        </p>
-
-        <table class="bx--data-table bx--data-table--sticky-header">
-          <thead>
-            <tr>
-              <th><span class="bx--table-header-label">Advisory Name</span></th>
-              <th><span class="bx--table-header-label">Severity</span></th>
-              <th><span class="bx--table-header-label">Synopsis</span></th>
-              <th><span class="bx--table-header-label">Issued Date</span></th>
-              <th><span class="bx--table-header-label">Actions</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for advisory in advisories %}
-            <tr>
-              <td>
-                <a href="/red_hat/advisories/{{ advisory.name }}" class="bx--link" target="_blank">
-                  {{ advisory.name }}
-                </a>
-              </td>
-              <td>
-                <span class="bx--tag
-                  {% if advisory.severity == 'Critical' %}bx--tag--red
-                  {% elif advisory.severity == 'Important' %}bx--tag--red
-                  {% elif advisory.severity == 'Moderate' %}bx--tag--yellow
-                  {% elif advisory.severity == 'Low' %}bx--tag--green
-                  {% else %}bx--tag--cool-gray{% endif %}">
-                  {{ advisory.severity }}
-                </span>
-              </td>
-              <td>{{ advisory.synopsis[:80] }}{% if advisory.synopsis|length > 80 %}...{% endif %}</td>
-              <td>{{ advisory.red_hat_issued_at.strftime('%Y-%m-%d') }}</td>
-              <td>
-                <form method="post" style="display: inline;"
-                      onsubmit="return confirm('Are you sure you want to add an override for advisory {{ advisory.name }}?')">
-                  <input type="hidden" name="advisory_id" value="{{ advisory.id }}">
-                  <button type="submit" class="bx--btn bx--btn--primary bx--btn--sm">
-                    Add Override
-                  </button>
-                </form>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+        <bx-data-table>
+          <bx-table-toolbar>
+            <bx-table-toolbar-content>
+              <bx-table-toolbar-search expanded value="{{ search }}"></bx-table-toolbar-search>
+            </bx-table-toolbar-content>
+          </bx-table-toolbar>
+          <bx-table>
+            <bx-table-head>
+              <bx-table-header-row>
+                <bx-table-header-cell>Advisory Name</bx-table-header-cell>
+                <bx-table-header-cell>Severity</bx-table-header-cell>
+                <bx-table-header-cell>Kind</bx-table-header-cell>
+                <bx-table-header-cell>Issued Date</bx-table-header-cell>
+                <bx-table-header-cell>Synopsis</bx-table-header-cell>
+                <bx-table-header-cell>Actions</bx-table-header-cell>
+              </bx-table-header-row>
+            </bx-table-head>
+            <bx-table-body>
+              {% for advisory in advisories.items %}
+              <bx-table-row>
+                <bx-table-cell>
+                  <a href="/red_hat/advisories/{{ advisory.name }}" class="bx--link" target="_blank">
+                    {{ advisory.name }}
+                  </a>
+                </bx-table-cell>
+                <bx-table-cell>
+                  <bx-tag type="blue">{{ advisory.severity }}</bx-tag>
+                </bx-table-cell>
+                <bx-table-cell>{{ advisory.kind }}</bx-table-cell>
+                <bx-table-cell>{{ advisory.red_hat_issued_at.date() if advisory.red_hat_issued_at else 'N/A' }}</bx-table-cell>
+                <bx-table-cell>
+                  <span title="{{ advisory.synopsis }}">
+                    {{ advisory.synopsis[:80] }}{% if advisory.synopsis|length > 80 %}...{% endif %}
+                  </span>
+                </bx-table-cell>
+                <bx-table-cell>
+                  <form method="post" class="apollo-inline-form"
+                        onsubmit="return confirm('Are you sure you want to add an override for advisory {{ advisory.name }}?')">
+                    <input type="hidden" name="advisory_id" value="{{ advisory.id }}">
+                    <button type="submit" class="bx--btn bx--btn--primary bx--btn--sm">
+                      Add Override
+                    </button>
+                  </form>
+                </bx-table-cell>
+              </bx-table-row>
+              {% endfor %}
+            </bx-table-body>
+          </bx-table>
+        </bx-data-table>
       </div>
     </div>
     {% else %}
@@ -100,7 +95,7 @@
           <p>{% if search %}No advisories found matching "{{ search }}".{% else %}No advisories available for overrides.{% endif %}</p>
           {% if search %}
           <a href="/admin/supported-products/{{ mirror.supported_product.id }}/mirrors/{{ mirror.id }}/overrides/new"
-             class="bx--btn bx--btn--secondary" style="margin-top: 1rem;">
+             class="bx--btn bx--btn--secondary apollo-mt-2">
             Clear Search
           </a>
           {% endif %}
@@ -109,11 +104,11 @@
     </div>
     {% endif %}
 
-    <div class="bx--row" style="margin-top: 2rem;">
+    <div class="bx--row apollo-mt-3">
       <div class="bx--col">
-        <a href="/admin/supported-products/{{ mirror.supported_product.id }}/mirrors/{{ mirror.id }}#overrides"
+        <a href="/admin/supported-products/{{ mirror.supported_product.id }}/mirrors/{{ mirror.id }}/overrides"
            class="bx--btn bx--btn--secondary">
-          Back to Mirror
+          Back to Overrides
         </a>
       </div>
     </div>

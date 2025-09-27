@@ -1,4 +1,5 @@
 import json
+import math
 from decimal import Decimal
 from math import ceil
 from typing import Optional, Union, Type, Dict, Any, List, Tuple
@@ -956,12 +957,63 @@ async def admin_supported_product_mirror_repomd_delete(
 
 
 # Blocks management routes
+@router.get("/{product_id}/mirrors/{mirror_id}/blocks", response_class=HTMLResponse)
+async def admin_supported_product_mirror_blocks(
+    request: Request,
+    product_id: int,
+    mirror_id: int,
+    params: Params = Depends(),
+    search: Optional[str] = Query(None),
+    success: Optional[str] = None,
+    error: Optional[str] = None,
+):
+    """List all blocked advisories for a specific mirror with search and pagination"""
+    mirror = await get_entity_or_error_response(
+        request,
+        SupportedProductsRhMirror,
+        f"Mirror with id {mirror_id}",
+        filters={"id": mirror_id, "supported_product_id": product_id},
+        prefetch_related=["supported_product"],
+    )
+    if isinstance(mirror, Response):
+        return mirror
+
+    # Build query for blocked advisories
+    query = SupportedProductsRhBlock.filter(
+        supported_products_rh_mirror=mirror
+    ).prefetch_related("red_hat_advisory")
+
+    # Apply search if provided
+    if search:
+        query = query.filter(red_hat_advisory__name__icontains=search)
+
+    # Set page size and get paginated results
+    params.size = min(params.size or 50, 100)  # Default 50, max 100
+    blocks = await paginate(
+        query.order_by("-red_hat_advisory__red_hat_issued_at"), params=params
+    )
+
+    return templates.TemplateResponse(
+        "admin_supported_product_mirror_blocks.jinja",
+        {
+            "request": request,
+            "mirror": mirror,
+            "blocks": blocks,
+            "blocks_pages": ceil(blocks.total / blocks.size),
+            "search": search,
+            "success": success,
+            "error": error,
+        },
+    )
+
+
 @router.get("/{product_id}/mirrors/{mirror_id}/blocks/new", response_class=HTMLResponse)
 async def admin_supported_product_mirror_block_new(
     request: Request,
     product_id: int,
     mirror_id: int,
-    search: str = None
+    params: Params = Depends(),
+    search: Optional[str] = Query(None),
 ):
     mirror = await get_entity_or_error_response(
         request,
@@ -982,15 +1034,23 @@ async def admin_supported_product_mirror_block_new(
     if search:
         query = query.filter(name__icontains=search)
 
-    advisories = await query.order_by("-red_hat_issued_at").limit(50)
+    # Set page size and get paginated results
+    params.size = min(params.size or 50, 100)  # Default 50, max 100
+    advisories = await paginate(query.order_by("-red_hat_issued_at"), params=params)
+
+    # Calculate total pages for pagination component
+    advisories_pages = (
+        math.ceil(advisories.total / advisories.size) if advisories.size > 0 else 1
+    )
 
     return templates.TemplateResponse(
         "admin_supported_product_block_new.jinja", {
             "request": request,
             "mirror": mirror,
             "advisories": advisories,
-            "search": search,
-        }
+            "advisories_pages": advisories_pages,
+            "search": search or "",
+        },
     )
 
 
@@ -1022,8 +1082,7 @@ async def admin_supported_product_mirror_block_new_post(
 
     # Check if block already exists
     existing_block = await SupportedProductsRhBlock.get_or_none(
-        supported_products_rh_mirror=mirror,
-        red_hat_advisory=advisory
+        supported_products_rh_mirror=mirror, red_hat_advisory=advisory
     )
 
     if existing_block:
@@ -1040,15 +1099,15 @@ async def admin_supported_product_mirror_block_new_post(
     )
     await block.save()
 
-    return RedirectResponse(f"/admin/supported-products/{product_id}/mirrors/{mirror_id}", status_code=302)
+    return RedirectResponse(
+        f"/admin/supported-products/{product_id}/mirrors/{mirror_id}/blocks?success=Advisory blocked successfully",
+        status_code=302,
+    )
 
 
 @router.post("/{product_id}/mirrors/{mirror_id}/blocks/{block_id}/delete", response_class=HTMLResponse)
 async def admin_supported_product_mirror_block_delete(
-    request: Request,
-    product_id: int,
-    mirror_id: int,
-    block_id: int
+    request: Request, product_id: int, mirror_id: int, block_id: int
 ):
     block = await SupportedProductsRhBlock.get_or_none(
         id=block_id,
@@ -1065,7 +1124,10 @@ async def admin_supported_product_mirror_block_delete(
         )
 
     await block.delete()
-    return RedirectResponse(f"/admin/supported-products/{product_id}/mirrors/{mirror_id}", status_code=302)
+    return RedirectResponse(
+        f"/admin/supported-products/{product_id}/mirrors/{mirror_id}/blocks?success=Block removed successfully",
+        status_code=302,
+    )
 
 
 # Overrides management routes (similar structure to blocks)
@@ -1074,7 +1136,8 @@ async def admin_supported_product_mirror_override_new(
     request: Request,
     product_id: int,
     mirror_id: int,
-    search: str = None
+    params: Params = Depends(),
+    search: Optional[str] = Query(None),
 ):
     mirror = await get_entity_or_error_response(
         request,
@@ -1095,15 +1158,23 @@ async def admin_supported_product_mirror_override_new(
     if search:
         query = query.filter(name__icontains=search)
 
-    advisories = await query.order_by("-red_hat_issued_at").limit(50)
+    # Set page size and get paginated results
+    params.size = min(params.size or 50, 100)  # Default 50, max 100
+    advisories = await paginate(query.order_by("-red_hat_issued_at"), params=params)
+
+    # Calculate total pages for pagination component
+    advisories_pages = (
+        math.ceil(advisories.total / advisories.size) if advisories.size > 0 else 1
+    )
 
     return templates.TemplateResponse(
         "admin_supported_product_override_new.jinja", {
             "request": request,
             "mirror": mirror,
             "advisories": advisories,
-            "search": search,
-        }
+            "advisories_pages": advisories_pages,
+            "search": search or "",
+        },
     )
 
 
@@ -1153,7 +1224,10 @@ async def admin_supported_product_mirror_override_new_post(
     )
     await override.save()
 
-    return RedirectResponse(f"/admin/supported-products/{product_id}/mirrors/{mirror_id}/overrides/new", status_code=302)
+    return RedirectResponse(
+        f"/admin/supported-products/{product_id}/mirrors/{mirror_id}/overrides?success=Override created successfully",
+        status_code=302,
+    )
 
 
 @router.post("/{product_id}/mirrors/{mirror_id}/overrides/{override_id}/delete", response_class=HTMLResponse)
@@ -1178,7 +1252,11 @@ async def admin_supported_product_mirror_override_delete(
         )
 
     await override.delete()
-    return RedirectResponse(f"/admin/supported-products/{product_id}/mirrors/{mirror_id}", status_code=302)
+    return RedirectResponse(
+        f"/admin/supported-products/{product_id}/mirrors/{mirror_id}/overrides?success=Override removed successfully",
+        status_code=302,
+    )
+
 
 async def _get_mirror_config_data(mirror: SupportedProductsRhMirror) -> Dict[str, Any]:
     """Extract mirror configuration data including all related repositories"""
@@ -1308,5 +1386,57 @@ async def export_product_config(
     return Response(
         content=formatted_data,
         media_type="application/json",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@router.get("/{product_id}/mirrors/{mirror_id}/overrides", response_class=HTMLResponse)
+async def admin_supported_product_mirror_overrides(
+    request: Request,
+    product_id: int,
+    mirror_id: int,
+    params: Params = Depends(),
+    search: Optional[str] = Query(None),
+    success: Optional[str] = None,
+    error: Optional[str] = None,
+):
+    """Display paginated overrides for a mirror with search functionality"""
+    mirror = await get_entity_or_error_response(
+        request,
+        SupportedProductsRhMirror,
+        f"Mirror with id {mirror_id}",
+        filters={"id": mirror_id, "supported_product_id": product_id},
+        prefetch_related=["supported_product"],
+    )
+    if isinstance(mirror, Response):
+        return mirror
+
+    # Build query for overrides with search
+    query = SupportedProductsRpmRhOverride.filter(
+        supported_products_rh_mirror_id=mirror_id
+    ).prefetch_related("red_hat_advisory")
+
+    if search:
+        query = query.filter(red_hat_advisory__name__icontains=search)
+
+    # Apply ordering and pagination
+    query = query.order_by("-created_at")
+    overrides = await paginate(query, params)
+
+    # Calculate total pages for pagination component
+    overrides_pages = (
+        math.ceil(overrides.total / overrides.size) if overrides.size > 0 else 1
+    )
+
+    return templates.TemplateResponse(
+        "admin_supported_product_mirror_overrides.jinja",
+        {
+            "request": request,
+            "mirror": mirror,
+            "overrides": overrides,
+            "overrides_pages": overrides_pages,
+            "search": search or "",
+            "success": success,
+            "error": error,
+        },
     )

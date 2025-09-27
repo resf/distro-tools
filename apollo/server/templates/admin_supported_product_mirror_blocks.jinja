@@ -1,0 +1,144 @@
+{% extends "admin_layout.jinja" %}
+
+{% block admin_content %}
+<div class="bx--grid">
+    <div class="bx--row">
+      <div class="bx--col">
+        <nav aria-label="breadcrumb" class="bx--breadcrumb">
+          <div class="bx--breadcrumb-item">
+            <a href="/admin/supported-products/" class="bx--link">Supported Products</a>
+          </div>
+          <div class="bx--breadcrumb-item">
+            <a href="/admin/supported-products/{{ mirror.supported_product.id }}" class="bx--link">{{ mirror.supported_product.name }}</a>
+          </div>
+          <div class="bx--breadcrumb-item">
+            <a href="/admin/supported-products/{{ mirror.supported_product.id }}/mirrors/{{ mirror.id }}" class="bx--link">{{ mirror.name }}</a>
+          </div>
+          <div class="bx--breadcrumb-item bx--breadcrumb-item--current">
+            <span>Blocked Advisories</span>
+          </div>
+        </nav>
+
+        <div class="apollo-section-header">
+          <div>
+            <h1 class="bx--type-expressive-heading-05">Blocked Advisories</h1>
+            <p class="bx--type-body-long-02">Manage Red Hat advisories blocked from processing for {{ mirror.name }}</p>
+          </div>
+          <a href="/admin/supported-products/{{ mirror.supported_product.id }}/mirrors/{{ mirror.id }}/blocks/new" class="bx--btn bx--btn--primary">
+            Add Block
+          </a>
+        </div>
+      </div>
+    </div>
+
+    {% if success %}
+    <div class="bx--row">
+      <div class="bx--col">
+        <div class="bx--inline-notification bx--inline-notification--success" role="alert">
+          <div class="bx--inline-notification__details">
+            <div class="bx--inline-notification__text-wrapper">
+              <div class="bx--inline-notification__title">Success</div>
+              <div class="bx--inline-notification__subtitle">{{ success }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if error %}
+    <div class="bx--row">
+      <div class="bx--col">
+        <div class="bx--inline-notification bx--inline-notification--error" role="alert">
+          <div class="bx--inline-notification__details">
+            <div class="bx--inline-notification__text-wrapper">
+              <div class="bx--inline-notification__title">Error</div>
+              <div class="bx--inline-notification__subtitle">{{ error }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if blocks.items %}
+    <div class="bx--row">
+      <div class="bx--col">
+        <bx-pagination page-size="{{ blocks.size }}" start="{{ (blocks.page-1) * blocks.size }}" total="{{ blocks.total }}">
+          <bx-page-sizes-select slot="page-sizes-select">
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </bx-page-sizes-select>
+          <bx-pages-select value="{{ blocks.page - 1 }}" total="{{ blocks_pages }}"></bx-pages-select>
+        </bx-pagination>
+
+        <bx-data-table>
+          <bx-table-toolbar>
+            <bx-table-toolbar-content>
+              <bx-table-toolbar-search expanded value="{{ search }}"></bx-table-toolbar-search>
+            </bx-table-toolbar-content>
+          </bx-table-toolbar>
+          <bx-table>
+            <bx-table-head>
+              <bx-table-header-row>
+                <bx-table-header-cell>Advisory Name</bx-table-header-cell>
+                <bx-table-header-cell>Severity</bx-table-header-cell>
+                <bx-table-header-cell>Kind</bx-table-header-cell>
+                <bx-table-header-cell>Issued Date</bx-table-header-cell>
+                <bx-table-header-cell>Synopsis</bx-table-header-cell>
+                <bx-table-header-cell>Actions</bx-table-header-cell>
+              </bx-table-header-row>
+            </bx-table-head>
+            <bx-table-body>
+              {% for block in blocks.items %}
+              <bx-table-row>
+                <bx-table-cell>
+                  <a href="/red_hat/advisories/{{ block.red_hat_advisory.name }}" class="bx--link" target="_blank">
+                    {{ block.red_hat_advisory.name }}
+                  </a>
+                </bx-table-cell>
+                <bx-table-cell>
+                  <bx-tag type="red">{{ block.red_hat_advisory.severity }}</bx-tag>
+                </bx-table-cell>
+                <bx-table-cell>{{ block.red_hat_advisory.kind }}</bx-table-cell>
+                <bx-table-cell>{{ block.red_hat_advisory.red_hat_issued_at.date() if block.red_hat_advisory.red_hat_issued_at else 'N/A' }}</bx-table-cell>
+                <bx-table-cell>
+                  <span title="{{ block.red_hat_advisory.synopsis }}">
+                    {{ block.red_hat_advisory.synopsis[:80] }}{% if block.red_hat_advisory.synopsis|length > 80 %}...{% endif %}
+                  </span>
+                </bx-table-cell>
+                <bx-table-cell>
+                  <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <form method="post" action="/admin/supported-products/{{ mirror.supported_product.id }}/mirrors/{{ mirror.id }}/blocks/{{ block.id }}/delete"
+                          style="display: inline; margin: 0;"
+                          onsubmit="return confirm('Are you sure you want to remove this block? Advisory {{ block.red_hat_advisory.name }} will no longer be blocked.')">
+                      <button type="submit" class="bx--btn bx--btn--danger bx--btn--sm">
+                        Remove Block
+                      </button>
+                    </form>
+                  </div>
+                </bx-table-cell>
+              </bx-table-row>
+              {% endfor %}
+            </bx-table-body>
+          </bx-table>
+        </bx-data-table>
+      </div>
+    </div>
+    {% else %}
+    <div class="bx--row">
+      <div class="bx--col">
+        <div class="bx--tile">
+          <h3 class="bx--type-productive-heading-03">No Blocked Advisories</h3>
+          <p>No Red Hat advisories are currently blocked for this mirror configuration.</p>
+          <p>Blocked advisories will not be processed when matching Rocky Linux packages.</p>
+          <a href="/admin/supported-products/{{ mirror.supported_product.id }}/mirrors/{{ mirror.id }}/blocks/new" class="bx--btn bx--btn--primary" style="margin-top: 1rem;">
+            Add First Block
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
