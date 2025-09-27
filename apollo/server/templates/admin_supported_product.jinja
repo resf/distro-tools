@@ -15,7 +15,7 @@
 
         <h1 class="bx--type-expressive-heading-05">{{ product.name }}</h1>
 
-        <div class="bx--tile" style="margin-bottom: 2rem;">
+        <div class="bx--tile apollo-product-info">
           <div class="bx--row">
             <div class="bx--col-lg-6">
               <p><strong>Variant:</strong> {{ product.variant }}</p>
@@ -40,35 +40,36 @@
 
     <div class="bx--row">
       <div class="bx--col">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <div class="apollo-section-header">
           <h2 class="bx--type-productive-heading-04">Red Hat Mirrors ({{ product.rh_mirrors|length }})</h2>
-          <div style="display: flex; gap: 0.5rem; align-items: center;">
-            {% if product.rh_mirrors %}
-            <form id="bulkDeleteForm" method="post" action="/admin/supported-products/{{ product.id }}/bulk-delete-mirrors" style="display: flex; gap: 0.5rem; align-items: center;">
-              <input type="hidden" name="mirror_ids" id="mirror_ids" value="">
-              <button type="button" id="selectAllBtn" class="bx--btn bx--btn--ghost bx--btn--sm">Select All</button>
-              <button type="button" id="selectNoneBtn" class="bx--btn bx--btn--ghost bx--btn--sm">Select None</button>
-              <button type="submit" id="bulkDeleteBtn" class="bx--btn bx--btn--danger bx--btn--sm" disabled>
-                Delete Selected
-              </button>
-            </form>
-            {% endif %}
-            <a href="/admin/supported-products/{{ product.id }}/mirrors/new" class="bx--btn bx--btn--primary">
-              Add Mirror
-            </a>
-          </div>
+          <a href="/admin/supported-products/{{ product.id }}/mirrors/new" class="bx--btn bx--btn--primary">
+            Add New Mirror
+          </a>
         </div>
 
         {% if product.rh_mirrors %}
-        <div style="max-height: calc(100vh - 24rem); overflow-y: auto;">
-        <table class="bx--data-table" style="width: 100%;">
-          <thead style="background: #f4f4f4; position: sticky; top: 0; z-index: 10;">
+        <div style="margin-bottom: 1rem; margin-top: 2rem">
+          <form id="bulkDeleteForm" method="post" action="/admin/supported-products/{{ product.id }}/bulk-delete-mirrors" class="apollo-bulk-form">
+            <input type="hidden" name="mirror_ids" id="mirror_ids" value="">
+            <button type="button" id="selectAllBtn" class="bx--btn bx--btn--tertiary bx--btn--sm">Select All</button>
+            <button type="button" id="selectNoneBtn" class="bx--btn bx--btn--tertiary bx--btn--sm">Select None</button>
+            <button type="submit" id="bulkDeleteBtn" class="bx--btn bx--btn--danger bx--btn--sm" disabled>
+              Delete Selected
+            </button>
+          </form>
+        </div>
+        {% endif %}
+
+        {% if product.rh_mirrors %}
+        <div class="apollo-table-container">
+        <table class="bx--data-table apollo-mirrors-table">
+          <thead class="apollo-sticky-header">
             <tr>
-              <th style="width: 30px; min-width: 30px; max-width: 30px; padding: 0.5rem 0.25rem;">
-                <span class="bx--table-header-label" style="font-size: 0.75rem;">☐</span>
+              <th class="apollo-checkbox-column">
+                <span class="bx--table-header-label apollo-checkbox-header">☐</span>
               </th>
               <th>
-                <span class="bx--table-header-label">Name</span>
+                <span class="bx--table-header-label">Mirror Name</span>
               </th>
               <th>
                 <span class="bx--table-header-label">Match Variant</span>
@@ -93,14 +94,14 @@
           <tbody>
             {% for mirror in product.rh_mirrors %}
             <tr>
-              <td style="width: 30px; min-width: 30px; max-width: 30px; padding: 0.5rem 0.25rem; text-align: center;">
+              <td class="apollo-checkbox-cell">
                 <input type="checkbox"
                        class="bx--checkbox mirror-checkbox"
                        id="mirror_{{ mirror.id }}"
                        data-mirror-id="{{ mirror.id }}"
                        data-mirror-name="{{ mirror.name }}"
-                       style="margin: 0;">
-                <label for="mirror_{{ mirror.id }}" class="bx--checkbox-label" style="margin: 0;"></label>
+                       class="apollo-checkbox-input">
+                <label for="mirror_{{ mirror.id }}" class="bx--checkbox-label apollo-checkbox-label"></label>
               </td>
               <td>
                 <a href="/admin/supported-products/{{ product.id }}/mirrors/{{ mirror.id }}" class="bx--link">
@@ -123,15 +124,15 @@
                 </span>
               </td>
               <td>
-                <div style="display: flex; gap: 0.5rem;">
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
                   <a href="/admin/supported-products/{{ product.id }}/mirrors/{{ mirror.id }}"
-                     class="bx--btn bx--btn--ghost bx--btn--sm manage-btn-hover">
-                    Manage
+                     class="bx--btn bx--btn--tertiary bx--btn--sm">
+                    Edit
                   </a>
                   <form method="post" action="/admin/supported-products/{{ product.id }}/mirrors/{{ mirror.id }}/delete"
-                        style="display: inline;"
+                        style="display: inline; margin: 0;"
                         onsubmit="return confirm('Are you sure you want to delete this mirror? This will also delete all associated repositories and blocks.')">
-                    <button type="submit" class="bx--btn bx--btn--danger--ghost bx--btn--sm">
+                    <button type="submit" class="bx--btn bx--btn--danger bx--btn--sm">
                       Delete
                     </button>
                   </form>
@@ -145,7 +146,7 @@
         {% else %}
         <div class="bx--tile">
           <p>No Red Hat mirrors configured for this product.</p>
-          <a href="/admin/supported-products/{{ product.id }}/mirrors/new" class="bx--btn bx--btn--primary" style="margin-top: 1rem;">
+          <a href="/admin/supported-products/{{ product.id }}/mirrors/new" class="bx--btn bx--btn--primary apollo-add-button">
             Add First Mirror
           </a>
         </div>

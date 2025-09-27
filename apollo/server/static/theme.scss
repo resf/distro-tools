@@ -221,10 +221,86 @@ $feature-flags: (
   margin-top: 1rem;
 }
 
+// Product info styles
+.apollo-product-info {
+  margin-bottom: 2rem;
+}
+
+// Section header styles
+.apollo-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+// Bulk form styles
+.apollo-bulk-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+// Add button styles
+.apollo-add-button {
+  margin-top: 1rem;
+}
+
+// Table container styles
+.apollo-table-container {
+  max-height: calc(100vh - 24rem);
+  overflow-y: auto;
+}
+
+.apollo-mirrors-table {
+  width: 100%;
+}
+
+.apollo-sticky-header {
+  background: var(--cds-ui-02);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+// Checkbox column styles
+.apollo-checkbox-column {
+  width: 30px;
+  min-width: 30px;
+  max-width: 30px;
+  padding: 0.5rem 0.25rem;
+}
+
+.apollo-checkbox-header {
+  font-size: 0.75rem;
+}
+
+.apollo-checkbox-cell {
+  width: 30px;
+  min-width: 30px;
+  max-width: 30px;
+  padding: 0.5rem 0.25rem;
+  text-align: center;
+}
+
+.apollo-checkbox-input {
+  margin: 0;
+}
+
+.apollo-checkbox-label {
+  margin: 0;
+}
+
+// Inline form styles
+.apollo-inline-form {
+  display: inline-flex;
+  margin: 0;
+}
+
 // Action button styles
 .apollo-actions-row {
   display: flex;
-  gap: 0.25rem;
+  gap: 0.5rem;
   flex-wrap: nowrap;
   white-space: nowrap;
 }
