@@ -65,7 +65,7 @@
         </div>
 
         <!-- Poll RHCSAF Workflow Section -->
-        <div class="bx--row" style="margin-top: 2rem;">
+        <div class="bx--row apollo-mt-3">
             <div class="bx--col">
                 <div class="bx--tile">
                     <h2 class="bx--type-productive-heading-03">Poll RH CSAF Advisories Workflow</h2>
@@ -82,12 +82,12 @@
 
         {% if reset_allowed %}
         <!-- Database Operations Section (Development Only) -->
-        <div class="bx--row" style="margin-top: 2rem;">
+        <div class="bx--row apollo-mt-3">
             <div class="bx--col">
                 <div class="bx--tile">
                     <h2 class="bx--type-productive-heading-03">⚠️ Database Operations ({{ env_name|title }} Only)</h2>
 
-                    <div class="bx--inline-notification bx--inline-notification--warning" role="alert" style="margin: 1rem 0;">
+                    <div class="bx--inline-notification bx--inline-notification--warning apollo-mt-2 apollo-mb-2" role="alert">
                         <div class="bx--inline-notification__details">
                             <div class="bx--inline-notification__text-wrapper">
                                 <div class="bx--inline-notification__title">Environment Notice</div>
@@ -106,19 +106,19 @@
                     <label for="cutoff_date" class="bx--label">
                         Cutoff Date (delete advisories created after this date):
                     </label>
-                    <div style="display: flex; align-items: center; gap: 1rem;">
-                        <input type="date" id="cutoff_date" name="cutoff_date" required class="bx--text-input" style="width: auto; max-width: 200px;">
+                    <div class="apollo-flex" style="align-items: center; gap: 1rem;">
+                        <input type="date" id="cutoff_date" name="cutoff_date" required class="bx--text-input apollo-width-auto apollo-max-width-12-5">
                         <button type="button" id="preview-btn" class="bx--btn bx--btn--tertiary bx--btn--sm">
                             Preview Impact
                         </button>
                     </div>
                 </div>
 
-                <div id="preview-results" style="display: none; margin: 1rem 0; padding: 1rem; border: 1px solid #ddd; border-radius: 4px; background-color: #f8f9fa;">
+                <div id="preview-results" class="apollo-mt-2 apollo-mb-2 apollo-p-2" style="display: none; border: 1px solid #ddd; border-radius: 4px; background-color: #f8f9fa;">
                     <!-- Preview results will be populated here -->
                 </div>
 
-                <div class="bx--inline-notification bx--inline-notification--error" role="alert" style="margin: 1rem 0;">
+                <div class="bx--inline-notification bx--inline-notification--error apollo-mt-2 apollo-mb-2" role="alert">
                     <div class="bx--inline-notification__details">
                         <div class="bx--inline-notification__text-wrapper">
                             <div class="bx--inline-notification__title">⚠️ Danger Zone</div>
@@ -144,7 +144,7 @@
         {% endif %}
 
         <!-- Information Section -->
-        <div class="bx--row" style="margin-top: 2rem;">
+        <div class="bx--row apollo-mt-3">
             <div class="bx--col">
                 <div class="bx--inline-notification bx--inline-notification--info" role="alert">
                     <div class="bx--inline-notification__details">

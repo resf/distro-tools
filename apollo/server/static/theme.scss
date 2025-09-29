@@ -119,6 +119,17 @@ $feature-flags: (
 .apollo-pl-2 { padding-left: 1rem; }
 .apollo-pb-1 { padding-bottom: 0.3rem; }
 
+// Width utilities
+.apollo-width-auto { width: auto; }
+.apollo-width-7-5 { width: 7.5rem; } // ~120px at 16px base
+.apollo-width-12-5 { width: 12.5rem; } // ~200px at 16px base
+.apollo-width-28 { width: 28rem; } // ~450px at 16px base
+.apollo-width-100 { width: 100%; }
+
+// Max-width utilities
+.apollo-max-width-12-5 { max-width: 12.5rem; } // ~200px at 16px base
+.apollo-max-width-28 { max-width: 28rem; } // ~450px at 16px base
+
 // Typography utilities
 .apollo-font-weight-400 { font-weight: 400; }
 .apollo-font-weight-500 { font-weight: 500; }
