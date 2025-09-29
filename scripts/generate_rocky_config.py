@@ -96,6 +96,7 @@ class ValidationPatterns:
     VERSION_PATTERN = re.compile(r"^\d+(\.\d+)?$")
 
 
+
 class ConfigValidator:
     """Configuration validation utilities following Apollo patterns."""
 
@@ -301,7 +302,9 @@ class ConfigValidator:
         try:
             Architecture(arch.strip())
             return True
-        except ValueError:
+        except (ValueError, TypeError):
+            # ValueError: Invalid enum value
+            # TypeError: Invalid type passed to enum constructor
             return False
 
     @staticmethod
@@ -320,7 +323,9 @@ class ConfigValidator:
         try:
             RepositoryName(repo_name.strip())
             return True
-        except ValueError:
+        except (ValueError, TypeError):
+            # ValueError: Invalid enum value
+            # TypeError: Invalid type passed to enum constructor
             return False
 
     @staticmethod
@@ -674,7 +679,6 @@ def generate_rocky_config(
     include_debug: bool = True,
     include_source: bool = True,
     architectures: List[str] = None,
-    crawl: bool = True,
     name_suffix: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
@@ -687,194 +691,118 @@ def generate_rocky_config(
         include_debug: Whether to include debug repository URLs (default: True)
         include_source: Whether to include source repository URLs (default: True)
         architectures: List of architectures to include (default: auto-detect)
-        crawl: Whether to crawl for repositories (default: True)
         name_suffix: Optional suffix to add to mirror names (e.g., "test", "staging")
 
     Returns:
         List of configuration dictionaries ready for JSON export
     """
-    if crawl:
-        # Discover repositories by crawling
-        print("Discovering repository structure...", file=sys.stderr)
-        repomds = discover_repomd_files(base_url)
+    # Discover repositories by crawling
+    print("Discovering repository structure...", file=sys.stderr)
+    repomds = discover_repomd_files(base_url)
 
-        if not repomds:
-            print(
-                "No repomd.xml files found. Repository may be empty or inaccessible.",
-                file=sys.stderr,
-            )
-            return []
-
-        print(f"Found {len(repomds)} repositories", file=sys.stderr)
-
-        # Group by architecture and filter
-        arch_repos = {}
-
-        for repomd_url, metadata in repomds:
-            arch = metadata["arch"]
-
-            # Skip if architecture filter specified and doesn't match
-            if architectures and arch not in architectures and arch != "source":
-                continue
-
-            # Skip if version filter specified and doesn't match
-            if (
-                version
-                and metadata["version"] != version
-                and metadata["version"] != "unknown"
-            ):
-                continue
-
-            # Skip debug repos if not wanted
-            if not include_debug and metadata["repo_type"] == "debug":
-                continue
-
-            # Skip source repos if not wanted
-            if not include_source and metadata["repo_type"] == "source":
-                continue
-
-            # Skip repositories with unknown names (not in repo_names list)
-            if metadata["repo_name"] == "unknown":
-                continue
-
-            # Group repositories by architecture
-            if arch not in arch_repos:
-                arch_repos[arch] = {}
-
-            repo_key = f"{metadata['repo_name']}_{metadata['repo_type']}"
-            arch_repos[arch][repo_key] = {"url": repomd_url, "metadata": metadata}
-
-        # Convert to configuration format
-        config_data = []
-
-        for arch, repos in arch_repos.items():
-            if arch == "source":  # Handle source repos separately
-                continue
-
-            # Determine version from repos
-            detected_version = version
-            if not detected_version:
-                for repo_info in repos.values():
-                    if repo_info["metadata"]["version"] != "unknown":
-                        detected_version = repo_info["metadata"]["version"]
-                        break
-                if not detected_version:
-                    detected_version = "unknown"
-
-            mirror_config = build_mirror_config(detected_version, arch, name_suffix)
-
-            # Group repos by name and type
-            repo_groups = {}
-            for repo_key, repo_info in repos.items():
-                repo_name = repo_info["metadata"]["repo_name"]
-                repo_type = repo_info["metadata"]["repo_type"]
-
-                if repo_name not in repo_groups:
-                    repo_groups[repo_name] = {}
-
-                repo_groups[repo_name][repo_type] = repo_info["url"]
-
-            # Create repository configurations
-            for repo_name, repo_urls in repo_groups.items():
-                main_url = repo_urls.get("main", "")
-                debug_url = repo_urls.get("debug", "")
-
-                # Look for source URL in source arch repos
-                source_url = ""
-                if include_source and "source" in arch_repos:
-                    for source_repo_key, source_repo_info in arch_repos[
-                        "source"
-                    ].items():
-                        if source_repo_info["metadata"]["repo_name"] == repo_name:
-                            source_url = source_repo_info["url"]
-                            break
-
-                if main_url:  # Only add if we have a main repository
-                    repo_config = build_repository_config(
-                        repo_name, arch, production, main_url, debug_url, source_url
-                    )
-                    mirror_config["repositories"].append(repo_config)
-
-            if mirror_config["repositories"]:  # Only add if we have repositories
-                config_data.append(mirror_config)
-
-        return config_data
-
-    else:
-        # Fallback to old static method
-        return generate_static_config(
-            base_url,
-            version or "10.0",
-            production,
-            include_debug,
-            include_source,
-            architectures,
-            name_suffix,
+    if not repomds:
+        print(
+            "No repomd.xml files found. Repository may be empty or inaccessible.",
+            file=sys.stderr,
         )
+        return []
 
+    print(f"Found {len(repomds)} repositories", file=sys.stderr)
 
-def generate_static_config(
-    base_url: str,
-    version: str = "10.0",
-    production: bool = True,
-    include_debug: bool = True,
-    include_source: bool = True,
-    architectures: List[str] = None,
-    name_suffix: Optional[str] = None,
-) -> List[Dict[str, Any]]:
-    """
-    Generate Rocky Linux configuration using static repository structure.
-    This is the original implementation as a fallback.
-    """
-    if architectures is None:
-        # Use supported architectures from enum, excluding source types
-        architectures = [
-            arch.value
-            for arch in Architecture
-            if arch not in [Architecture.SOURCE, Architecture.SRPMS]
-        ]
+    # Group by architecture and filter
+    arch_repos = {}
 
-    # Use basic repositories for static config
-    repositories = [
-        RepositoryName.BASE_OS.value,
-        RepositoryName.APP_STREAM.value,
-        RepositoryName.CRB.value,
-    ]
+    for repomd_url, metadata in repomds:
+        arch = metadata["arch"]
 
-    if not base_url.endswith("/"):
-        base_url += "/"
+        # Skip if architecture filter specified and doesn't match
+        if architectures and arch not in architectures and arch != "source":
+            continue
 
+        # Skip if version filter specified and doesn't match
+        if (
+            version
+            and metadata["version"] != version
+            and metadata["version"] != UNKNOWN_VALUE
+        ):
+            continue
+
+        # Skip debug repos if not wanted
+        if not include_debug and metadata["repo_type"] == "debug":
+            continue
+
+        # Skip source repos if not wanted
+        if not include_source and metadata["repo_type"] == "source":
+            continue
+
+        # Skip repositories with unknown names (not in repo_names list)
+        if metadata["repo_name"] == UNKNOWN_VALUE:
+            continue
+
+        # Group repositories by architecture
+        if arch not in arch_repos:
+            arch_repos[arch] = {}
+
+        repo_key = f"{metadata['repo_name']}_{metadata['repo_type']}"
+        arch_repos[arch][repo_key] = {"url": repomd_url, "metadata": metadata}
+
+    # Convert to configuration format
     config_data = []
 
-    for arch in architectures:
-        mirror_config = build_mirror_config(version, arch, name_suffix)
+    for arch, repos in arch_repos.items():
+        if arch == "source":  # Handle source repos separately
+            continue
 
-        for repo_name in repositories:
-            main_url = urljoin(
-                base_url, f"{version}/{repo_name}/{arch}/os/repodata/repomd.xml"
-            )
+        # Determine version from repos
+        detected_version = version
+        if not detected_version:
+            for repo_info in repos.values():
+                if repo_info["metadata"]["version"] != UNKNOWN_VALUE:
+                    detected_version = repo_info["metadata"]["version"]
+                    break
+            if not detected_version:
+                detected_version = UNKNOWN_VALUE
 
-            debug_url = ""
-            if include_debug:
-                debug_url = urljoin(
-                    base_url,
-                    f"{version}/{repo_name}/{arch}/debug/tree/repodata/repomd.xml",
-                )
+        mirror_config = build_mirror_config(detected_version, arch, name_suffix)
 
+        # Group repos by name and type
+        repo_groups = {}
+        for repo_key, repo_info in repos.items():
+            repo_name = repo_info["metadata"]["repo_name"]
+            repo_type = repo_info["metadata"]["repo_type"]
+
+            if repo_name not in repo_groups:
+                repo_groups[repo_name] = {}
+
+            repo_groups[repo_name][repo_type] = repo_info["url"]
+
+        # Create repository configurations
+        for repo_name, repo_urls in repo_groups.items():
+            main_url = repo_urls.get("main", "")
+            debug_url = repo_urls.get("debug", "")
+
+            # Look for source URL in source arch repos
             source_url = ""
-            if include_source:
-                source_url = urljoin(
-                    base_url, f"{version}/{repo_name}/source/tree/repodata/repomd.xml"
+            if include_source and "source" in arch_repos:
+                for source_repo_key, source_repo_info in arch_repos[
+                    "source"
+                ].items():
+                    if source_repo_info["metadata"]["repo_name"] == repo_name:
+                        source_url = source_repo_info["url"]
+                        break
+
+            if main_url:  # Only add if we have a main repository
+                repo_config = build_repository_config(
+                    repo_name, arch, production, main_url, debug_url, source_url
                 )
+                mirror_config["repositories"].append(repo_config)
 
-            repo_config = build_repository_config(
-                repo_name, arch, production, main_url, debug_url, source_url
-            )
-            mirror_config["repositories"].append(repo_config)
-
-        config_data.append(mirror_config)
+        if mirror_config["repositories"]:  # Only add if we have repositories
+            config_data.append(mirror_config)
 
     return config_data
+
+
 
 
 def main():
@@ -888,7 +816,6 @@ Examples:
   %(prog)s https://mirror.example.com/pub/rocky/ --no-debug --no-source
   %(prog)s https://mirror.example.com/pub/rocky/ --arch x86_64 aarch64
   %(prog)s https://mirror.example.com/pub/rocky/ --output rocky_config.json
-  %(prog)s https://mirror.example.com/pub/rocky/ --no-crawl --version 10.0
   %(prog)s https://mirror.example.com/pub/rocky/ --name-suffix test --version 9.6
   %(prog)s https://staging.example.com/pub/rocky/ --name-suffix staging --arch riscv64
         """,
@@ -902,7 +829,7 @@ Examples:
     parser.add_argument(
         "--version",
         "-v",
-        help="Rocky Linux version filter (default: auto-detect when crawling, 10.0 when static)",
+        help="Rocky Linux version filter (default: auto-detect)",
     )
 
     parser.add_argument(
@@ -930,14 +857,9 @@ Examples:
         "--arch",
         nargs="+",
         choices=ConfigValidator.get_supported_architectures(),
-        help="Architectures to include (default: auto-detect when crawling, all when static)",
+        help="Architectures to include (default: auto-detect)",
     )
 
-    parser.add_argument(
-        "--no-crawl",
-        action="store_true",
-        help="Don't crawl repository structure, use static paths (requires --version)",
-    )
 
     parser.add_argument(
         "--max-depth", type=int, default=4, help="Maximum crawling depth (default: 4)"
@@ -963,9 +885,6 @@ Examples:
     production = args.production and not args.staging
 
     # Input validation
-    if args.no_crawl and not args.version:
-        print("Error: --version is required when using --no-crawl", file=sys.stderr)
-        sys.exit(1)
 
     # Validate base URL using ConfigValidator
     try:
@@ -996,7 +915,6 @@ Examples:
             include_debug=not args.no_debug,
             include_source=not args.no_source,
             architectures=args.arch,
-            crawl=not args.no_crawl,
             name_suffix=args.name_suffix,
         )
 
