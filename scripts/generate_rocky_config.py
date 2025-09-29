@@ -25,6 +25,10 @@ import requests
 from bs4 import BeautifulSoup
 
 
+# Constants
+UNKNOWN_VALUE = "unknown"
+
+
 class Architecture(str, Enum):
     """Supported system architectures for Rocky Linux repositories."""
 
@@ -560,10 +564,10 @@ def parse_repomd_path(repomd_url: str, base_url: str) -> Dict[str, str]:
     full_path_parts = base_path_parts + path_parts
 
     metadata = {
-        "arch": "unknown",
-        "repo_name": "unknown",
+        "arch": UNKNOWN_VALUE,
+        "repo_name": UNKNOWN_VALUE,
         "repo_type": RepositoryType.MAIN.value,
-        "version": "unknown",
+        "version": UNKNOWN_VALUE,
     }
 
     # Try to identify components from both base URL and relative path
@@ -622,7 +626,7 @@ def build_mirror_config(
             "name": mirror_name,
             "match_variant": "Red Hat Enterprise Linux",
             "match_major_version": (
-                int(version.split(".")[0]) if version != "unknown" else 10
+                int(version.split(".")[0]) if version != UNKNOWN_VALUE else 10
             ),
             "match_minor_version": None,
             "match_arch": arch,
