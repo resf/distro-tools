@@ -109,7 +109,7 @@
                   </span>
                 </bx-table-cell>
                 <bx-table-cell>
-                  <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <div class="apollo-action-row">
                     <form method="post" action="/admin/supported-products/{{ mirror.supported_product.id }}/mirrors/{{ mirror.id }}/blocks/{{ block.id }}/delete"
                           style="display: inline; margin: 0;"
                           onsubmit="return confirm('Are you sure you want to remove this block? Advisory {{ block.red_hat_advisory.name }} will no longer be blocked.')">

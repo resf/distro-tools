@@ -90,6 +90,32 @@ $feature-flags: (
   flex-wrap: nowrap;
 }
 
+.apollo-flex-align-center {
+  align-items: center;
+}
+
+// Common section header pattern (title + action button)
+.apollo-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+// Common action row pattern (buttons in a row)
+.apollo-action-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+// Common form actions pattern
+.apollo-form-actions-inline {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
 .apollo-fullscreen {
   width: 100vw;
   height: 100vh;
