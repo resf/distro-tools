@@ -104,7 +104,7 @@
                   <label for="match_minor_version" class="bx--label">Minor Version</label>
                   <input id="match_minor_version" name="match_minor_version" type="number"
                          class="bx--text-input" min="0" max="99"
-                         value="{{ mirror.match_minor_version if mirror.match_minor_version else '' }}">
+                         value="{{ mirror.match_minor_version if mirror.match_minor_version is not none else '' }}">
                 </div>
               </div>
             </div>

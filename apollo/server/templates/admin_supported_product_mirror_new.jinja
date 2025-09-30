@@ -87,7 +87,7 @@
             <label for="match_minor_version" class="bx--label">Minor Version</label>
             <input id="match_minor_version" name="match_minor_version" type="number"
                    class="bx--text-input" min="0" max="99"
-                   value="{{ form_data.match_minor_version if form_data and form_data.match_minor_version else '' }}"
+                   value="{{ form_data.match_minor_version if form_data and form_data.match_minor_version is not none else '' }}"
                    placeholder="e.g., 0, 1, 2">
             <div class="bx--form__helper-text">
               Optional minor version to match. Leave blank to match all minor versions.
