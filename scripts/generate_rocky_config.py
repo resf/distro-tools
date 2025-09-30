@@ -621,6 +621,18 @@ def build_mirror_config(
     else:
         mirror_name = f"Rocky Linux {version} {arch}"
 
+    # Parse version to extract major and minor components
+    if version != UNKNOWN_VALUE and "." in version:
+        version_parts = version.split(".")
+        major_version = int(version_parts[0])
+        minor_version = int(version_parts[1]) if len(version_parts) > 1 else None
+    elif version != UNKNOWN_VALUE:
+        major_version = int(version)
+        minor_version = None
+    else:
+        major_version = 10
+        minor_version = None
+
     return {
         "product": {
             "name": "Rocky Linux",
@@ -630,10 +642,8 @@ def build_mirror_config(
         "mirror": {
             "name": mirror_name,
             "match_variant": "Red Hat Enterprise Linux",
-            "match_major_version": (
-                int(version.split(".")[0]) if version != UNKNOWN_VALUE else 10
-            ),
-            "match_minor_version": None,
+            "match_major_version": major_version,
+            "match_minor_version": minor_version,
             "match_arch": arch,
         },
         "repositories": [],
