@@ -7,6 +7,7 @@
 {% set theme = "dark" %}
 {% endif %}
 {% endif %}
+{% set env_info = get_environment_info() %}
 <html lang="en" class="{{theme}}">
 
 <head>
@@ -88,6 +89,29 @@
     }
   </style>
   {% endif %}
+  {% endif %}
+
+  <!-- Environment-specific header styling -->
+  {% if not env_info.is_production %}
+  <style>
+    bx-header {
+      background-color: #d63031 !important; /* Dark red-orange for non-production */
+      border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+    }
+
+    bx-header-name,
+    bx-header-nav-item {
+      color: white !important;
+      font-weight: 600;
+    }
+
+    bx-header-name::after {
+      content: " [{{ env_info.environment.upper() }}]";
+      font-size: 0.75rem;
+      font-weight: normal;
+      opacity: 0.9;
+    }
+  </style>
   {% endif %}
 
   {% block head %}{% endblock %}

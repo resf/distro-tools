@@ -1,6 +1,7 @@
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
 from passlib.context import CryptContext
+import os
 
 from apollo.db import User
 from apollo.server.roles import ADMIN
@@ -13,6 +14,19 @@ import multipart  # noqa # pylint: disable=unused-import
 import itsdangerous  # noqa # pylint: disable=unused-import
 
 templates = Jinja2Templates(directory="apollo/server/templates")
+
+# Add global function to templates for environment information
+def get_environment_info():
+    """Get current environment information for template use"""
+    env_name = os.environ.get("ENV", "development")
+    is_production = env_name.lower() == "production"
+    return {
+        "environment": env_name,
+        "is_production": is_production,
+        "reset_allowed": not is_production
+    }
+
+templates.env.globals["get_environment_info"] = get_environment_info
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
