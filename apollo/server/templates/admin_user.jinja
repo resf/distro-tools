@@ -1,7 +1,10 @@
 {% extends "admin_layout.jinja" %}
 
 {% block admin_content %}
-<h2 style="display:block;margin-bottom:1rem;">Update user</h2>
+<div class="bx--grid">
+    <div class="bx--row">
+        <div class="bx--col">
+            <h1 class="bx--type-expressive-heading-05">Update User</h1>
 
 <form id="edit_user_form" action="" method="POST">
   <bx-form-item>
@@ -11,18 +14,18 @@
     <bx-input required name="email" type="email" value="{{ user.email }}" form_id="edit_user_form">
       <span slot="label-text">Email</span>
     </bx-input>
-    <label for="role" style="display:block;margin-bottom:0.5rem;font-weight:500;">Role</label>
-    <select name="role" id="role" form="edit_user_form" style="width:100%;padding:0.5rem;border:1px solid #8d8d8d;border-radius:0;background-color:#f4f4f4;font-size:0.875rem;line-height:1.125rem;" required>
+    <label for="role" class="bx--label">Role</label>
+    <select name="role" id="role" form="edit_user_form" class="bx--select-input" required>
       <option value="admin"{% if user.role == "admin" %} selected{% endif %}>Admin</option>
       <option value="elevated"{% if user.role == "elevated" %} selected{% endif %}>Elevated</option>
     </select>
-    <bx-btn type="submit" style="margin-top:1rem;margin-bottom:1rem;display:block" form_id="edit_user_form">
+    <bx-btn type="submit" form_id="edit_user_form">
       Update user
     </bx-btn>
   </bx-form-item>
 </form>
 
-<h2 style="display:block;margin-top:2rem;margin-bottom:1rem;">Change password</h2>
+<h2 class="bx--type-productive-heading-03" style="margin-top:2rem;">Change Password</h2>
 <form id="change_password_form" action="/admin/users/{{ user.id }}/password" method="POST">
   <bx-form-item>
     <bx-input required name="new_password" type="password" form_id="change_password_form">
@@ -31,13 +34,13 @@
     <bx-input required name="confirm_password" type="password" form_id="change_password_form">
       <span slot="label-text">Confirm new password</span>
     </bx-input>
-    <bx-btn type="submit" style="margin-top:1rem;margin-bottom:1rem;display:block" form_id="change_password_form">
+    <bx-btn type="submit" form_id="change_password_form">
       Change password
     </bx-btn>
   </bx-form-item>
 </form>
 
-<h2 style="display:block;margin-top:2rem;margin-bottom:1rem;">Danger zone</h2>
+<h2 class="bx--type-productive-heading-03" style="margin-top:2rem;">Danger Zone</h2>
 
 <bx-modal id="delete-user-modal">
   <bx-modal-header>
@@ -58,4 +61,7 @@
 <bx-btn kind="danger" open_modal="delete-user-modal">
   Delete user
 </bx-btn>
+        </div>
+    </div>
+</div>
 {% endblock %}

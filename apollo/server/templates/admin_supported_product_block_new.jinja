@@ -1,0 +1,116 @@
+{% extends "admin_layout.jinja" %}
+
+{% block admin_content %}
+<div class="bx--grid">
+    <div class="bx--row">
+      <div class="bx--col">
+        <nav aria-label="breadcrumb" class="bx--breadcrumb">
+          <div class="bx--breadcrumb-item">
+            <a href="/admin/supported-products/" class="bx--link">Supported Products</a>
+          </div>
+          <div class="bx--breadcrumb-item">
+            <a href="/admin/supported-products/{{ mirror.supported_product.id }}" class="bx--link">{{ mirror.supported_product.name }}</a>
+          </div>
+          <div class="bx--breadcrumb-item">
+            <a href="/admin/supported-products/{{ mirror.supported_product.id }}/mirrors/{{ mirror.id }}" class="bx--link">{{ mirror.name }}</a>
+          </div>
+          <div class="bx--breadcrumb-item bx--breadcrumb-item--current">
+            <span>Add Block</span>
+          </div>
+        </nav>
+
+        <h1 class="bx--type-expressive-heading-05">Block Red Hat Advisory</h1>
+        <p class="bx--type-body-long-02">Block a Red Hat advisory from being processed for {{ mirror.name }}.</p>
+      </div>
+    </div>
+
+
+    {% if advisories.items %}
+    <div class="bx--row">
+      <div class="bx--col">
+        <bx-pagination page-size="{{ advisories.size }}" start="{{ (advisories.page-1) * advisories.size }}" total="{{ advisories.total }}">
+          <bx-page-sizes-select slot="page-sizes-select">
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </bx-page-sizes-select>
+          <bx-pages-select value="{{ advisories.page - 1 }}" total="{{ advisories_pages }}"></bx-pages-select>
+        </bx-pagination>
+
+        <bx-data-table>
+          <bx-table-toolbar>
+            <bx-table-toolbar-content>
+              <bx-table-toolbar-search expanded value="{{ search }}"></bx-table-toolbar-search>
+            </bx-table-toolbar-content>
+          </bx-table-toolbar>
+          <bx-table>
+            <bx-table-head>
+              <bx-table-header-row>
+                <bx-table-header-cell>Advisory Name</bx-table-header-cell>
+                <bx-table-header-cell>Severity</bx-table-header-cell>
+                <bx-table-header-cell>Kind</bx-table-header-cell>
+                <bx-table-header-cell>Issued Date</bx-table-header-cell>
+                <bx-table-header-cell>Synopsis</bx-table-header-cell>
+                <bx-table-header-cell>Actions</bx-table-header-cell>
+              </bx-table-header-row>
+            </bx-table-head>
+            <bx-table-body>
+              {% for advisory in advisories.items %}
+              <bx-table-row>
+                <bx-table-cell>
+                  <a href="/red_hat/advisories/{{ advisory.name }}" class="bx--link" target="_blank">
+                    {{ advisory.name }}
+                  </a>
+                </bx-table-cell>
+                <bx-table-cell>
+                  <bx-tag type="red">{{ advisory.severity }}</bx-tag>
+                </bx-table-cell>
+                <bx-table-cell>{{ advisory.kind }}</bx-table-cell>
+                <bx-table-cell>{{ advisory.red_hat_issued_at.date() if advisory.red_hat_issued_at else 'N/A' }}</bx-table-cell>
+                <bx-table-cell>
+                  <span title="{{ advisory.synopsis }}">
+                    {{ advisory.synopsis[:80] }}{% if advisory.synopsis|length > 80 %}...{% endif %}
+                  </span>
+                </bx-table-cell>
+                <bx-table-cell>
+                  <form method="post" class="apollo-inline-form"
+                        onsubmit="return confirm('Are you sure you want to block advisory {{ advisory.name }}?')">
+                    <input type="hidden" name="advisory_id" value="{{ advisory.id }}">
+                    <button type="submit" class="bx--btn bx--btn--danger bx--btn--sm">
+                      Block
+                    </button>
+                  </form>
+                </bx-table-cell>
+              </bx-table-row>
+              {% endfor %}
+            </bx-table-body>
+          </bx-table>
+        </bx-data-table>
+      </div>
+    </div>
+    {% else %}
+    <div class="bx--row">
+      <div class="bx--col">
+        <div class="bx--tile">
+          <p>{% if search %}No advisories found matching "{{ search }}".{% else %}No advisories available to block.{% endif %}</p>
+          {% if search %}
+          <a href="/admin/supported-products/{{ mirror.supported_product.id }}/mirrors/{{ mirror.id }}/blocks/new"
+             class="bx--btn bx--btn--secondary apollo-mt-2">
+            Clear Search
+          </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="bx--row apollo-mt-3">
+      <div class="bx--col">
+        <a href="/admin/supported-products/{{ mirror.supported_product.id }}/mirrors/{{ mirror.id }}/blocks"
+           class="bx--btn bx--btn--secondary">
+          Back to Blocks
+        </a>
+      </div>
+    </div>
+</div>
+{% endblock %}

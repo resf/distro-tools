@@ -1,0 +1,16 @@
+{#
+  Reusable content card partial
+  Usage: {% call content_card(title="Card Title") %}Card content here{% endcall %}
+
+  Variables:
+  - title: Card title (optional)
+  - class: Additional CSS classes (optional)
+#}
+{% macro content_card(title=None, class="") %}
+<div class="apollo-content-card {{ class }}">
+  {% if title %}
+  <h3 class="apollo-section-title">{{ title }}</h3>
+  {% endif %}
+  {{ caller() }}
+</div>
+{% endmacro %}

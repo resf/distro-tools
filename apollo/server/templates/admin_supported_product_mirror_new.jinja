@@ -1,0 +1,123 @@
+{% extends "admin_layout.jinja" %}
+
+{% block admin_content %}
+<div class="bx--grid">
+    <div class="bx--row">
+      <div class="bx--col">
+        <nav aria-label="breadcrumb" class="bx--breadcrumb">
+          <div class="bx--breadcrumb-item">
+            <a href="/admin/supported-products/" class="bx--link">Supported Products</a>
+          </div>
+          <div class="bx--breadcrumb-item">
+            <a href="/admin/supported-products/{{ product.id }}" class="bx--link">{{ product.name }}</a>
+          </div>
+          <div class="bx--breadcrumb-item bx--breadcrumb-item--current">
+            <span>New Mirror</span>
+          </div>
+        </nav>
+
+        <h1 class="bx--type-expressive-heading-05">Add Red Hat Mirror</h1>
+        <p class="bx--type-body-long-02">Create a new Red Hat mirror configuration for {{ product.name }}.</p>
+      </div>
+    </div>
+
+    {% if error %}
+    <div class="bx--row">
+      <div class="bx--col">
+        <div class="bx--inline-notification bx--inline-notification--error" role="alert">
+          <div class="bx--inline-notification__details">
+            <div class="bx--inline-notification__text-wrapper">
+              <div class="bx--inline-notification__title">Error</div>
+              <div class="bx--inline-notification__subtitle">{{ error }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="bx--row">
+      <div class="bx--col-lg-8">
+        <form method="post" class="bx--form">
+          <div class="bx--form-item">
+            <label for="name" class="bx--label">Mirror Name *</label>
+            <input id="name" name="name" type="text" class="bx--text-input"
+                   required maxlength="255"
+                   value="{{ form_data.name if form_data else '' }}"
+                   placeholder="e.g., Rocky Linux 9 x86_64">
+            <div class="bx--form__helper-text">
+              A descriptive name for this mirror configuration
+            </div>
+          </div>
+
+          <div class="bx--form-item">
+            <label for="match_variant" class="bx--label">Match Variant *</label>
+            <select id="match_variant" name="match_variant" class="bx--select-input" required>
+              <option value="">Select a variant</option>
+              <option value="Red Hat Enterprise Linux" {% if form_data and form_data.match_variant == 'Red Hat Enterprise Linux' %}selected{% endif %}>
+                Red Hat Enterprise Linux
+              </option>
+              <option value="CentOS Linux" {% if form_data and form_data.match_variant == 'CentOS Linux' %}selected{% endif %}>
+                CentOS Linux
+              </option>
+              <option value="CentOS Stream" {% if form_data and form_data.match_variant == 'CentOS Stream' %}selected{% endif %}>
+                CentOS Stream
+              </option>
+            </select>
+            <div class="bx--form__helper-text">
+              The Red Hat product variant this mirror should match
+            </div>
+          </div>
+
+          <div class="bx--form-item">
+            <label for="match_major_version" class="bx--label">Major Version *</label>
+            <select id="match_major_version" name="match_major_version" class="bx--select-input" required>
+              <option value="">Select major version</option>
+              <option value="7" {% if form_data and form_data.match_major_version == 7 %}selected{% endif %}>7</option>
+              <option value="8" {% if form_data and form_data.match_major_version == 8 %}selected{% endif %}>8</option>
+              <option value="9" {% if form_data and form_data.match_major_version == 9 %}selected{% endif %}>9</option>
+              <option value="10" {% if form_data and form_data.match_major_version == 10 %}selected{% endif %}>10</option>
+            </select>
+            <div class="bx--form__helper-text">
+              The major version to match (e.g., 8, 9)
+            </div>
+          </div>
+
+          <div class="bx--form-item">
+            <label for="match_minor_version" class="bx--label">Minor Version</label>
+            <input id="match_minor_version" name="match_minor_version" type="number"
+                   class="bx--text-input" min="0" max="99"
+                   value="{{ form_data.match_minor_version if form_data and form_data.match_minor_version is not none else '' }}"
+                   placeholder="e.g., 0, 1, 2">
+            <div class="bx--form__helper-text">
+              Optional minor version to match. Leave blank to match all minor versions.
+            </div>
+          </div>
+
+          <div class="bx--form-item">
+            <label for="match_arch" class="bx--label">Architecture *</label>
+            <select id="match_arch" name="match_arch" class="bx--select-input" required>
+              <option value="">Select architecture</option>
+              <option value="x86_64" {% if form_data and form_data.match_arch == 'x86_64' %}selected{% endif %}>x86_64</option>
+              <option value="aarch64" {% if form_data and form_data.match_arch == 'aarch64' %}selected{% endif %}>aarch64</option>
+              <option value="ppc64le" {% if form_data and form_data.match_arch == 'ppc64le' %}selected{% endif %}>ppc64le</option>
+              <option value="s390x" {% if form_data and form_data.match_arch == 's390x' %}selected{% endif %}>s390x</option>
+            </select>
+            <div class="bx--form__helper-text">
+              The architecture this mirror configuration applies to
+            </div>
+          </div>
+
+          <div class="apollo-form-actions-spaced">
+            <button type="submit" class="bx--btn bx--btn--primary">
+              Create Mirror
+            </button>
+            <a href="/admin/supported-products/{{ product.id }}" class="bx--btn bx--btn--secondary">
+              Cancel
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+</div>
+{% endblock %}

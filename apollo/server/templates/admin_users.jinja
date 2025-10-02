@@ -1,10 +1,13 @@
 {% extends "admin_layout.jinja" %}
 
 {% block admin_content %}
-<div style="display:flex;justify-content:space-between;align-items:center">
-  <h2 style="display:block;margin-bottom:1rem;">Users</h2>
-  <bx-btn href="new">Create new user</bx-btn>
-</div>
+<div class="bx--grid">
+    <div class="bx--row">
+        <div class="bx--col">
+            <div class="apollo-section-header">
+                <h1 class="bx--type-expressive-heading-05">Users</h1>
+                <bx-btn href="new">Create new user</bx-btn>
+            </div>
 
 <bx-pagination page-size="{{ users.size }}" start="{{ (users.page-1) * users.size }}" total="{{ users.total }}">
   <bx-page-sizes-select slot="page-sizes-select">
@@ -36,4 +39,7 @@
     </bx-table-body>
   </bx-table>
 </bx-data-table>
+        </div>
+    </div>
+</div>
 {% endblock %}

@@ -3,7 +3,7 @@
 {% block content %}
 <h2>Profile</h2>
 
-<div style="width:100%;max-width:450px;margin-top:1rem;">
+<div class="apollo-width-100 apollo-max-width-28 apollo-mt-2">
   <form id="profile_form" action="" method="POST">
     <bx-form-item>
       <bx-input required name="current_password" type="password" form_id="profile_form">
@@ -15,7 +15,7 @@
       <bx-input required name="confirm_password" type="password" form_id="profile_form">
         <span slot="label-text">Confirm new password</span>
       </bx-input>
-      <bx-btn type="submit" style="margin-left:auto;display:block" form_id="profile_form">
+      <bx-btn type="submit" class="apollo-login-button" form_id="profile_form">
         Update password
       </bx-btn>
     </bx-form-item>

@@ -1,0 +1,29 @@
+{#
+  Reusable form action buttons partial
+  Usage: {% include "partials/form_actions.jinja" with context %}
+
+  Variables:
+  - primary_button: {text: "Submit", form_id: "form_id", class: "additional-classes"}
+  - secondary_button: {text: "Cancel", href: "/cancel", onclick: "function()"}
+#}
+<div class="apollo-form-actions">
+  {% if primary_button %}
+  <button type="submit" class="bx--btn bx--btn--primary bx--btn--sm {{ primary_button.class or '' }}"
+    {% if primary_button.form_id %}form_id="{{ primary_button.form_id }}"{% endif %}>
+    {{ primary_button.text }}
+  </button>
+  {% endif %}
+
+  {% if secondary_button %}
+  {% if secondary_button.href %}
+  <a href="{{ secondary_button.href }}" class="bx--btn bx--btn--secondary bx--btn--sm">
+    {{ secondary_button.text }}
+  </a>
+  {% else %}
+  <button type="button" class="bx--btn bx--btn--secondary bx--btn--sm"
+    {% if secondary_button.onclick %}onclick="{{ secondary_button.onclick }}"{% endif %}>
+    {{ secondary_button.text }}
+  </button>
+  {% endif %}
+  {% endif %}
+</div>

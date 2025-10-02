@@ -1,0 +1,16 @@
+{#
+  Reusable notification partial
+  Usage: {% include "partials/notification.jinja" with context %}
+
+  Variables:
+  - notification.kind: "error", "success", "warning", or "info"
+  - notification.title: Notification title
+  - notification.subtitle: Notification message
+#}
+{% if notification %}
+<div class="apollo-notification-wrapper">
+  <h5 class="apollo-notification-{{ notification.kind if notification.kind in ['error', 'success'] else 'error' }}">
+    {% if notification.title %}{{ notification.title }}: {% endif %}{{ notification.subtitle or notification.title }}
+  </h5>
+</div>
+{% endif %}

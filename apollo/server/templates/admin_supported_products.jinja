@@ -1,0 +1,219 @@
+{% extends "admin_layout.jinja" %}
+
+{% block admin_content %}
+<div class="bx--grid">
+    <div class="bx--row">
+      <div class="bx--col">
+        <h1 class="bx--type-expressive-heading-05">Supported Products</h1>
+        <p class="bx--type-body-long-02">Manage supported products and their Red Hat mirror configurations.</p>
+
+        <div style="margin: 1rem 0; display: flex; gap: 2rem; align-items: center; flex-wrap: wrap;">
+          <div style="display: flex; gap: 1rem; align-items: center;">
+            <span class="bx--type-label-01">Export All Configurations:</span>
+            <a href="/admin/supported-products/export" class="bx--btn bx--btn--tertiary bx--btn--sm">
+              Export JSON
+            </a>
+          </div>
+
+          <div style="display: flex; gap: 1rem; align-items: center;">
+            <span class="bx--type-label-01">Import Configurations:</span>
+            <button type="button" class="bx--btn bx--btn--tertiary bx--btn--sm" onclick="toggleImportForm()">
+              Import JSON
+            </button>
+          </div>
+        </div>
+
+        <div id="import-form" class="apollo-import-form" style="display: none;">
+          <form method="post" action="/admin/supported-products/import" enctype="multipart/form-data" class="bx--form">
+            <div class="bx--form-item">
+              <label for="config-file" class="bx--label">Configuration File *</label>
+              <div class="bx--file">
+                <input
+                  id="config-file"
+                  name="file"
+                  type="file"
+                  accept=".json"
+                  class="bx--file-input"
+                  required
+                  onchange="updateFileName(this)"
+                >
+                <label for="config-file" class="bx--file-browse-btn bx--btn bx--btn--secondary">
+                  Choose file
+                </label>
+                <div class="bx--file-container">
+                  <div class="bx--file__selected-file">
+                    <p class="bx--file-filename" id="file-name">No file selected</p>
+                  </div>
+                </div>
+              </div>
+              <div class="bx--form__helper-text">
+                Select a JSON configuration file exported from this system
+              </div>
+            </div>
+
+            <div class="bx--form-item bx--checkbox-wrapper">
+              <input id="replace-existing" name="replace_existing" type="checkbox" class="bx--checkbox" value="true">
+              <label for="replace-existing" class="bx--checkbox-label">
+                <span class="bx--checkbox-label-text">Replace existing configurations</span>
+              </label>
+              <div class="bx--form__helper-text">
+                If unchecked, existing configurations will be skipped
+              </div>
+            </div>
+
+            <div class="apollo-form-actions">
+              <button type="submit" class="bx--btn bx--btn--primary bx--btn--sm">
+                Import
+              </button>
+              <button type="button" class="bx--btn bx--btn--secondary bx--btn--sm" onclick="toggleImportForm()">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <script>
+          function toggleImportForm() {
+            const form = document.getElementById('import-form');
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+          }
+
+          function updateFileName(input) {
+            const fileName = document.getElementById('file-name');
+            if (input.files && input.files.length > 0) {
+              fileName.textContent = input.files[0].name;
+            } else {
+              fileName.textContent = 'No file selected';
+            }
+          }
+        </script>
+      </div>
+    </div>
+
+    {% if success %}
+    <div class="bx--row">
+      <div class="bx--col">
+        <div class="bx--inline-notification bx--inline-notification--success" role="alert">
+          <div class="bx--inline-notification__details">
+            <div class="bx--inline-notification__text-wrapper">
+              <div class="bx--inline-notification__title">Success</div>
+              <div class="bx--inline-notification__subtitle">{{ success }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if error %}
+    <div class="bx--row">
+      <div class="bx--col">
+        <div class="bx--inline-notification bx--inline-notification--error" role="alert">
+          <div class="bx--inline-notification__details">
+            <div class="bx--inline-notification__text-wrapper">
+              <div class="bx--inline-notification__title">Error</div>
+              <div class="bx--inline-notification__subtitle apollo-text-pre-line">{{ error }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if products.items %}
+    <div class="bx--row" style="margin-top: 2rem;">
+      <div class="bx--col">
+        <bx-data-table>
+          <bx-table>
+            <bx-table-head>
+              <bx-table-header-row>
+                <bx-table-header-cell>Name</bx-table-header-cell>
+                <bx-table-header-cell>Variant</bx-table-header-cell>
+                <bx-table-header-cell>Vendor</bx-table-header-cell>
+                <bx-table-header-cell>Mirrors</bx-table-header-cell>
+                <bx-table-header-cell>Repositories</bx-table-header-cell>
+                <bx-table-header-cell>Blocks</bx-table-header-cell>
+                <bx-table-header-cell>Actions</bx-table-header-cell>
+              </bx-table-header-row>
+            </bx-table-head>
+            <bx-table-body>
+              {% for product in products.items %}
+              <bx-table-row>
+                <bx-table-cell>
+                  <a href="/admin/supported-products/{{ product.id }}" class="bx--link">
+                    {{ product.name }}
+                  </a>
+                </bx-table-cell>
+                <bx-table-cell>{{ product.variant }}</bx-table-cell>
+                <bx-table-cell>{{ product.vendor }}</bx-table-cell>
+                <bx-table-cell>
+                  <bx-tag type="cool-gray">
+                    {{ product.stats.mirrors }} mirrors
+                  </bx-tag>
+                </bx-table-cell>
+                <bx-table-cell>
+                  <bx-tag type="blue">
+                    {{ product.stats.repomds }} repos
+                  </bx-tag>
+                </bx-table-cell>
+                <bx-table-cell>
+                  <bx-tag type="red">
+                    {{ product.stats.blocks }} blocks
+                  </bx-tag>
+                </bx-table-cell>
+                <bx-table-cell>
+                  <div class="apollo-actions-row">
+                    <a href="/admin/supported-products/{{ product.id }}" class="bx--btn bx--btn--tertiary bx--btn--sm">
+                      Manage
+                    </a>
+                    <a href="/admin/supported-products/{{ product.id }}/export"
+                       class="bx--btn bx--btn--tertiary bx--btn--sm" title="Export as JSON">
+                      Export
+                    </a>
+                  </div>
+                </bx-table-cell>
+              </bx-table-row>
+              {% endfor %}
+            </bx-table-body>
+          </bx-table>
+        </bx-data-table>
+      </div>
+    </div>
+
+    {% if products_pages > 1 %}
+    <div class="bx--row">
+      <div class="bx--col">
+        <nav class="bx--pagination" aria-label="Table pagination">
+          <div class="bx--pagination__left">
+            <span class="bx--pagination__text">
+              Showing {{ (products.page - 1) * products.size + 1 }}-{{ products.page * products.size if products.page * products.size < products.total else products.total }} of {{ products.total }} products
+            </span>
+          </div>
+          <div class="bx--pagination__right">
+            {% if products.page > 1 %}
+            <a href="?page={{ products.page - 1 }}" class="bx--pagination__button bx--pagination__button--backward">
+              <span class="bx--pagination__button-text">Previous</span>
+            </a>
+            {% endif %}
+            {% if products.page < products_pages %}
+            <a href="?page={{ products.page + 1 }}" class="bx--pagination__button bx--pagination__button--forward">
+              <span class="bx--pagination__button-text">Next</span>
+            </a>
+            {% endif %}
+          </div>
+        </nav>
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="bx--row">
+      <div class="bx--col">
+        <div class="bx--tile">
+          <p>No supported products found.</p>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

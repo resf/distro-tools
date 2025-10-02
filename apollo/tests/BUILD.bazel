@@ -44,3 +44,20 @@ py_test(
         "//apollo/server:server_lib",
     ],
 )
+
+
+py_test(
+    name = "test_validation",
+    srcs = ["test_validation.py"],
+    deps = [
+        "//apollo/server:server_lib",
+    ],
+)
+
+py_test(
+    name = "test_admin_routes_supported_products",
+    srcs = ["test_admin_routes_supported_products.py"],
+    deps = [
+        "//apollo/server:server_lib",
+    ],
+)

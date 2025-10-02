@@ -33,6 +33,10 @@ jobs:
         bazel test //apollo/tests:test_rpm_helpers --test_output=all
         bazel test //apollo/tests:test_rhcsaf --test_output=all
         bazel test //apollo/tests:test_csaf_processing --test_output=all
+        bazel test //apollo/tests:test_api_keys --test_output=all
+        bazel test //apollo/tests:test_auth --test_output=all
+        bazel test //apollo/tests:test_validation --test_output=all
+        bazel test //apollo/tests:test_admin_routes_supported_products --test_output=all
 
     - name: Integration Tests
       run: ./build/scripts/test.bash

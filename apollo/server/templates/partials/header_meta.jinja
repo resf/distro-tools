@@ -1,0 +1,16 @@
+{#
+  Reusable header metadata partial
+  Usage: {% include "partials/header_meta.jinja" with context %}
+
+  Variables:
+  - meta_items: List of {label: "Label", value: "Value", class: "additional-class"} objects
+#}
+{% if meta_items %}
+<div class="apollo-header-meta">
+  {% for item in meta_items %}
+  <h5 class="apollo-meta-item {{ item.class or '' }}">
+    {% if item.label %}{{ item.label }}: {% endif %}<span class="apollo-meta-value">{{ item.value }}</span>
+  </h5>
+  {% endfor %}
+</div>
+{% endif %}
