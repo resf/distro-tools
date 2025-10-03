@@ -1,3 +1,8 @@
+\restrict Iic7Soh3WhtobXtpyeQlUsQTON8EfUdSxaHqmP3GrrlHEpgHSdjagzvkx8MAbfd
+
+-- Dumped from database version 13.20
+-- Dumped by pg_dump version 16.10
+
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
@@ -8,6 +13,13 @@ SET check_function_bodies = false;
 SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
+
+--
+-- Name: public; Type: SCHEMA; Schema: -; Owner: -
+--
+
+-- *not* creating schema, since initdb creates it
+
 
 SET default_tablespace = '';
 
@@ -190,6 +202,44 @@ CREATE SEQUENCE public.advisory_packages_id_seq
 --
 
 ALTER SEQUENCE public.advisory_packages_id_seq OWNED BY public.advisory_packages.id;
+
+
+--
+-- Name: api_keys; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.api_keys (
+    id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone,
+    revoked_at timestamp with time zone,
+    name character varying(255) NOT NULL,
+    key_hash character varying(255) NOT NULL,
+    key_prefix character varying(32) NOT NULL,
+    user_id bigint NOT NULL,
+    permissions jsonb DEFAULT '[]'::jsonb NOT NULL,
+    expires_at timestamp with time zone,
+    last_used_at timestamp with time zone
+);
+
+
+--
+-- Name: api_keys_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.api_keys_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: api_keys_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.api_keys_id_seq OWNED BY public.api_keys.id;
 
 
 --
@@ -457,7 +507,7 @@ ALTER SEQUENCE public.red_hat_index_state_id_seq OWNED BY public.red_hat_index_s
 --
 
 CREATE TABLE public.schema_migrations (
-    version character varying(255) NOT NULL
+    version character varying(128) NOT NULL
 );
 
 
@@ -701,44 +751,6 @@ ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
 
 
 --
--- Name: api_keys; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.api_keys (
-    id bigint NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone,
-    revoked_at timestamp with time zone,
-    name varchar(255) NOT NULL,
-    key_hash varchar(255) NOT NULL,
-    key_prefix varchar(32) NOT NULL,
-    user_id bigint NOT NULL,
-    permissions jsonb DEFAULT '[]'::jsonb NOT NULL,
-    expires_at timestamp with time zone,
-    last_used_at timestamp with time zone
-);
-
-
---
--- Name: api_keys_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.api_keys_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: api_keys_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.api_keys_id_seq OWNED BY public.api_keys.id;
-
-
---
 -- Name: advisories id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -771,6 +783,13 @@ ALTER TABLE ONLY public.advisory_fixes ALTER COLUMN id SET DEFAULT nextval('publ
 --
 
 ALTER TABLE ONLY public.advisory_packages ALTER COLUMN id SET DEFAULT nextval('public.advisory_packages_id_seq'::regclass);
+
+
+--
+-- Name: api_keys id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.api_keys ALTER COLUMN id SET DEFAULT nextval('public.api_keys_id_seq'::regclass);
 
 
 --
@@ -879,13 +898,6 @@ ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_
 
 
 --
--- Name: api_keys id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.api_keys ALTER COLUMN id SET DEFAULT nextval('public.api_keys_id_seq'::regclass);
-
-
---
 -- Name: advisories advisories_name_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -963,6 +975,14 @@ ALTER TABLE ONLY public.advisory_packages
 
 ALTER TABLE ONLY public.advisory_packages
     ADD CONSTRAINT advisory_packages_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: api_keys api_keys_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.api_keys
+    ADD CONSTRAINT api_keys_pkey PRIMARY KEY (id);
 
 
 --
@@ -1163,14 +1183,6 @@ ALTER TABLE ONLY public.users
 
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_pkey PRIMARY KEY (id);
-
-
---
--- Name: api_keys api_keys_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.api_keys
-    ADD CONSTRAINT api_keys_pkey PRIMARY KEY (id);
 
 
 --
@@ -1602,6 +1614,14 @@ ALTER TABLE ONLY public.advisory_packages
 
 
 --
+-- Name: api_keys api_keys_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.api_keys
+    ADD CONSTRAINT api_keys_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
 -- Name: events events_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1698,16 +1718,10 @@ ALTER TABLE ONLY public.supported_products_rpm_rh_overrides
 
 
 --
--- Name: api_keys api_keys_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.api_keys
-    ADD CONSTRAINT api_keys_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
 -- PostgreSQL database dump complete
 --
+
+\unrestrict Iic7Soh3WhtobXtpyeQlUsQTON8EfUdSxaHqmP3GrrlHEpgHSdjagzvkx8MAbfd
 
 
 --
@@ -1715,4 +1729,5 @@ ALTER TABLE ONLY public.api_keys
 --
 
 INSERT INTO public.schema_migrations (version) VALUES
-    ('20230128201227');
+    ('20230128201227'),
+    ('20250825165713');
