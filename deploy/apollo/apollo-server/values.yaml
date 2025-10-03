@@ -8,7 +8,7 @@ image:
   repository: ghcr.io/resf/apollo-server
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "bb5159c"
+  tag: "da4845e"
 
 imagePullSecrets: []
 nameOverride: ""

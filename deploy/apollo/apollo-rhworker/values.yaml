@@ -8,7 +8,7 @@ image:
   repository: ghcr.io/resf/apollo-rhworker
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "7c43d9b"
+  tag: "1463c15"
 
 imagePullSecrets: []
 nameOverride: ""
