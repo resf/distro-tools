@@ -730,12 +730,21 @@ def generate_rocky_config(
             continue
 
         # Skip if version filter specified and doesn't match
-        if (
-            version
-            and metadata["version"] != version
-            and metadata["version"] != UNKNOWN_VALUE
-        ):
-            continue
+        # Support matching major version only (e.g., "9" matches "9.6")
+        if version and metadata["version"] != UNKNOWN_VALUE:
+            version_matches = False
+
+            # If filter version has no minor (e.g., "9"), match by major version only
+            if "." not in version:
+                # Extract major version from metadata version
+                metadata_major = metadata["version"].split(".")[0] if "." in metadata["version"] else metadata["version"]
+                version_matches = (metadata_major == version)
+            else:
+                # Exact match required for full versions (e.g., "9.6")
+                version_matches = (metadata["version"] == version)
+
+            if not version_matches:
+                continue
 
         # Skip debug repos if not wanted
         if not include_debug and metadata["repo_type"] == "debug":
