@@ -255,15 +255,18 @@ async def get_advisories_osv(
         cve,
         synopsis,
         severity,
-        kind="Security",
+        kind=None,
         fetch_related=True,
     )
     count = fetch_adv[0]
     advisories = fetch_adv[1]
 
+    # Filter to only include advisories with CVE references
+    advisories_with_cves = [adv for adv in advisories if len(adv.cves) > 0]
+
     ui_url = await get_setting(UI_URL)
-    osv_advisories = [to_osv_advisory(ui_url, x) for x in advisories]
-    page = create_page(osv_advisories, count, params)
+    osv_advisories = [to_osv_advisory(ui_url, x) for x in advisories_with_cves]
+    page = create_page(osv_advisories, len(advisories_with_cves), params)
 
     state = await RedHatIndexState.first()
     page.last_updated_at = (
@@ -282,7 +285,7 @@ async def get_advisories_osv(
 )
 async def get_advisory_osv(advisory_id: str):
     advisory = (
-        await Advisory.filter(name=advisory_id, kind="Security")
+        await Advisory.filter(name=advisory_id)
         .prefetch_related(
             "packages",
             "cves",
@@ -295,7 +298,8 @@ async def get_advisory_osv(advisory_id: str):
         .get_or_none()
     )
 
-    if not advisory:
+    # Only return advisories with CVE references
+    if not advisory or len(advisory.cves) == 0:
         raise HTTPException(404)
 
     ui_url = await get_setting(UI_URL)

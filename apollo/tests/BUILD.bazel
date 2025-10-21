@@ -61,3 +61,11 @@ py_test(
         "//apollo/server:server_lib",
     ],
 )
+
+py_test(
+    name = "test_api_osv",
+    srcs = ["test_api_osv.py"],
+    deps = [
+        "//apollo/server:server_lib",
+    ],
+)
