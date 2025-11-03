@@ -60,8 +60,8 @@ class ValidationPatterns:
     # URL validation - must start with http:// or https://
     URL_PATTERN = re.compile(r"^https?://.+")
 
-    # Name patterns - alphanumeric with common special characters and spaces
-    NAME_PATTERN = re.compile(r"^[a-zA-Z0-9._\s-]+$")
+    # Name patterns - alphanumeric with common special characters, spaces, and parentheses
+    NAME_PATTERN = re.compile(r"^[a-zA-Z0-9._\s()\-]+$")
 
     # Architecture validation
     ARCH_PATTERN = re.compile(r"^(x86_64|aarch64|i386|i686|ppc64|ppc64le|s390x|riscv64|noarch)$")
@@ -107,7 +107,7 @@ class FieldValidator:
 
         if not ValidationPatterns.NAME_PATTERN.match(trimmed_name):
             raise ValidationError(
-                f"{field_name.title()} can only contain letters, numbers, spaces, dots, hyphens, and underscores",
+                f"{field_name.title()} can only contain letters, numbers, spaces, dots, hyphens, underscores, and parentheses",
                 ValidationErrorType.INVALID_FORMAT,
                 field_name,
             )
