@@ -378,13 +378,18 @@ async def admin_supported_product(request: Request, product_id: int):
         SupportedProduct,
         f"Supported product with id {product_id}",
         entity_id=product_id,
-        prefetch_related=["rh_mirrors", "rh_mirrors__rpm_repomds", "code"]
+        prefetch_related=["code"]
     )
     if isinstance(product, Response):
         return product
 
+    # Fetch mirrors with explicit ordering: active first, then by version (desc), then by name
+    mirrors = await SupportedProductsRhMirror.filter(
+        supported_product=product
+    ).order_by("-active", "-match_major_version", "name").prefetch_related("rpm_repomds").all()
+
     # Get detailed statistics for each mirror
-    for mirror in product.rh_mirrors:
+    for mirror in mirrors:
         repomds_count = await SupportedProductsRpmRepomd.filter(
             supported_products_rh_mirror=mirror
         ).count()
@@ -405,6 +410,7 @@ async def admin_supported_product(request: Request, product_id: int):
         "admin_supported_product.jinja", {
             "request": request,
             "product": product,
+            "mirrors": mirrors,
         }
     )
 
