@@ -277,7 +277,7 @@ async def get_supported_products_with_rh_mirrors(filter_major_versions: Optional
     Filtering now happens at the mirror level within match_rh_repos activity.
     """
     logger = Logger()
-    rh_mirrors = await SupportedProductsRhMirror.all().prefetch_related(
+    rh_mirrors = await SupportedProductsRhMirror.filter(active=True).prefetch_related(
         "rpm_repomds",
     )
     ret = []
@@ -841,7 +841,8 @@ async def block_remaining_rh_advisories(supported_product_id: int) -> None:
     ).first().prefetch_related("rh_mirrors")
     for mirror in supported_product.rh_mirrors:
         mirrors = await SupportedProductsRhMirror.filter(
-            supported_product_id=supported_product_id
+            supported_product_id=supported_product_id,
+            active=True
         )
         for mirror in mirrors:
             advisories = await get_matching_rh_advisories(mirror)
