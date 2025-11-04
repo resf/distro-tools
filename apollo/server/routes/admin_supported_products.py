@@ -479,7 +479,6 @@ async def admin_supported_product_mirror_new_post(
     match_major_version: int = Form(),
     match_minor_version: Optional[int] = Form(default=None),
     match_arch: str = Form(),
-    active: str = Form(default="true"),
 ):
     product = await get_entity_or_error_response(
         request,
@@ -490,6 +489,13 @@ async def admin_supported_product_mirror_new_post(
     if isinstance(product, Response):
         return product
 
+    # Parse form data to get the active field
+    form_data_raw = await request.form()
+    # When checkbox is checked: active will be ["false", "true"], take the last value
+    # When checkbox is unchecked: active will be ["false"], take that value
+    active_values = form_data_raw.getlist("active")
+    active_value = active_values[-1] if active_values else "false"
+
     # Validation using centralized validation utility
     form_data = {
         "name": name,
@@ -497,7 +503,7 @@ async def admin_supported_product_mirror_new_post(
         "match_major_version": match_major_version,
         "match_minor_version": match_minor_version,
         "match_arch": match_arch,
-        "active": active,
+        "active": active_value,
     }
 
     try:
@@ -527,7 +533,7 @@ async def admin_supported_product_mirror_new_post(
         match_major_version=match_major_version,
         match_minor_version=match_minor_version,
         match_arch=validated_arch,
-        active=(active == "true"),
+        active=(active_value == "true"),
     )
     await mirror.save()
 
@@ -570,7 +576,6 @@ async def admin_supported_product_mirror_post(
     match_major_version: int = Form(),
     match_minor_version: Optional[int] = Form(default=None),
     match_arch: str = Form(),
-    active: str = Form(default="true"),
 ):
     mirror = await get_entity_or_error_response(
         request,
@@ -588,6 +593,13 @@ async def admin_supported_product_mirror_post(
     )
     if isinstance(mirror, Response):
         return mirror
+
+    # Parse form data to get the active field
+    form_data = await request.form()
+    # When checkbox is checked: active will be ["false", "true"], take the last value
+    # When checkbox is unchecked: active will be ["false"], take that value
+    active_values = form_data.getlist("active")
+    active_value = active_values[-1] if active_values else "false"
 
     # Validation using centralized validation utility
     try:
@@ -614,7 +626,7 @@ async def admin_supported_product_mirror_post(
     mirror.match_major_version = match_major_version
     mirror.match_minor_version = match_minor_version
     mirror.match_arch = validated_arch
-    mirror.active = (active == "true")
+    mirror.active = (active_value == "true")
     await mirror.save()
 
     # Re-fetch the mirror with all required relations after saving

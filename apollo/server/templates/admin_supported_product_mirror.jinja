@@ -123,6 +123,7 @@
               <fieldset class="bx--fieldset">
                 <legend class="bx--label">Status</legend>
                 <div class="bx--form-item bx--checkbox-wrapper">
+                  <input type="hidden" name="active" value="false">
                   <input id="active" name="active" type="checkbox" value="true" class="bx--checkbox"
                          {% if mirror.active %}checked{% endif %}>
                   <label for="active" class="bx--checkbox-label">
