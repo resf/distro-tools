@@ -41,13 +41,13 @@
     <div class="bx--row">
       <div class="bx--col">
         <div class="apollo-section-header">
-          <h2 class="bx--type-productive-heading-04">Red Hat Mirrors ({{ product.rh_mirrors|length }})</h2>
+          <h2 class="bx--type-productive-heading-04">Red Hat Mirrors ({{ mirrors|length }})</h2>
           <a href="/admin/supported-products/{{ product.id }}/mirrors/new" class="bx--btn bx--btn--primary">
             Add New Mirror
           </a>
         </div>
 
-        {% if product.rh_mirrors %}
+        {% if mirrors %}
         <div style="margin-bottom: 1rem; margin-top: 2rem">
           <form id="bulkDeleteForm" method="post" action="/admin/supported-products/{{ product.id }}/bulk-delete-mirrors" class="apollo-bulk-form">
             <input type="hidden" name="mirror_ids" id="mirror_ids" value="">
@@ -60,7 +60,7 @@
         </div>
         {% endif %}
 
-        {% if product.rh_mirrors %}
+        {% if mirrors %}
         <div class="apollo-table-container">
         <table class="bx--data-table apollo-mirrors-table">
           <thead class="apollo-sticky-header">
@@ -81,6 +81,9 @@
                 <span class="bx--table-header-label">Architecture</span>
               </th>
               <th>
+                <span class="bx--table-header-label">Status</span>
+              </th>
+              <th>
                 <span class="bx--table-header-label">Repositories</span>
               </th>
               <th>
@@ -92,7 +95,7 @@
             </tr>
           </thead>
           <tbody>
-            {% for mirror in product.rh_mirrors %}
+            {% for mirror in mirrors %}
             <tr>
               <td class="apollo-checkbox-cell">
                 <input type="checkbox"
@@ -113,6 +116,13 @@
                 {{ mirror.match_major_version }}{% if mirror.match_minor_version %}.{{ mirror.match_minor_version }}{% endif %}
               </td>
               <td>{{ mirror.match_arch }}</td>
+              <td>
+                {% if mirror.active %}
+                <span class="bx--tag bx--tag--green">Active</span>
+                {% else %}
+                <span class="bx--tag bx--tag--gray">Inactive</span>
+                {% endif %}
+              </td>
               <td>
                 <span class="bx--tag bx--tag--blue">
                   {{ mirror.stats.repomds }} repos
