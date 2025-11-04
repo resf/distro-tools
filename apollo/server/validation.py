@@ -391,6 +391,13 @@ class ConfigValidator:
                     f"Config {config_index}: Mirror match_minor_version must be a non-negative integer"
                 )
 
+        # Validate active field if present
+        if "active" in mirror and mirror["active"] is not None:
+            if not isinstance(mirror["active"], bool):
+                errors.append(
+                    f"Config {config_index}: Mirror active must be a boolean value"
+                )
+
         return errors
 
     @staticmethod
@@ -524,6 +531,9 @@ class FormValidator:
         for field in ["match_variant", "match_major_version", "match_minor_version"]:
             if field in form_data:
                 validated_data[field] = form_data[field]
+
+        # Handle active checkbox (form data comes as string "true"/"false" or may be missing)
+        validated_data["active"] = form_data.get("active", "true") == "true"
 
         return validated_data, errors
 

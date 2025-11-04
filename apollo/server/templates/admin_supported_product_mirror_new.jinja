@@ -108,6 +108,22 @@
             </div>
           </div>
 
+          <div class="bx--form-item">
+            <fieldset class="bx--fieldset">
+              <legend class="bx--label">Status</legend>
+              <div class="bx--form-item bx--checkbox-wrapper">
+                <input id="active" name="active" type="checkbox" value="true" class="bx--checkbox"
+                       {% if not form_data or form_data.active == 'true' %}checked{% endif %}>
+                <label for="active" class="bx--checkbox-label">
+                  <span class="bx--checkbox-label-text">Active</span>
+                </label>
+              </div>
+              <div class="bx--form__helper-text">
+                Only active mirrors are used for advisory processing. Deactivate to exclude from workflows without deleting.
+              </div>
+            </fieldset>
+          </div>
+
           <div class="apollo-form-actions-spaced">
             <button type="submit" class="bx--btn bx--btn--primary">
               Create Mirror

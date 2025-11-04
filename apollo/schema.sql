@@ -623,7 +623,8 @@ CREATE TABLE public.supported_products_rh_mirrors (
     match_variant text NOT NULL,
     match_major_version numeric NOT NULL,
     match_minor_version numeric,
-    match_arch text NOT NULL
+    match_arch text NOT NULL,
+    active boolean DEFAULT true NOT NULL
 );
 
 
@@ -1505,6 +1506,13 @@ CREATE INDEX supported_products_rh_mirrors_match_variant_idx ON public.supported
 --
 
 CREATE INDEX supported_products_rh_mirrors_supported_product_idx ON public.supported_products_rh_mirrors USING btree (supported_product_id);
+
+
+--
+-- Name: supported_products_rh_mirrors_active_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX supported_products_rh_mirrors_active_idx ON public.supported_products_rh_mirrors USING btree (active);
 
 
 --

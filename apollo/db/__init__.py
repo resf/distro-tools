@@ -201,6 +201,7 @@ class SupportedProductsRhMirror(Model):
     match_major_version = fields.IntField()
     match_minor_version = fields.IntField(null=True)
     match_arch = fields.CharField(max_length=255)
+    active = fields.BooleanField(default=True)
 
     rpm_repomds: fields.ReverseRelation["SupportedProductsRpmRepomd"]
     rpm_rh_overrides: fields.ReverseRelation["SupportedProductsRpmRhOverride"]

@@ -276,6 +276,9 @@ async def _import_configuration(import_data: List[Dict[str, Any]], replace_exist
             # Delete existing repositories
             await SupportedProductsRpmRepomd.filter(supported_products_rh_mirror=existing_mirror).delete()
             mirror = existing_mirror
+            # Update active field if provided
+            mirror.active = mirror_data.get("active", True)
+            await mirror.save()
             updated_count += 1
         else:
             # Create new mirror
@@ -285,7 +288,8 @@ async def _import_configuration(import_data: List[Dict[str, Any]], replace_exist
                 match_variant=mirror_data["match_variant"],
                 match_major_version=mirror_data["match_major_version"],
                 match_minor_version=mirror_data.get("match_minor_version"),
-                match_arch=mirror_data["match_arch"]
+                match_arch=mirror_data["match_arch"],
+                active=mirror_data.get("active", True)
             )
             await mirror.save()
             created_count += 1
@@ -475,6 +479,7 @@ async def admin_supported_product_mirror_new_post(
     match_major_version: int = Form(),
     match_minor_version: Optional[int] = Form(default=None),
     match_arch: str = Form(),
+    active: str = Form(default="true"),
 ):
     product = await get_entity_or_error_response(
         request,
@@ -492,6 +497,7 @@ async def admin_supported_product_mirror_new_post(
         "match_major_version": match_major_version,
         "match_minor_version": match_minor_version,
         "match_arch": match_arch,
+        "active": active,
     }
 
     try:
@@ -521,6 +527,7 @@ async def admin_supported_product_mirror_new_post(
         match_major_version=match_major_version,
         match_minor_version=match_minor_version,
         match_arch=validated_arch,
+        active=(active == "true"),
     )
     await mirror.save()
 
@@ -563,6 +570,7 @@ async def admin_supported_product_mirror_post(
     match_major_version: int = Form(),
     match_minor_version: Optional[int] = Form(default=None),
     match_arch: str = Form(),
+    active: str = Form(default="true"),
 ):
     mirror = await get_entity_or_error_response(
         request,
@@ -606,6 +614,7 @@ async def admin_supported_product_mirror_post(
     mirror.match_major_version = match_major_version
     mirror.match_minor_version = match_minor_version
     mirror.match_arch = validated_arch
+    mirror.active = (active == "true")
     await mirror.save()
 
     # Re-fetch the mirror with all required relations after saving
@@ -1274,6 +1283,7 @@ async def _get_mirror_config_data(mirror: SupportedProductsRhMirror) -> Dict[str
             "match_major_version": mirror.match_major_version,
             "match_minor_version": mirror.match_minor_version,
             "match_arch": mirror.match_arch,
+            "active": mirror.active,
             "created_at": mirror.created_at.isoformat(),
             "updated_at": mirror.updated_at.isoformat() if mirror.updated_at else None,
         },
