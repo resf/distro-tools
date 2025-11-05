@@ -790,6 +790,10 @@ async def match_rh_repos(params) -> None:
     all_advisories = {}
 
     for mirror in supported_product.rh_mirrors:
+        # Skip inactive mirrors
+        if not mirror.active:
+            logger.debug(f"Skipping inactive mirror {mirror.name}")
+            continue
         # Apply major version filtering if specified
         if filter_major_versions is not None and int(mirror.match_major_version) not in filter_major_versions:
             logger.debug(f"Skipping mirror {mirror.name} with major version {mirror.match_major_version} due to filtering")
