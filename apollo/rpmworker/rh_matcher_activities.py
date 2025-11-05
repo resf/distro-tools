@@ -840,24 +840,20 @@ async def match_rh_repos(params) -> None:
 
 @activity.defn
 async def block_remaining_rh_advisories(supported_product_id: int) -> None:
-    supported_product = await SupportedProduct.filter(
-        id=supported_product_id
-    ).first().prefetch_related("rh_mirrors")
-    for mirror in supported_product.rh_mirrors:
-        mirrors = await SupportedProductsRhMirror.filter(
-            supported_product_id=supported_product_id,
-            active=True
+    mirrors = await SupportedProductsRhMirror.filter(
+        supported_product_id=supported_product_id,
+        active=True
+    )
+    for mirror in mirrors:
+        advisories = await get_matching_rh_advisories(mirror)
+        await SupportedProductsRhBlock.bulk_create(
+            [
+                SupportedProductsRhBlock(
+                    **{
+                        "supported_products_rh_mirror_id": mirror.id,
+                        "red_hat_advsiory_id": advisory.id,
+                    }
+                ) for advisory in advisories
+            ],
+            ignore_conflicts=True
         )
-        for mirror in mirrors:
-            advisories = await get_matching_rh_advisories(mirror)
-            await SupportedProductsRhBlock.bulk_create(
-                [
-                    SupportedProductsRhBlock(
-                        **{
-                            "supported_products_rh_mirror_id": mirror.id,
-                            "red_hat_advsiory_id": advisory.id,
-                        }
-                    ) for advisory in advisories
-                ],
-                ignore_conflicts=True
-            )
