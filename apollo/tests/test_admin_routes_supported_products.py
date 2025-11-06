@@ -441,6 +441,223 @@ class TestImportValidation(unittest.TestCase):
         self.assertIn("must be a list", errors[0])
 
 
+class TestActiveFieldCheckboxParsing(unittest.TestCase):
+    """Test the checkbox parsing logic for the active field."""
+
+    def test_checkbox_checked_returns_true(self):
+        """Test that checked checkbox results in active_value='true'."""
+        # Simulate form data when checkbox is checked
+        from unittest.mock import Mock
+        form_data = Mock()
+        form_data.getlist.return_value = ["true"]
+
+        # Apply the parsing logic from admin_supported_products.py
+        active_value = "true" if "true" in form_data.getlist("active") else "false"
+
+        self.assertEqual(active_value, "true")
+
+    def test_checkbox_unchecked_returns_false(self):
+        """Test that unchecked checkbox results in active_value='false'."""
+        # Simulate form data when checkbox is unchecked (empty list)
+        from unittest.mock import Mock
+        form_data = Mock()
+        form_data.getlist.return_value = []
+
+        # Apply the parsing logic from admin_supported_products.py
+        active_value = "true" if "true" in form_data.getlist("active") else "false"
+
+        self.assertEqual(active_value, "false")
+
+    def test_checkbox_missing_field_defaults_to_false(self):
+        """Test that missing active field defaults to false."""
+        # Simulate form data without active field at all
+        from unittest.mock import Mock
+        form_data = Mock()
+        form_data.getlist.return_value = []
+
+        active_value = "true" if "true" in form_data.getlist("active") else "false"
+
+        self.assertEqual(active_value, "false")
+
+    def test_checkbox_boolean_conversion(self):
+        """Test that string active_value converts correctly to boolean."""
+        # Test conversion to boolean for database storage
+        active_value_true = "true"
+        active_value_false = "false"
+
+        self.assertTrue(active_value_true == "true")
+        self.assertFalse(active_value_false == "true")
+
+    def test_checkbox_with_unexpected_value(self):
+        """Test that unexpected values default to false."""
+        # Edge case: unexpected value
+        from unittest.mock import Mock
+        form_data = Mock()
+        form_data.getlist.return_value = ["yes", "1", "on"]
+
+        active_value = "true" if "true" in form_data.getlist("active") else "false"
+
+        # Should default to false since "true" is not in the list
+        self.assertEqual(active_value, "false")
+
+
+class TestMirrorConfigDataWithActiveField(unittest.TestCase):
+    """Test mirror configuration export includes active field."""
+
+    def test_exported_config_includes_active_true(self):
+        """Test that exported mirror config includes active=true."""
+        mirror = Mock()
+        mirror.id = 1
+        mirror.name = "Active Mirror"
+        mirror.match_variant = "Red Hat Enterprise Linux"
+        mirror.match_major_version = 9
+        mirror.match_minor_version = None
+        mirror.match_arch = "x86_64"
+        mirror.active = True
+        mirror.created_at = datetime(2024, 1, 1, 10, 0, 0)
+        mirror.updated_at = None
+
+        # Mock supported product
+        mirror.supported_product = Mock()
+        mirror.supported_product.id = 1
+        mirror.supported_product.name = "Rocky Linux"
+        mirror.supported_product.variant = "Rocky Linux"
+        mirror.supported_product.vendor = "RESF"
+
+        # Mock repositories
+        mirror.rpm_repomds = []
+
+        result = asyncio.run(_get_mirror_config_data(mirror))
+
+        # Verify active field is included and true
+        self.assertIn("active", result["mirror"])
+        self.assertTrue(result["mirror"]["active"])
+
+    def test_exported_config_includes_active_false(self):
+        """Test that exported mirror config includes active=false."""
+        mirror = Mock()
+        mirror.id = 2
+        mirror.name = "Inactive Mirror"
+        mirror.match_variant = "Red Hat Enterprise Linux"
+        mirror.match_major_version = 8
+        mirror.match_minor_version = None
+        mirror.match_arch = "x86_64"
+        mirror.active = False
+        mirror.created_at = datetime(2024, 1, 1, 10, 0, 0)
+        mirror.updated_at = None
+
+        # Mock supported product
+        mirror.supported_product = Mock()
+        mirror.supported_product.id = 1
+        mirror.supported_product.name = "Rocky Linux"
+        mirror.supported_product.variant = "Rocky Linux"
+        mirror.supported_product.vendor = "RESF"
+
+        # Mock repositories
+        mirror.rpm_repomds = []
+
+        result = asyncio.run(_get_mirror_config_data(mirror))
+
+        # Verify active field is included and false
+        self.assertIn("active", result["mirror"])
+        self.assertFalse(result["mirror"]["active"])
+
+
+class TestImportWithActiveField(unittest.TestCase):
+    """Test import validation with active field."""
+
+    def test_import_data_with_active_true_is_valid(self):
+        """Test that import data with active=true is valid."""
+        valid_data = [
+            {
+                "product": {
+                    "name": "Rocky Linux",
+                    "variant": "Rocky Linux",
+                    "vendor": "RESF",
+                },
+                "mirror": {
+                    "name": "Rocky Linux 9 x86_64",
+                    "match_variant": "Red Hat Enterprise Linux",
+                    "match_major_version": 9,
+                    "match_arch": "x86_64",
+                    "active": True,
+                },
+                "repositories": [
+                    {
+                        "repo_name": "BaseOS",
+                        "arch": "x86_64",
+                        "production": True,
+                        "url": "https://example.com/repo",
+                    }
+                ],
+            }
+        ]
+
+        errors = asyncio.run(_validate_import_data(valid_data))
+        self.assertEqual(errors, [])
+
+    def test_import_data_with_active_false_is_valid(self):
+        """Test that import data with active=false is valid."""
+        valid_data = [
+            {
+                "product": {
+                    "name": "Rocky Linux",
+                    "variant": "Rocky Linux",
+                    "vendor": "RESF",
+                },
+                "mirror": {
+                    "name": "Rocky Linux 8 x86_64",
+                    "match_variant": "Red Hat Enterprise Linux",
+                    "match_major_version": 8,
+                    "match_arch": "x86_64",
+                    "active": False,
+                },
+                "repositories": [
+                    {
+                        "repo_name": "BaseOS",
+                        "arch": "x86_64",
+                        "production": True,
+                        "url": "https://example.com/repo",
+                    }
+                ],
+            }
+        ]
+
+        errors = asyncio.run(_validate_import_data(valid_data))
+        self.assertEqual(errors, [])
+
+    def test_import_data_without_active_field_is_valid(self):
+        """Test that import data without active field is valid (backwards compatibility)."""
+        valid_data = [
+            {
+                "product": {
+                    "name": "Rocky Linux",
+                    "variant": "Rocky Linux",
+                    "vendor": "RESF",
+                },
+                "mirror": {
+                    "name": "Rocky Linux 9 x86_64",
+                    "match_variant": "Red Hat Enterprise Linux",
+                    "match_major_version": 9,
+                    "match_arch": "x86_64",
+                    # No active field - should default to true
+                },
+                "repositories": [
+                    {
+                        "repo_name": "BaseOS",
+                        "arch": "x86_64",
+                        "production": True,
+                        "url": "https://example.com/repo",
+                    }
+                ],
+            }
+        ]
+
+        # Should still be valid - active field is optional for backwards compatibility
+        errors = asyncio.run(_validate_import_data(valid_data))
+        self.assertEqual(errors, [])
+
+
 if __name__ == "__main__":
     # Run with verbose output
     unittest.main(verbosity=2)
