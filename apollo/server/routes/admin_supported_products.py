@@ -497,10 +497,8 @@ async def admin_supported_product_mirror_new_post(
 
     # Parse form data to get the active field
     form_data_raw = await request.form()
-    # When checkbox is checked: active will be ["false", "true"], take the last value
-    # When checkbox is unchecked: active will be ["false"], take that value
-    active_values = form_data_raw.getlist("active")
-    active_value = active_values[-1] if active_values else "false"
+    # Checkbox sends "true" when checked, nothing when unchecked
+    active_value = "true" if "true" in form_data_raw.getlist("active") else "false"
 
     # Validation using centralized validation utility
     form_data = {
@@ -602,10 +600,8 @@ async def admin_supported_product_mirror_post(
 
     # Parse form data to get the active field
     form_data = await request.form()
-    # When checkbox is checked: active will be ["false", "true"], take the last value
-    # When checkbox is unchecked: active will be ["false"], take that value
-    active_values = form_data.getlist("active")
-    active_value = active_values[-1] if active_values else "false"
+    # Checkbox sends "true" when checked, nothing when unchecked
+    active_value = "true" if "true" in form_data.getlist("active") else "false"
 
     # Validation using centralized validation utility
     try:
