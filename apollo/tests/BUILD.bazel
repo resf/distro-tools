@@ -69,3 +69,13 @@ py_test(
         "//apollo/server:server_lib",
     ],
 )
+
+py_test(
+    name = "test_database_service",
+    srcs = ["test_database_service.py"],
+    deps = [
+        "//apollo/server:server_lib",
+        "//apollo/db:db_lib",
+        "//common:common_lib",
+    ],
+)

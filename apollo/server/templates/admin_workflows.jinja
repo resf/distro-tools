@@ -71,9 +71,47 @@
                     <h2 class="bx--type-productive-heading-03">Poll RH CSAF Advisories Workflow</h2>
                     <p class="bx--type-body-long-01">Polls Red Hat for new CSAF (Common Security Advisory Framework) advisories.</p>
 
-                    <form action="/admin/workflows/poll-rhcsaf/trigger" method="post" class="bx--form">
+                    <form action="/admin/workflows/poll-rhcsaf/trigger" method="post" class="bx--form" style="margin-top: 1rem;">
                         <button type="submit" class="bx--btn bx--btn--secondary">
                             Trigger Poll RHCSAF Workflow
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Update Index Timestamp Section -->
+        <div class="bx--row apollo-mt-3">
+            <div class="bx--col">
+                <div class="bx--tile">
+                    <h2 class="bx--type-productive-heading-03">Update CSAF Index Timestamp</h2>
+                    <p class="bx--type-body-long-01">Set the last_indexed_at timestamp to control which advisories are processed by the Poll RHCSAF workflow.</p>
+
+                    {% if last_indexed_exists %}
+                    <p class="bx--type-body-short-01" style="margin-top: 1rem;">
+                        <strong>Current last_indexed_at:</strong> {{ last_indexed_at }}
+                    </p>
+                    {% else %}
+                    <p class="bx--type-body-short-01" style="margin-top: 1rem; color: #da1e28;">
+                        <strong>No timestamp set</strong> - workflow will process all advisories
+                    </p>
+                    {% endif %}
+
+                    <form id="timestamp-form" action="/admin/workflows/update-index-timestamp" method="post" class="bx--form" style="margin-top: 1rem;">
+                        <div class="bx--form-item">
+                            <label for="timestamp_date" class="bx--label">
+                                Select Date (UTC timezone):
+                            </label>
+                            <input type="date" id="timestamp_date" name="timestamp_date" required class="bx--text-input apollo-width-auto apollo-max-width-12-5">
+                            <input type="hidden" id="new_timestamp" name="new_timestamp">
+                            <div class="bx--form__helper-text">
+                                The workflow will process advisories with timestamps after this date.<br>
+                                Time will be set to 00:00:00 UTC.
+                            </div>
+                        </div>
+
+                        <button type="submit" class="bx--btn bx--btn--tertiary">
+                            Update Timestamp
                         </button>
                     </form>
                 </div>
@@ -114,7 +152,7 @@
                     </div>
                 </div>
 
-                <div id="preview-results" class="apollo-mt-2 apollo-mb-2 apollo-p-2" style="display: none; border: 1px solid #ddd; border-radius: 4px; background-color: #f8f9fa;">
+                <div id="preview-results" class="apollo-mt-2 apollo-mb-2 apollo-p-2" style="display: none; border: 1px solid #ddd; border-radius: 4px; background-color: #f8f9fa; color: #161616;">
                     <!-- Preview results will be populated here -->
                 </div>
 
@@ -170,9 +208,29 @@
 </div>
 
 
-{% if reset_allowed %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Timestamp form handling
+    const timestampForm = document.getElementById('timestamp-form');
+    const timestampDateInput = document.getElementById('timestamp_date');
+    const timestampHiddenInput = document.getElementById('new_timestamp');
+
+    if (timestampForm && timestampDateInput && timestampHiddenInput) {
+        timestampForm.addEventListener('submit', function(e) {
+            const dateValue = timestampDateInput.value;
+            if (!dateValue) {
+                alert('Please select a date');
+                e.preventDefault();
+                return;
+            }
+            // Convert YYYY-MM-DD to ISO 8601 format with UTC timezone
+            const isoTimestamp = dateValue + 'T00:00:00+00:00';
+            timestampHiddenInput.value = isoTimestamp;
+        });
+    }
+
+    {% if reset_allowed %}
+    // Database reset form handling
     const confirmCheckbox = document.getElementById('confirm');
     const resetBtn = document.getElementById('reset-btn');
     const previewBtn = document.getElementById('preview-btn');
@@ -241,7 +299,7 @@ document.addEventListener('DOMContentLoaded', function() {
             previewResults.style.display = 'none';
         });
     }
+    {% endif %}
 });
 </script>
-{% endif %}
 {% endblock %}
