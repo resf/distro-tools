@@ -651,8 +651,11 @@ async def process_csaf_files(from_timestamp: str = None) -> dict:
         releases = await fetch_csv_with_dates(session, base_url + "releases.csv")
         deletions = await fetch_csv_with_dates(session, base_url + "deletions.csv")
 
-        # Merge changes and releases, keeping the most recent timestamp for each advisory
-        all_advisories = {**changes, **releases}
+        # Merge changes and releases, prioritizing changes.csv for updated timestamps
+        # changes.csv contains the most recent modification time for each advisory
+        # releases.csv contains original publication dates
+        # We want changes.csv to take precedence to catch updates to existing advisories
+        all_advisories = {**releases, **changes}
         # Remove deletions
         for advisory_id in deletions:
             all_advisories.pop(advisory_id, None)
