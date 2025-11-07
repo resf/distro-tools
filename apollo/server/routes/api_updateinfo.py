@@ -24,6 +24,67 @@ PRODUCT_SLUG_MAP = {
 }
 
 
+def build_source_rpm_mapping(packages):
+    """
+    Build a mapping from package names to their source RPM filenames.
+
+    This function handles both regular packages and module packages, where
+    module source packages have a "module." prefix that needs to be stripped
+    for matching with binary packages.
+
+    Args:
+        packages: List of advisory package objects with package_name, module_name,
+                 module_stream, and nevra attributes
+
+    Returns:
+        dict: Mapping of package names (with module prefix if applicable) to
+              source RPM filenames. For example:
+              {
+                  "xorg-x11-server": "xorg-x11-server-1.20.11-27.el8_10.src.rpm",
+                  "go-toolset:delve:1.24": "delve-1.24.1-1.module+el8.10.0+1987+42f155bb.src.rpm"
+              }
+    """
+    # First, create a map of package names to their package objects
+    pkg_name_map = {}
+    for pkg in packages:
+        name = pkg.package_name
+        if pkg.module_name:
+            name = f"{pkg.module_name}:{pkg.package_name}:{pkg.module_stream}"
+        if name not in pkg_name_map:
+            pkg_name_map[name] = []
+        pkg_name_map[name].append(pkg)
+
+    # Build the source RPM mapping
+    pkg_src_rpm = {}
+    for top_pkg in packages:
+        name = top_pkg.package_name
+        if top_pkg.module_name:
+            name = f"{top_pkg.module_name}:{top_pkg.package_name}:{top_pkg.module_stream}"
+
+        if name not in pkg_src_rpm:
+            for pkg in pkg_name_map[name]:
+                nvra_no_epoch = EPOCH_RE.sub("", pkg.nevra)
+                nvra = NVRA_RE.search(nvra_no_epoch)
+                if nvra:
+                    nvr_name = nvra.group(1)
+                    nvr_arch = nvra.group(4)
+
+                    # FIX: Handle module packages where package_name has "module." prefix
+                    # Binary packages: package_name = "delve"
+                    # Source packages: package_name = "module.delve"
+                    # We need to strip the prefix for comparison
+                    pkg_name_to_match = pkg.package_name.removeprefix("module.")
+
+                    if pkg_name_to_match == nvr_name and nvr_arch == "src":
+                        src_rpm = nvra_no_epoch
+                        if not src_rpm.endswith(".rpm"):
+                            src_rpm += ".rpm"
+                        pkg_src_rpm[name] = src_rpm
+                        break  # Found the source RPM, no need to continue
+
+    return pkg_src_rpm
+
+
 def resolve_product_slug(slug: str) -> Optional[str]:
     """
     Convert product slug to supported_product.name.
@@ -190,33 +251,8 @@ async def get_updateinfo(
             "-debugsource-common",
         ]
 
-        pkg_name_map = {}
-        for pkg in advisory.packages:
-            name = pkg.package_name
-            if pkg.module_name:
-                name = f"{pkg.module_name}:{pkg.package_name}:{pkg.module_stream}"
-            if name not in pkg_name_map:
-                pkg_name_map[name] = []
-
-            pkg_name_map[name].append(pkg)
-
-        pkg_src_rpm = {}
-        for top_pkg in advisory.packages:
-            name = top_pkg.package_name
-            if top_pkg.module_name:
-                name = f"{top_pkg.module_name}:{top_pkg.package_name}:{top_pkg.module_stream}"
-            if name not in pkg_src_rpm:
-                for pkg in pkg_name_map[name]:
-                    nvra_no_epoch = EPOCH_RE.sub("", pkg.nevra)
-                    nvra = NVRA_RE.search(nvra_no_epoch)
-                    if nvra:
-                        nvr_name = nvra.group(1)
-                        nvr_arch = nvra.group(4)
-                        if pkg.package_name == nvr_name and nvr_arch == "src":
-                            src_rpm = nvra_no_epoch
-                            if not src_rpm.endswith(".rpm"):
-                                src_rpm += ".rpm"
-                            pkg_src_rpm[name] = src_rpm
+        # Build source RPM mapping using common function
+        pkg_src_rpm = build_source_rpm_mapping(advisory.packages)
 
         # Collection list, may be more than one if module RPMs are involved
         collections = {}
@@ -500,33 +536,8 @@ def generate_updateinfo_xml(
             "-debugsource-common",
         ]
 
-        pkg_name_map = {}
-        for pkg in advisory.packages:
-            name = pkg.package_name
-            if pkg.module_name:
-                name = f"{pkg.module_name}:{pkg.package_name}:{pkg.module_stream}"
-            if name not in pkg_name_map:
-                pkg_name_map[name] = []
-
-            pkg_name_map[name].append(pkg)
-
-        pkg_src_rpm = {}
-        for top_pkg in advisory.packages:
-            name = top_pkg.package_name
-            if top_pkg.module_name:
-                name = f"{top_pkg.module_name}:{top_pkg.package_name}:{top_pkg.module_stream}"
-            if name not in pkg_src_rpm:
-                for pkg in pkg_name_map[name]:
-                    nvra_no_epoch = EPOCH_RE.sub("", pkg.nevra)
-                    nvra = NVRA_RE.search(nvra_no_epoch)
-                    if nvra:
-                        nvr_name = nvra.group(1)
-                        nvr_arch = nvra.group(4)
-                        if pkg.package_name == nvr_name and nvr_arch == "src":
-                            src_rpm = nvra_no_epoch
-                            if not src_rpm.endswith(".rpm"):
-                                src_rpm += ".rpm"
-                            pkg_src_rpm[name] = src_rpm
+        # Build source RPM mapping using common function
+        pkg_src_rpm = build_source_rpm_mapping(advisory.packages)
 
         # Determine the product name to use for package filtering
         filter_product_name = product_name_for_packages
