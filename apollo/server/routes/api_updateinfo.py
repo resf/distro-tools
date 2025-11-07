@@ -45,11 +45,18 @@ def build_source_rpm_mapping(packages):
               }
     """
     # First, create a map of package names to their package objects
+    # Strip "module." prefix from package_name to ensure binary and source packages
+    # are grouped together (binary: "delve", source: "module.delve" -> both map to "delve")
     pkg_name_map = {}
     for pkg in packages:
-        name = pkg.package_name
+        # Strip module. prefix for consistent grouping
+        base_pkg_name = pkg.package_name.removeprefix("module.")
+
         if pkg.module_name:
-            name = f"{pkg.module_name}:{pkg.package_name}:{pkg.module_stream}"
+            name = f"{pkg.module_name}:{base_pkg_name}:{pkg.module_stream}"
+        else:
+            name = base_pkg_name
+
         if name not in pkg_name_map:
             pkg_name_map[name] = []
         pkg_name_map[name].append(pkg)
@@ -57,9 +64,13 @@ def build_source_rpm_mapping(packages):
     # Build the source RPM mapping
     pkg_src_rpm = {}
     for top_pkg in packages:
-        name = top_pkg.package_name
+        # Use same key format as pkg_name_map
+        base_pkg_name = top_pkg.package_name.removeprefix("module.")
+
         if top_pkg.module_name:
-            name = f"{top_pkg.module_name}:{top_pkg.package_name}:{top_pkg.module_stream}"
+            name = f"{top_pkg.module_name}:{base_pkg_name}:{top_pkg.module_stream}"
+        else:
+            name = base_pkg_name
 
         if name not in pkg_src_rpm:
             for pkg in pkg_name_map[name]:
@@ -80,6 +91,7 @@ def build_source_rpm_mapping(packages):
                         if not src_rpm.endswith(".rpm"):
                             src_rpm += ".rpm"
                         pkg_src_rpm[name] = src_rpm
+                        logger.debug(f"Found source RPM for {name}: {src_rpm} (pkg.package_name={pkg.package_name}, nvr_name={nvr_name})")
                         break  # Found the source RPM, no need to continue
 
     return pkg_src_rpm
