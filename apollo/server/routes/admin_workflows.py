@@ -21,7 +21,8 @@ async def admin_workflows(request: Request, user: User = Depends(admin_user_sche
     """Render admin workflows page for manual workflow triggering"""
     db_service = DatabaseService()
     env_info = await db_service.get_environment_info()
-    
+    index_state = await db_service.get_last_indexed_at()
+
     return templates.TemplateResponse(
         "admin_workflows.jinja", {
             "request": request,
@@ -29,6 +30,8 @@ async def admin_workflows(request: Request, user: User = Depends(admin_user_sche
             "env_name": env_info["environment"],
             "is_production": env_info["is_production"],
             "reset_allowed": env_info["reset_allowed"],
+            "last_indexed_at": index_state.get("last_indexed_at_iso"),
+            "last_indexed_exists": index_state.get("exists", False),
         }
     )
 
@@ -89,6 +92,39 @@ async def trigger_poll_rhcsaf(
         request.session["workflow_message"] = f"Error triggering workflow: {str(e)}"
         request.session["workflow_type"] = "error"
     
+    return RedirectResponse(url="/admin/workflows", status_code=303)
+
+
+@router.post("/workflows/update-index-timestamp")
+async def update_index_timestamp(
+    request: Request,
+    new_timestamp: str = Form(...),
+    user: User = Depends(admin_user_scheme)
+):
+    """Update the last_indexed_at timestamp in red_hat_index_state"""
+    try:
+        # Parse the timestamp
+        timestamp_dt = datetime.fromisoformat(new_timestamp.replace("Z", "+00:00"))
+
+        db_service = DatabaseService()
+        result = await db_service.update_last_indexed_at(timestamp_dt, user.email)
+
+        Logger().info(f"Admin user {user.email} updated last_indexed_at to {new_timestamp}")
+
+        # Store success message in session
+        request.session["workflow_message"] = result["message"]
+        request.session["workflow_type"] = "success"
+
+    except ValueError as e:
+        Logger().error(f"Invalid timestamp format: {str(e)}")
+        request.session["workflow_message"] = f"Invalid timestamp format: {str(e)}"
+        request.session["workflow_type"] = "error"
+
+    except Exception as e:
+        Logger().error(f"Error updating last_indexed_at: {str(e)}")
+        request.session["workflow_message"] = f"Error updating timestamp: {str(e)}"
+        request.session["workflow_type"] = "error"
+
     return RedirectResponse(url="/admin/workflows", status_code=303)
 
 

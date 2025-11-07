@@ -124,3 +124,66 @@ class DatabaseService:
             "is_production": self.is_production_environment(),
             "reset_allowed": not self.is_production_environment()
         }
+
+    async def get_last_indexed_at(self) -> Dict[str, Any]:
+        """
+        Get the current last_indexed_at timestamp from red_hat_index_state
+
+        Returns:
+            Dictionary with timestamp information
+        """
+        index_state = await RedHatIndexState.first()
+
+        if not index_state or not index_state.last_indexed_at:
+            return {
+                "last_indexed_at": None,
+                "last_indexed_at_iso": None,
+                "exists": False
+            }
+
+        return {
+            "last_indexed_at": index_state.last_indexed_at,
+            "last_indexed_at_iso": index_state.last_indexed_at.isoformat(),
+            "exists": True
+        }
+
+    async def update_last_indexed_at(self, new_timestamp: datetime, user_email: str) -> Dict[str, Any]:
+        """
+        Update the last_indexed_at timestamp in red_hat_index_state
+
+        Args:
+            new_timestamp: New timestamp to set
+            user_email: Email of user making the change (for logging)
+
+        Returns:
+            Dictionary with operation results
+
+        Raises:
+            ValueError: If timestamp is invalid
+        """
+        logger = Logger()
+
+        try:
+            # Get or create index state
+            index_state = await RedHatIndexState.first()
+
+            old_timestamp = None
+            if index_state:
+                old_timestamp = index_state.last_indexed_at
+                index_state.last_indexed_at = new_timestamp
+                await index_state.save()
+                logger.info(f"Updated last_indexed_at by {user_email}: {old_timestamp} -> {new_timestamp}")
+            else:
+                await RedHatIndexState.create(last_indexed_at=new_timestamp)
+                logger.info(f"Created last_indexed_at by {user_email}: {new_timestamp}")
+
+            return {
+                "success": True,
+                "old_timestamp": old_timestamp.isoformat() if old_timestamp else None,
+                "new_timestamp": new_timestamp.isoformat(),
+                "message": f"Successfully updated last_indexed_at to {new_timestamp.isoformat()}"
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to update last_indexed_at: {str(e)}")
+            raise RuntimeError(f"Failed to update timestamp: {str(e)}")
