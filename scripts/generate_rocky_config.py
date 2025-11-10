@@ -602,7 +602,7 @@ def parse_repomd_path(repomd_url: str, base_url: str) -> Dict[str, str]:
 
 
 def build_mirror_config(
-    version: str, arch: str, name_suffix: Optional[str] = None
+    version: str, arch: str, name_suffix: Optional[str] = None, mirror_name_base: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Build a mirror configuration dictionary.
@@ -611,15 +611,24 @@ def build_mirror_config(
         version: Rocky Linux version
         arch: Architecture
         name_suffix: Optional suffix for mirror name
+        mirror_name_base: Optional custom base for mirror name (e.g., "Rocky Linux 9")
 
     Returns:
         Mirror configuration dictionary
     """
-    # Build mirror name with optional suffix
-    if name_suffix is not None and name_suffix != "":
-        mirror_name = f"Rocky Linux {version} {name_suffix} {arch}"
+    # Build mirror name with optional custom base or suffix
+    if mirror_name_base is not None and mirror_name_base != "":
+        # Use custom base name (e.g., "Rocky Linux 9")
+        if name_suffix is not None and name_suffix != "":
+            mirror_name = f"{mirror_name_base} {name_suffix} {arch}"
+        else:
+            mirror_name = f"{mirror_name_base} {arch}"
     else:
-        mirror_name = f"Rocky Linux {version} {arch}"
+        # Use default naming with version
+        if name_suffix is not None and name_suffix != "":
+            mirror_name = f"Rocky Linux {version} {name_suffix} {arch}"
+        else:
+            mirror_name = f"Rocky Linux {version} {arch}"
 
     # Parse version to extract major and minor components
     if version != UNKNOWN_VALUE and "." in version:
@@ -690,6 +699,7 @@ def generate_rocky_config(
     include_source: bool = True,
     architectures: List[str] = None,
     name_suffix: Optional[str] = None,
+    mirror_name_base: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Generate Rocky Linux configuration by discovering repository structure.
@@ -702,6 +712,7 @@ def generate_rocky_config(
         include_source: Whether to include source repository URLs (default: True)
         architectures: List of architectures to include (default: auto-detect)
         name_suffix: Optional suffix to add to mirror names (e.g., "test", "staging")
+        mirror_name_base: Optional custom base for mirror name (e.g., "Rocky Linux 9")
 
     Returns:
         List of configuration dictionaries ready for JSON export
@@ -730,12 +741,16 @@ def generate_rocky_config(
             continue
 
         # Skip if version filter specified and doesn't match
-        if (
-            version
-            and metadata["version"] != version
-            and metadata["version"] != UNKNOWN_VALUE
-        ):
-            continue
+        if version and metadata["version"] != UNKNOWN_VALUE:
+            # If version filter has no dot (major only), match major version only
+            if "." not in version:
+                # Extract major version from metadata version
+                metadata_major = metadata["version"].split(".")[0] if "." in metadata["version"] else metadata["version"]
+                if metadata_major != version:
+                    continue
+            # If version filter has dot (major.minor), require exact match
+            elif metadata["version"] != version:
+                continue
 
         # Skip debug repos if not wanted
         if not include_debug and metadata["repo_type"] == "debug":
@@ -773,7 +788,7 @@ def generate_rocky_config(
             if not detected_version:
                 detected_version = UNKNOWN_VALUE
 
-        mirror_config = build_mirror_config(detected_version, arch, name_suffix)
+        mirror_config = build_mirror_config(detected_version, arch, name_suffix, mirror_name_base)
 
         # Group repos by name and type
         repo_groups = {}
@@ -828,6 +843,8 @@ Examples:
   %(prog)s https://mirror.example.com/pub/rocky/ --output rocky_config.json
   %(prog)s https://mirror.example.com/pub/rocky/ --name-suffix test --version 9.6
   %(prog)s https://staging.example.com/pub/rocky/ --name-suffix staging --arch riscv64
+  %(prog)s https://mirror.example.com/pub/rocky/ --mirror-name-base "Rocky Linux 9" --version 9.6
+  %(prog)s https://mirror.example.com/pub/rocky/ --mirror-name-base "Rocky Linux 9 (Legacy)" --version 9
         """,
     )
 
@@ -880,6 +897,11 @@ Examples:
         help="Optional suffix to add to mirror names (e.g., 'test', 'staging')",
     )
 
+    parser.add_argument(
+        "--mirror-name-base",
+        help="Optional custom base for mirror name (e.g., 'Rocky Linux 9' instead of 'Rocky Linux 9.6')",
+    )
+
     parser.add_argument("--output", "-o", help="Output file path (default: stdout)")
 
     parser.add_argument(
@@ -926,6 +948,7 @@ Examples:
             include_source=not args.no_source,
             architectures=args.arch,
             name_suffix=args.name_suffix,
+            mirror_name_base=args.mirror_name_base,
         )
 
         if not config:
