@@ -22,17 +22,10 @@ with patch('common.logger.Logger') as mock_logger_class:
     )
 
 class TestCsafProcessing(unittest.IsolatedAsyncioTestCase):
-    @classmethod
-    async def asyncSetUp(cls):
-        # Initialize test database for all tests in this class
+    async def asyncSetUp(self):
+        # Initialize test database before each test
         await initialize_test_db()
-    
-    @classmethod
-    async def asyncTearDown(cls):
-        # Close database connections when tests are done
-        await close_test_db()
 
-    def setUp(self):
         # Create sample CSAF data matching schema requirements
         self.sample_csaf = {
             "document": {
@@ -69,10 +62,35 @@ class TestCsafProcessing(unittest.IsolatedAsyncioTestCase):
                                         "name": "Red Hat Enterprise Linux 9",
                                         "product": {
                                             "name": "Red Hat Enterprise Linux 9",
+                                            "product_id": "AppStream-9.4.0.Z.MAIN",
                                             "product_identification_helper": {
-                                                "cpe": "cpe:/o:redhat:enterprise_linux:9.4"
+                                                "cpe": "cpe:/o:redhat:enterprise_linux:9::appstream"
                                             }
-                                        }
+                                        },
+                                        "branches": [
+                                            {
+                                                "category": "product_version",
+                                                "name": "rsync-0:3.2.3-19.el9_4.1.x86_64",
+                                                "product": {
+                                                    "name": "rsync-0:3.2.3-19.el9_4.1.x86_64",
+                                                    "product_id": "rsync-0:3.2.3-19.el9_4.1.x86_64",
+                                                    "product_identification_helper": {
+                                                        "purl": "pkg:rpm/redhat/rsync@3.2.3-19.el9_4.1?arch=x86_64"
+                                                    }
+                                                }
+                                            },
+                                            {
+                                                "category": "product_version",
+                                                "name": "rsync-0:3.2.3-19.el9_4.1.src",
+                                                "product": {
+                                                    "name": "rsync-0:3.2.3-19.el9_4.1.src",
+                                                    "product_id": "rsync-0:3.2.3-19.el9_4.1.src",
+                                                    "product_identification_helper": {
+                                                        "purl": "pkg:rpm/redhat/rsync@3.2.3-19.el9_4.1?arch=src"
+                                                    }
+                                                }
+                                            }
+                                        ]
                                     }
                                 ]
                             },
@@ -95,8 +113,8 @@ class TestCsafProcessing(unittest.IsolatedAsyncioTestCase):
                     ],
                     "product_status": {
                         "fixed": [
-                            "AppStream-9.4.0.Z.EUS:rsync-0:3.2.3-19.el9_4.1.x86_64",
-                            "AppStream-9.4.0.Z.EUS:rsync-0:3.2.3-19.el9_4.1.src"
+                            "AppStream-9.4.0.Z.MAIN:rsync-0:3.2.3-19.el9_4.1.x86_64",
+                            "AppStream-9.4.0.Z.MAIN:rsync-0:3.2.3-19.el9_4.1.src"
                         ]
                     },
                     "scores": [{
@@ -117,28 +135,31 @@ class TestCsafProcessing(unittest.IsolatedAsyncioTestCase):
                 }
             ]
         }
-        
+
         # Create a temporary file with the sample data
         self.test_file = pathlib.Path("test_csaf.json")
         with open(self.test_file, "w") as f:
             json.dump(self.sample_csaf, f)
 
-    async def tearDown(self):
-        # Clean up database and temporary files after each test
+    async def asyncTearDown(self):
+        # Clean up database entries and temporary files after each test
         await RedHatAdvisory.all().delete()
         await RedHatAdvisoryPackage.all().delete()
         await RedHatAdvisoryCVE.all().delete()
-        await RedHatAdvisoryBugzillaBug.all().delete() 
+        await RedHatAdvisoryBugzillaBug.all().delete()
         await RedHatAdvisoryAffectedProduct.all().delete()
-        
-        # Clean up temporary file
+
+        # Close database connections
+        await close_test_db()
+
+        # Clean up temporary files
         self.test_file.unlink(missing_ok=True)
         pathlib.Path("invalid_csaf.json").unlink(missing_ok=True)
 
     async def test_new_advisory_creation(self):
         # Test creating a new advisory with a real test database
         result = await process_csaf_file(self.sample_csaf, "test.json")
-        
+
         # Verify advisory was created correctly
         advisory = await RedHatAdvisory.get_or_none(name="RHSA-2025:1234")
         self.assertIsNotNone(advisory)
@@ -176,7 +197,8 @@ class TestCsafProcessing(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(products[0].variant, "Red Hat Enterprise Linux")
         self.assertEqual(products[0].arch, "x86_64")
         self.assertEqual(products[0].major_version, 9)
-        self.assertEqual(products[0].minor_version, 4)
+        # Minor version is None because CPE doesn't include minor version
+        self.assertIsNone(products[0].minor_version)
 
     async def test_advisory_update(self):
         # First create an advisory with different values
@@ -224,12 +246,13 @@ class TestCsafProcessing(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(count, 0)
 
     async def test_no_fixed_packages(self):
-        # Test CSAF with vulnerabilities but no fixed packages
+        # Test CSAF with vulnerabilities but no fixed packages in product_tree
         csaf = self.sample_csaf.copy()
-        csaf["vulnerabilities"][0]["product_status"]["fixed"] = []
+        # Remove product_version entries from product_tree to simulate no fixed packages
+        csaf["product_tree"]["branches"][0]["branches"][0]["branches"][0].pop("branches", None)
         result = await process_csaf_file(csaf, "test.json")
         self.assertIsNone(result)
-        
+
         # Verify nothing was created
         count = await RedHatAdvisory.all().count()
         self.assertEqual(count, 0)
@@ -240,3 +263,6 @@ class TestCsafProcessing(unittest.IsolatedAsyncioTestCase):
         mock_get_or_none.side_effect = Exception("DB error")
         with self.assertRaises(Exception):
             await process_csaf_file(self.sample_csaf, "test.json")
+
+if __name__ == '__main__':
+    unittest.main()
