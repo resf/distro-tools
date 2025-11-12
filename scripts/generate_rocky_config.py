@@ -617,18 +617,13 @@ def build_mirror_config(
         Mirror configuration dictionary
     """
     # Build mirror name with optional custom base or suffix
-    if mirror_name_base is not None and mirror_name_base != "":
-        # Use custom base name (e.g., "Rocky Linux 9")
-        if name_suffix is not None and name_suffix != "":
-            mirror_name = f"{mirror_name_base} {name_suffix} {arch}"
-        else:
-            mirror_name = f"{mirror_name_base} {arch}"
+    if not mirror_name_base:
+        mirror_name_base = f"Rocky Linux {version}"
+
+    if name_suffix:
+        mirror_name = f"{mirror_name_base} {name_suffix} {arch}"
     else:
-        # Use default naming with version
-        if name_suffix is not None and name_suffix != "":
-            mirror_name = f"Rocky Linux {version} {name_suffix} {arch}"
-        else:
-            mirror_name = f"Rocky Linux {version} {arch}"
+        mirror_name = f"{mirror_name_base} {arch}"
 
     # Parse version to extract major and minor components
     if version != UNKNOWN_VALUE and "." in version:
@@ -741,16 +736,14 @@ def generate_rocky_config(
             continue
 
         # Skip if version filter specified and doesn't match
-        if version and metadata["version"] != UNKNOWN_VALUE:
-            # If version filter has no dot (major only), match major version only
-            if "." not in version:
-                # Extract major version from metadata version
-                metadata_major = metadata["version"].split(".")[0] if "." in metadata["version"] else metadata["version"]
-                if metadata_major != version:
-                    continue
-            # If version filter has dot (major.minor), require exact match
-            elif metadata["version"] != version:
-                continue
+        # Supports both exact version match (e.g., "9.5") and major version match (e.g., "9")
+        if (
+            version
+            and metadata["version"] != version
+            and metadata["version"] != UNKNOWN_VALUE
+            and metadata["version"].split(".")[0] != version
+        ):
+            continue
 
         # Skip debug repos if not wanted
         if not include_debug and metadata["repo_type"] == "debug":
