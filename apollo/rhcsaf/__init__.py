@@ -132,6 +132,88 @@ def extract_rhel_affected_products_for_db(csaf: dict) -> set:
     return affected_products
 
 
+def _traverse_for_eus(branches, product_eus_map=None):
+    """
+    Recursively traverse CSAF branches to build EUS product map.
+
+    Args:
+        branches: List of CSAF branch dictionaries to traverse
+        product_eus_map: Optional dict to accumulate results
+
+    Returns:
+        Dict mapping product_id to boolean indicating if product is EUS
+    """
+    if product_eus_map is None:
+        product_eus_map = {}
+
+    for branch in branches:
+        category = branch.get("category")
+
+        if category == "product_name":
+            prod = branch.get("product", {})
+            product_id = prod.get("product_id")
+
+            if product_id:
+                product_name = prod.get("name", "")
+                cpe = prod.get("product_identification_helper", {}).get("cpe", "")
+                is_eus = _is_eus_product(product_name, cpe)
+                product_eus_map[product_id] = is_eus
+
+        if "branches" in branch:
+            _traverse_for_eus(branch["branches"], product_eus_map)
+
+    return product_eus_map
+
+
+def _extract_packages_from_branches(branches, product_eus_map, packages=None):
+    """
+    Recursively traverse CSAF branches to extract package NEVRAs.
+
+    Args:
+        branches: List of CSAF branch dictionaries to traverse
+        product_eus_map: Dict mapping product_id to EUS status
+        packages: Optional set to accumulate results
+
+    Returns:
+        Set of NEVRA strings
+    """
+    if packages is None:
+        packages = set()
+
+    for branch in branches:
+        category = branch.get("category")
+
+        if category == "product_version":
+            prod = branch.get("product", {})
+            product_id = prod.get("product_id")
+            purl = prod.get("product_identification_helper", {}).get("purl")
+
+            if not product_id:
+                continue
+
+            if purl and not purl.startswith("pkg:rpm/"):
+                continue
+
+            # Product IDs for packages can have format: "AppStream-9.0.0.Z.E4S:package-nevra"
+            # or just "package-nevra" for packages in product_version entries
+            skip_eus = False
+            for eus_prod_id, is_eus in product_eus_map.items():
+                if is_eus and (":" in product_id and product_id.startswith(eus_prod_id + ":")):
+                    skip_eus = True
+                    break
+
+            if skip_eus:
+                continue
+
+            # Format: "package-epoch:version-release.arch" or "package-epoch:version-release.arch::module:stream"
+            packages.add(product_id.split("::")[0])
+
+        if "branches" in branch:
+            _extract_packages_from_branches(branch["branches"], product_eus_map, packages)
+
+    return packages
+
+
 def _extract_packages_from_product_tree(csaf: dict) -> set:
     """
     Extracts fixed packages from CSAF product_tree using product_id fields.
@@ -144,70 +226,18 @@ def _extract_packages_from_product_tree(csaf: dict) -> set:
     Returns:
         Set of NEVRA strings
     """
-    packages = set()
     product_tree = csaf.get("product_tree", {})
 
     if not product_tree:
-        return packages
+        return set()
 
     product_eus_map = {}
-
-    def traverse_for_eus(branches):
-        """Recursively traverse to build EUS map"""
-        for branch in branches:
-            category = branch.get("category")
-
-            if category == "product_name":
-                prod = branch.get("product", {})
-                product_id = prod.get("product_id")
-
-                if product_id:
-                    product_name = prod.get("name", "")
-                    cpe = prod.get("product_identification_helper", {}).get("cpe", "")
-                    is_eus = _is_eus_product(product_name, cpe)
-                    product_eus_map[product_id] = is_eus
-
-            if "branches" in branch:
-                traverse_for_eus(branch["branches"])
-
     for vendor_branch in product_tree.get("branches", []):
-        traverse_for_eus(vendor_branch.get("branches", []))
+        product_eus_map = _traverse_for_eus(vendor_branch.get("branches", []), product_eus_map)
 
-    def extract_packages_from_branches(branches):
-        """Recursively traverse to extract packages"""
-        for branch in branches:
-            category = branch.get("category")
-
-            if category == "product_version":
-                prod = branch.get("product", {})
-                product_id = prod.get("product_id")
-                purl = prod.get("product_identification_helper", {}).get("purl")
-
-                if not product_id:
-                    continue
-
-                if purl and not purl.startswith("pkg:rpm/"):
-                    continue
-
-                # Product IDs for packages can have format: "AppStream-9.0.0.Z.E4S:package-nevra"
-                # or just "package-nevra" for packages in product_version entries
-                skip_eus = False
-                for eus_prod_id, is_eus in product_eus_map.items():
-                    if is_eus and (":" in product_id and product_id.startswith(eus_prod_id + ":")):
-                        skip_eus = True
-                        break
-
-                if skip_eus:
-                    continue
-
-                # Format: "package-epoch:version-release.arch" or "package-epoch:version-release.arch::module:stream"
-                packages.add(product_id.split("::")[0])
-
-            if "branches" in branch:
-                extract_packages_from_branches(branch["branches"])
-
+    packages = set()
     for vendor_branch in product_tree.get("branches", []):
-        extract_packages_from_branches(vendor_branch.get("branches", []))
+        packages = _extract_packages_from_branches(vendor_branch.get("branches", []), product_eus_map, packages)
 
     return packages
 
