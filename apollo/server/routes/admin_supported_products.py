@@ -801,16 +801,9 @@ async def admin_supported_product_mirror_repomd_new_post(
     if isinstance(mirror, Response):
         return mirror
 
-    form_data = {
-        "production": production,
-        "arch": arch,
-        "url": url,
-        "debug_url": debug_url,
-        "source_url": source_url,
-        "repo_name": repo_name,
-    }
-
-    validated_data, validation_errors = FormValidator.validate_repomd_form(form_data)
+    validated_data, validation_errors, form_data = _validate_repomd_form(
+        production, arch, url, debug_url, source_url, repo_name
+    )
 
     if validation_errors:
         return templates.TemplateResponse(
@@ -892,16 +885,9 @@ async def admin_supported_product_mirror_repomd_post(
     if isinstance(repomd, Response):
         return repomd
 
-    form_data = {
-        "production": production,
-        "arch": arch,
-        "url": url,
-        "debug_url": debug_url,
-        "source_url": source_url,
-        "repo_name": repo_name,
-    }
-
-    validated_data, validation_errors = FormValidator.validate_repomd_form(form_data)
+    validated_data, validation_errors, form_data = _validate_repomd_form(
+        production, arch, url, debug_url, source_url, repo_name
+    )
 
     if validation_errors:
         return templates.TemplateResponse(
@@ -1305,6 +1291,26 @@ async def _get_mirror_config_data(mirror: SupportedProductsRhMirror) -> Dict[str
             for repo in mirror.rpm_repomds
         ]
     }
+
+def _validate_repomd_form(
+    production: bool,
+    arch: str,
+    url: str,
+    debug_url: str,
+    source_url: str,
+    repo_name: str
+) -> Tuple[Dict[str, Any], List[str], Dict[str, Any]]:
+    """Validate repomd form data and return validated data, errors, and original form data."""
+    form_data = {
+        "production": production,
+        "arch": arch,
+        "url": url,
+        "debug_url": debug_url,
+        "source_url": source_url,
+        "repo_name": repo_name,
+    }
+    validated_data, validation_errors = FormValidator.validate_repomd_form(form_data)
+    return validated_data, validation_errors, form_data
 
 def _json_serializer(obj):
     """Custom JSON serializer for non-standard types"""
