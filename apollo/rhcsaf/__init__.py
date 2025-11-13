@@ -86,19 +86,17 @@ def extract_rhel_affected_products_for_db(csaf: dict) -> set:
             continue
         prod_name = None
         cpe = None
-        product_full_name = None
         for branch in family_branch.get("branches", []):
             if branch.get("category") == "product_name":
                 prod = branch.get("product", {})
                 prod_name = prod.get("name")
-                product_full_name = prod.get("name")
                 cpe = prod.get("product_identification_helper", {}).get("cpe")
                 break
         if not prod_name or not cpe:
             continue
 
-        if _is_eus_product(product_full_name, cpe):
-            logger.debug(f"Skipping EUS product: {product_full_name}")
+        if _is_eus_product(prod_name, cpe):
+            logger.debug(f"Skipping EUS product: {prod_name}")
             continue
 
         # Example CPE: "cpe:/a:redhat:enterprise_linux:9::appstream"
@@ -248,9 +246,15 @@ def red_hat_advisory_scraper(csaf: dict):
         logger.warning("No vulnerabilities found in CSAF document")
         return None
 
+    name = csaf["document"]["tracking"]["id"]
+
+    red_hat_affected_products = extract_rhel_affected_products_for_db(csaf)
+    if not red_hat_affected_products:
+        logger.info(f"Skipping advisory {name}: all products are EUS-only")
+        return None
+
     red_hat_issued_at = csaf["document"]["tracking"]["initial_release_date"]
     red_hat_updated_at = csaf["document"]["tracking"]["current_release_date"]
-    name = csaf["document"]["tracking"]["id"]
     red_hat_synopsis = csaf["document"]["title"]
     red_hat_description = None
     topic = None
@@ -284,11 +288,6 @@ def red_hat_advisory_scraper(csaf: dict):
         for bug_id in vulnerability.get("ids", []):
             if bug_id.get("system_name") == "Red Hat Bugzilla ID":
                 red_hat_bugzilla_set.add(bug_id["text"])
-
-    red_hat_affected_products = extract_rhel_affected_products_for_db(csaf)
-    if not red_hat_affected_products:
-        logger.info(f"Skipping advisory {name}: all products are EUS-only")
-        return None
 
     return {
         "red_hat_issued_at": str(red_hat_issued_at),
