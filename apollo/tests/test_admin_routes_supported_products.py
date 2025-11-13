@@ -211,8 +211,6 @@ class TestJSONSerialization(unittest.TestCase):
 
         result = _format_export_data(data)
 
-        # Should be valid JSON with Decimals converted appropriately
-        # (floats for decimals, ints for whole numbers)
         parsed = json.loads(result)
         self.assertEqual(parsed[0]["price"], 19.99)
         self.assertEqual(parsed[1]["price"], 99)
