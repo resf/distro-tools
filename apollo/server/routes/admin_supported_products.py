@@ -42,7 +42,6 @@ async def get_entity_or_error_response(
 ) -> Union[Model, Response]:
     """Get an entity by ID or filters, or return error template response."""
 
-    # Build the query
     if entity_id is not None:
         query = model_class.get_or_none(id=entity_id)
     elif filters:
@@ -50,7 +49,6 @@ async def get_entity_or_error_response(
     else:
         raise ValueError("Either entity_id or filters must be provided")
 
-    # Add prefetch_related if specified
     if prefetch_related:
         query = query.prefetch_related(*prefetch_related)
 
@@ -158,7 +156,6 @@ async def admin_supported_products(
         params=params,
     )
 
-    # Get statistics for each product
     for product in products.items:
         mirrors_count = await SupportedProductsRhMirror.filter(supported_product=product).count()
         repomds_count = await SupportedProductsRpmRepomd.filter(
@@ -195,7 +192,6 @@ async def export_all_configs(
     production_only: Optional[bool] = Query(None)
 ):
     """Export configurations for all supported products as JSON with optional filtering"""
-    # Build query with filters
     query = SupportedProductsRhMirror.all()
     if major_version is not None:
         query = query.filter(match_major_version=major_version)
@@ -207,7 +203,6 @@ async def export_all_configs(
         "rpm_repomds"
     ).all()
 
-    # Filter repositories by production status if specified
     config_data = []
     for mirror in mirrors:
         mirror_data = await _get_mirror_config_data(mirror)
@@ -251,14 +246,11 @@ async def _import_configuration(import_data: List[Dict[str, Any]], replace_exist
         mirror_data = config["mirror"]
         repositories_data = config["repositories"]
 
-        # Find or create product
         product = await SupportedProduct.get_or_none(name=product_data["name"])
         if not product:
-            # For import, we should require products to exist already
             skipped_count += 1
             continue
 
-        # Check if mirror already exists
         existing_mirror = await SupportedProductsRhMirror.get_or_none(
             supported_product=product,
             name=mirror_data["name"],
@@ -291,7 +283,6 @@ async def _import_configuration(import_data: List[Dict[str, Any]], replace_exist
             await mirror.save()
             created_count += 1
 
-        # Create repositories
         for repo_data in repositories_data:
             repo = SupportedProductsRpmRepomd(
                 supported_products_rh_mirror=mirror,
@@ -337,10 +328,8 @@ async def import_configurations(
             status_code=302
         )
 
-    # Validate import data
     validation_errors = await _validate_import_data(import_data)
     if validation_errors:
-        # Limit the number of errors shown to avoid overwhelming the user
         max_errors = 20
         if len(validation_errors) > max_errors:
             shown_errors = validation_errors[:max_errors]
@@ -353,7 +342,6 @@ async def import_configurations(
             status_code=302
         )
 
-    # Import the data
     try:
         results = await _import_configuration(import_data, replace_existing)
         success_message = f"Import completed: {results['created']} created, {results['updated']} updated, {results['skipped']} skipped"
@@ -424,10 +412,7 @@ async def admin_supported_product_delete(
             }
         )
 
-    # Check for existing mirrors (which would contain blocks, overrides, and repomds)
     mirrors_count = await SupportedProductsRhMirror.filter(supported_product=product).count()
-
-    # Check for existing advisory packages and affected products
     packages_count = await AdvisoryPackage.filter(supported_product=product).count()
     affected_products_count = await AdvisoryAffectedProduct.filter(supported_product=product).count()
 
@@ -491,7 +476,6 @@ async def admin_supported_product_mirror_new_post(
         return product
 
     form_data_raw = await request.form()
-    # Checkbox sends "true" when checked, nothing when unchecked
     active_value = "true" if "true" in form_data_raw.getlist("active") else "false"
 
     form_data = {
@@ -592,7 +576,6 @@ async def admin_supported_product_mirror_post(
         return mirror
 
     form_data = await request.form()
-    # Checkbox sends "true" when checked, nothing when unchecked
     active_value = "true" if "true" in form_data.getlist("active") else "false"
 
     try:
@@ -622,7 +605,6 @@ async def admin_supported_product_mirror_post(
     mirror.active = (active_value == "true")
     await mirror.save()
 
-    # Re-fetch the mirror with all required relations after saving
     mirror = await SupportedProductsRhMirror.get_or_none(
         id=mirror_id,
         supported_product_id=product_id
@@ -660,7 +642,6 @@ async def admin_supported_product_mirror_delete(
     if isinstance(mirror, Response):
         return mirror
 
-    # Check for existing blocks and overrides using shared logic
     blocks_count, overrides_count = await check_mirror_dependencies(mirror)
 
     if blocks_count > 0 or overrides_count > 0:
@@ -688,7 +669,6 @@ async def admin_supported_product_mirrors_bulk_delete(
     """Bulk delete multiple mirrors by calling individual delete logic for each mirror"""
     base_url = f"/admin/supported-products/{product_id}"
 
-    # Parse and validate mirror IDs
     if not mirror_ids or not mirror_ids.strip():
         return create_error_redirect(base_url, "No mirror IDs provided")
 
@@ -696,14 +676,12 @@ async def admin_supported_product_mirrors_bulk_delete(
         mirror_id_list = [int(id_str.strip()) for id_str in mirror_ids.split(",") if id_str.strip()]
         if not mirror_id_list:
             return create_error_redirect(base_url, "No valid mirror IDs provided")
-        # Validate all IDs are positive
         for id_val in mirror_id_list:
             if id_val <= 0:
                 return create_error_redirect(base_url, "All mirror IDs must be positive numbers")
     except ValueError:
         return create_error_redirect(base_url, "Invalid mirror IDs: must be comma-separated numbers")
 
-    # Get all mirrors to delete
     mirrors = await SupportedProductsRhMirror.filter(
         id__in=mirror_id_list, supported_product_id=product_id
     ).prefetch_related("supported_product")
@@ -711,28 +689,23 @@ async def admin_supported_product_mirrors_bulk_delete(
     if not mirrors:
         return create_error_redirect(base_url, "No mirrors found with provided IDs")
 
-    # Process each mirror individually using existing single delete logic
     successful_deletes = []
     failed_deletes = []
 
     for mirror in mirrors:
-        # Check for existing blocks and overrides using shared logic
         blocks_count, overrides_count = await check_mirror_dependencies(mirror)
 
         if blocks_count > 0 or overrides_count > 0:
-            # Mirror has dependencies, cannot delete
             error_parts = format_dependency_error_parts(blocks_count, overrides_count)
             error_reason = f"{' and '.join(error_parts)}"
             failed_deletes.append({"name": mirror.name, "reason": error_reason})
         else:
-            # Mirror can be deleted
             try:
                 await mirror.delete()
                 successful_deletes.append(mirror.name)
             except Exception as e:
                 failed_deletes.append({"name": mirror.name, "reason": f"deletion failed: {str(e)}"})
 
-    # Build result message with clear formatting
     message_parts = []
 
     if successful_deletes:
@@ -746,15 +719,12 @@ async def admin_supported_product_mirrors_bulk_delete(
 
     message = ". ".join(message_parts)
 
-    # If we had any successful deletes, treat as success even if some failed
     if successful_deletes:
         return create_success_redirect(base_url, message)
     else:
-        # All deletes failed
         return create_error_redirect(base_url, message)
 
 
-# Repository (repomd) management routes
 @router.get("/{product_id}/mirrors/{mirror_id}/repomds/new", response_class=HTMLResponse)
 async def admin_supported_product_mirror_repomd_new(
     request: Request,
@@ -810,7 +780,7 @@ async def admin_supported_product_mirror_repomd_new_post(
             "admin_supported_product_repomd_new.jinja", {
                 "request": request,
                 "mirror": mirror,
-                "error": validation_errors[0],  # Show first error
+                "error": validation_errors[0],
                 "form_data": form_data
             }
         )
@@ -894,7 +864,7 @@ async def admin_supported_product_mirror_repomd_post(
             "admin_supported_product_repomd.jinja", {
                 "request": request,
                 "repomd": repomd,
-                "error": validation_errors[0],  # Show first error
+                "error": validation_errors[0],
             }
         )
 
@@ -936,7 +906,6 @@ async def admin_supported_product_mirror_repomd_delete(
     if isinstance(repomd, Response):
         return repomd
 
-    # Check for existing advisory packages using this repository
     packages_count = await AdvisoryPackage.filter(
         supported_products_rh_mirror=repomd.supported_products_rh_mirror,
         repo_name=repomd.repo_name
@@ -954,7 +923,6 @@ async def admin_supported_product_mirror_repomd_delete(
     return RedirectResponse(f"/admin/supported-products/{product_id}/mirrors/{mirror_id}", status_code=302)
 
 
-# Blocks management routes
 @router.get("/{product_id}/mirrors/{mirror_id}/blocks", response_class=HTMLResponse)
 async def admin_supported_product_mirror_blocks(
     request: Request,
@@ -976,17 +944,14 @@ async def admin_supported_product_mirror_blocks(
     if isinstance(mirror, Response):
         return mirror
 
-    # Build query for blocked advisories
     query = SupportedProductsRhBlock.filter(
         supported_products_rh_mirror=mirror
     ).prefetch_related("red_hat_advisory")
 
-    # Apply search if provided
     if search:
         query = query.filter(red_hat_advisory__name__icontains=search)
 
-    # Set page size and get paginated results
-    params.size = min(params.size or 50, 100)  # Default 50, max 100
+    params.size = min(params.size or 50, 100)
     blocks = await paginate(
         query.order_by("-red_hat_advisory__red_hat_issued_at"), params=params
     )
@@ -1023,7 +988,6 @@ async def admin_supported_product_mirror_block_new(
     if isinstance(mirror, Response):
         return mirror
 
-    # Get advisories that are not already blocked
     existing_blocks = await SupportedProductsRhBlock.filter(
         supported_products_rh_mirror=mirror
     ).values_list("red_hat_advisory_id", flat=True)
@@ -1032,11 +996,9 @@ async def admin_supported_product_mirror_block_new(
     if search:
         query = query.filter(name__icontains=search)
 
-    # Set page size and get paginated results
-    params.size = min(params.size or 50, 100)  # Default 50, max 100
+    params.size = min(params.size or 50, 100)
     advisories = await paginate(query.order_by("-red_hat_issued_at"), params=params)
 
-    # Calculate total pages for pagination component
     advisories_pages = (
         math.ceil(advisories.total / advisories.size) if advisories.size > 0 else 1
     )
@@ -1078,7 +1040,6 @@ async def admin_supported_product_mirror_block_new_post(
     if isinstance(advisory, Response):
         return advisory
 
-    # Check if block already exists
     existing_block = await SupportedProductsRhBlock.get_or_none(
         supported_products_rh_mirror=mirror, red_hat_advisory=advisory
     )
@@ -1128,7 +1089,6 @@ async def admin_supported_product_mirror_block_delete(
     )
 
 
-# Overrides management routes (similar structure to blocks)
 @router.get("/{product_id}/mirrors/{mirror_id}/overrides/new", response_class=HTMLResponse)
 async def admin_supported_product_mirror_override_new(
     request: Request,
@@ -1147,7 +1107,6 @@ async def admin_supported_product_mirror_override_new(
     if isinstance(mirror, Response):
         return mirror
 
-    # Get advisories that don't already have overrides
     existing_overrides = await SupportedProductsRpmRhOverride.filter(
         supported_products_rh_mirror=mirror
     ).values_list("red_hat_advisory_id", flat=True)
@@ -1156,11 +1115,9 @@ async def admin_supported_product_mirror_override_new(
     if search:
         query = query.filter(name__icontains=search)
 
-    # Set page size and get paginated results
-    params.size = min(params.size or 50, 100)  # Default 50, max 100
+    params.size = min(params.size or 50, 100)
     advisories = await paginate(query.order_by("-red_hat_issued_at"), params=params)
 
-    # Calculate total pages for pagination component
     advisories_pages = (
         math.ceil(advisories.total / advisories.size) if advisories.size > 0 else 1
     )
@@ -1202,7 +1159,6 @@ async def admin_supported_product_mirror_override_new_post(
     if isinstance(advisory, Response):
         return advisory
 
-    # Check if override already exists
     existing_override = await SupportedProductsRpmRhOverride.get_or_none(
         supported_products_rh_mirror=mirror,
         red_hat_advisory=advisory
@@ -1369,7 +1325,6 @@ async def export_product_config(
             media_type="text/plain"
         )
 
-    # Build query with filters
     query = SupportedProductsRhMirror.filter(supported_product_id=product_id)
     if major_version is not None:
         query = query.filter(match_major_version=major_version)
@@ -1381,7 +1336,6 @@ async def export_product_config(
         "rpm_repomds"
     ).all()
 
-    # Filter repositories by production status if specified
     config_data = []
     for mirror in mirrors:
         mirror_data = await _get_mirror_config_data(mirror)
@@ -1432,7 +1386,6 @@ async def admin_supported_product_mirror_overrides(
     if isinstance(mirror, Response):
         return mirror
 
-    # Build query for overrides with search
     query = SupportedProductsRpmRhOverride.filter(
         supported_products_rh_mirror_id=mirror_id
     ).prefetch_related("red_hat_advisory")
@@ -1440,11 +1393,9 @@ async def admin_supported_product_mirror_overrides(
     if search:
         query = query.filter(red_hat_advisory__name__icontains=search)
 
-    # Apply ordering and pagination
     query = query.order_by("-created_at")
     overrides = await paginate(query, params)
 
-    # Calculate total pages for pagination component
     overrides_pages = (
         math.ceil(overrides.total / overrides.size) if overrides.size > 0 else 1
     )
