@@ -178,10 +178,10 @@ def _extract_packages_from_product_tree(csaf: dict) -> set:
             if category == "product_name":
                 prod = branch.get("product", {})
                 product_id = prod.get("product_id")
-                product_name = prod.get("name", "")
-                cpe = prod.get("product_identification_helper", {}).get("cpe", "")
 
                 if product_id:
+                    product_name = prod.get("name", "")
+                    cpe = prod.get("product_identification_helper", {}).get("cpe", "")
                     is_eus = _is_eus_product(product_name, cpe)
                     product_eus_map[product_id] = is_eus
 
@@ -227,14 +227,8 @@ def _extract_packages_from_product_tree(csaf: dict) -> set:
 
                 # Extract NEVRA from product_id
                 # Format: "package-epoch:version-release.arch" or "package-epoch:version-release.arch::module:stream"
-                nevra = product_id
-
                 # For modular packages, strip off the "::module:stream" suffix
-                if "::" in nevra:
-                    nevra = nevra.split("::")[0]
-
-                if nevra:
-                    packages.add(nevra)
+                packages.add(product_id.split("::")[0])
 
             # Recurse
             if "branches" in branch:
