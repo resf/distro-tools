@@ -790,7 +790,6 @@ async def match_rh_repos(params) -> None:
     all_advisories = {}
 
     for mirror in supported_product.rh_mirrors:
-        # Skip inactive mirrors
         if not mirror.active:
             logger.debug(f"Skipping inactive mirror {mirror.name}")
             continue

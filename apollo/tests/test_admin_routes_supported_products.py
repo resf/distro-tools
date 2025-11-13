@@ -446,31 +446,26 @@ class TestActiveFieldCheckboxParsing(unittest.TestCase):
 
     def test_checkbox_checked_returns_true(self):
         """Test that checked checkbox results in active_value='true'."""
-        # Simulate form data when checkbox is checked
         from unittest.mock import Mock
         form_data = Mock()
         form_data.getlist.return_value = ["true"]
 
-        # Apply the parsing logic from admin_supported_products.py
         active_value = "true" if "true" in form_data.getlist("active") else "false"
 
         self.assertEqual(active_value, "true")
 
     def test_checkbox_unchecked_returns_false(self):
         """Test that unchecked checkbox results in active_value='false'."""
-        # Simulate form data when checkbox is unchecked (empty list)
         from unittest.mock import Mock
         form_data = Mock()
         form_data.getlist.return_value = []
 
-        # Apply the parsing logic from admin_supported_products.py
         active_value = "true" if "true" in form_data.getlist("active") else "false"
 
         self.assertEqual(active_value, "false")
 
     def test_checkbox_missing_field_defaults_to_false(self):
         """Test that missing active field defaults to false."""
-        # Simulate form data without active field at all
         from unittest.mock import Mock
         form_data = Mock()
         form_data.getlist.return_value = []
@@ -481,7 +476,6 @@ class TestActiveFieldCheckboxParsing(unittest.TestCase):
 
     def test_checkbox_boolean_conversion(self):
         """Test that string active_value converts correctly to boolean."""
-        # Test conversion to boolean for database storage
         active_value_true = "true"
         active_value_false = "false"
 
@@ -490,14 +484,12 @@ class TestActiveFieldCheckboxParsing(unittest.TestCase):
 
     def test_checkbox_with_unexpected_value(self):
         """Test that unexpected values default to false."""
-        # Edge case: unexpected value
         from unittest.mock import Mock
         form_data = Mock()
         form_data.getlist.return_value = ["yes", "1", "on"]
 
         active_value = "true" if "true" in form_data.getlist("active") else "false"
 
-        # Should default to false since "true" is not in the list
         self.assertEqual(active_value, "false")
 
 

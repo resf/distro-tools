@@ -273,15 +273,12 @@ async def _import_configuration(import_data: List[Dict[str, Any]], replace_exist
             continue
 
         if existing_mirror and replace_existing:
-            # Delete existing repositories
             await SupportedProductsRpmRepomd.filter(supported_products_rh_mirror=existing_mirror).delete()
             mirror = existing_mirror
-            # Update active field if provided
             mirror.active = mirror_data.get("active", True)
             await mirror.save()
             updated_count += 1
         else:
-            # Create new mirror
             mirror = SupportedProductsRhMirror(
                 supported_product=product,
                 name=mirror_data["name"],
@@ -383,12 +380,10 @@ async def admin_supported_product(request: Request, product_id: int):
     if isinstance(product, Response):
         return product
 
-    # Fetch mirrors with explicit ordering: active first, then by version (desc), then by name
     mirrors = await SupportedProductsRhMirror.filter(
         supported_product=product
     ).order_by("-active", "-match_major_version", "name").prefetch_related("rpm_repomds").all()
 
-    # Get detailed statistics for each mirror
     for mirror in mirrors:
         repomds_count = await SupportedProductsRpmRepomd.filter(
             supported_products_rh_mirror=mirror
@@ -495,12 +490,10 @@ async def admin_supported_product_mirror_new_post(
     if isinstance(product, Response):
         return product
 
-    # Parse form data to get the active field
     form_data_raw = await request.form()
     # Checkbox sends "true" when checked, nothing when unchecked
     active_value = "true" if "true" in form_data_raw.getlist("active") else "false"
 
-    # Validation using centralized validation utility
     form_data = {
         "name": name,
         "match_variant": match_variant,
@@ -598,12 +591,10 @@ async def admin_supported_product_mirror_post(
     if isinstance(mirror, Response):
         return mirror
 
-    # Parse form data to get the active field
     form_data = await request.form()
     # Checkbox sends "true" when checked, nothing when unchecked
     active_value = "true" if "true" in form_data.getlist("active") else "false"
 
-    # Validation using centralized validation utility
     try:
         validated_name = FieldValidator.validate_name(
             name,
@@ -810,7 +801,6 @@ async def admin_supported_product_mirror_repomd_new_post(
     if isinstance(mirror, Response):
         return mirror
 
-    # Validation using centralized validation utility
     form_data = {
         "production": production,
         "arch": arch,
@@ -902,7 +892,6 @@ async def admin_supported_product_mirror_repomd_post(
     if isinstance(repomd, Response):
         return repomd
 
-    # Validation using centralized validation utility
     form_data = {
         "production": production,
         "arch": arch,
