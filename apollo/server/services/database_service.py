@@ -185,5 +185,5 @@ class DatabaseService:
             }
 
         except Exception as e:
-            logger.error(f"Failed to update last_indexed_at: {str(e)}")
-            raise RuntimeError(f"Failed to update timestamp: {str(e)}")
+            logger.error(f"Failed to update last_indexed_at: {e}")
+            raise RuntimeError(f"Failed to update timestamp: {e}") from e
