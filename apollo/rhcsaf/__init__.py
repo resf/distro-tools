@@ -8,6 +8,24 @@ from apollo.rpm_helpers import parse_nevra
 
 logger = Logger()
 
+EUS_CPE_PRODUCTS = frozenset([
+    "rhel_eus",  # Extended Update Support
+    "rhel_e4s",  # Update Services for SAP Solutions
+    "rhel_aus",  # Advanced Update Support (IBM Power)
+    "rhel_tus",  # Telecommunications Update Service
+])
+
+EUS_PRODUCT_NAME_KEYWORDS = frozenset([
+    "e4s",
+    "eus",
+    "aus",
+    "tus",
+    "extended update support",
+    "update services for sap",
+    "advanced update support",
+    "telecommunications update service",
+])
+
 def _is_eus_product(product_name: str, cpe: str) -> bool:
     """
     Detects if a product is EUS-related based on product name and CPE.
@@ -24,16 +42,13 @@ def _is_eus_product(product_name: str, cpe: str) -> bool:
         parts = cpe.split(":")
         if len(parts) > 3:
             cpe_product = parts[3]
-            if cpe_product in ("rhel_eus", "rhel_e4s", "rhel_aus", "rhel_tus"):
+            if cpe_product in EUS_CPE_PRODUCTS:
                 return True
 
     # Check product name keywords as fallback
     if product_name:
         name_lower = product_name.lower()
-        eus_keywords = ["e4s", "eus", "aus", "tus", "extended update support",
-                       "update services for sap", "advanced update support",
-                       "telecommunications update service"]
-        for keyword in eus_keywords:
+        for keyword in EUS_PRODUCT_NAME_KEYWORDS:
             if keyword in name_lower:
                 return True
 
