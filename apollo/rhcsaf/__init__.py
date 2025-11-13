@@ -293,7 +293,7 @@ def red_hat_advisory_scraper(csaf: dict):
     red_hat_affected_products = extract_rhel_affected_products_for_db(csaf)
 
     # If all products were EUS (none left after filtering), skip this advisory
-    if len(red_hat_affected_products) == 0:
+    if not red_hat_affected_products:
         logger.info(f"Skipping advisory {name}: all products are EUS-only")
         return None
 
