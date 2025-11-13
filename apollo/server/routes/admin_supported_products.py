@@ -1296,8 +1296,6 @@ async def _get_mirror_config_data(mirror: SupportedProductsRhMirror) -> Dict[str
 def _json_serializer(obj):
     """Custom JSON serializer for non-standard types"""
     if isinstance(obj, Decimal):
-        # Convert Decimal to int for version numbers (which should be integers)
-        # Check if it's a whole number to preserve integer type
         if obj % 1 == 0:
             return int(obj)
         return float(obj)
