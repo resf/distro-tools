@@ -57,16 +57,12 @@ class ValidationError(Exception):
 class ValidationPatterns:
     """Regex patterns for common validations."""
 
-    # URL validation - must start with http:// or https://
     URL_PATTERN = re.compile(r"^https?://.+")
 
-    # Name patterns - alphanumeric with common special characters, spaces, and parentheses
     NAME_PATTERN = re.compile(r"^[a-zA-Z0-9._\s()\-]+$")
 
-    # Architecture validation
     ARCH_PATTERN = re.compile(r"^(x86_64|aarch64|i386|i686|ppc64|ppc64le|s390x|riscv64|noarch)$")
 
-    # Repository name - more permissive for repo naming conventions
     REPO_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9._-]+$")
 
 
@@ -176,7 +172,6 @@ class FieldValidator:
 
         trimmed_arch = arch.strip()
 
-        # Check if it's a valid architecture enum value
         try:
             Architecture(trimmed_arch)
         except ValueError:
@@ -277,27 +272,23 @@ class ConfigValidator:
             errors.append(f"Config {config_index}: Must be a dictionary")
             return errors
 
-        # Validate required top-level keys
         required_keys = ["product", "mirror", "repositories"]
         for key in required_keys:
             if key not in config:
                 errors.append(f"Config {config_index}: Missing required key '{key}'")
 
-        # Validate product data structure
         if "product" in config:
             product_errors = ConfigValidator.validate_product_config(
                 config["product"], config_index
             )
             errors.extend(product_errors)
 
-        # Validate mirror data structure
         if "mirror" in config:
             mirror_errors = ConfigValidator.validate_mirror_config(
                 config["mirror"], config_index
             )
             errors.extend(mirror_errors)
 
-        # Validate repositories data structure
         if "repositories" in config:
             repo_errors = ConfigValidator.validate_repositories_config(
                 config["repositories"], config_index
@@ -324,7 +315,6 @@ class ConfigValidator:
             errors.append(f"Config {config_index}: Product must be a dictionary")
             return errors
 
-        # Validate required product fields
         required_fields = ["name", "variant", "vendor"]
         for field in required_fields:
             if field not in product or not product[field]:
@@ -332,7 +322,6 @@ class ConfigValidator:
                     f"Config {config_index}: Product missing required field '{field}'"
                 )
 
-        # Validate product name format if present
         if product.get("name"):
             try:
                 FieldValidator.validate_name(
@@ -361,7 +350,6 @@ class ConfigValidator:
             errors.append(f"Config {config_index}: Mirror must be a dictionary")
             return errors
 
-        # Validate required mirror fields
         required_fields = ["name", "match_variant", "match_major_version", "match_arch"]
         for field in required_fields:
             if field not in mirror or mirror[field] is None:
@@ -369,7 +357,6 @@ class ConfigValidator:
                     f"Config {config_index}: Mirror missing required field '{field}'"
                 )
 
-        # Validate mirror name format if present
         if mirror.get("name"):
             try:
                 FieldValidator.validate_name(
@@ -378,7 +365,6 @@ class ConfigValidator:
             except ValidationError as e:
                 errors.append(f"Config {config_index}: Mirror name '{mirror['name']}' - {e.message}")
 
-        # Validate architecture if present
         if mirror.get("match_arch"):
             try:
                 FieldValidator.validate_architecture(
@@ -387,7 +373,6 @@ class ConfigValidator:
             except ValidationError as e:
                 errors.append(f"Config {config_index}: Mirror architecture '{mirror['match_arch']}' - {e.message}")
 
-        # Validate major version is numeric if present
         if mirror.get("match_major_version") is not None:
             if (
                 not isinstance(mirror["match_major_version"], int)
@@ -397,7 +382,6 @@ class ConfigValidator:
                     f"Config {config_index}: Mirror match_major_version must be a non-negative integer"
                 )
 
-        # Validate minor version is numeric if present
         if mirror.get("match_minor_version") is not None:
             if (
                 not isinstance(mirror["match_minor_version"], int)
@@ -458,7 +442,6 @@ class ConfigValidator:
             )
             return errors
 
-        # Validate required repository fields
         required_fields = ["repo_name", "arch", "production", "url"]
         for field in required_fields:
             if field not in repo or repo[field] is None:
@@ -466,7 +449,6 @@ class ConfigValidator:
                     f"Config {config_index}, Repo {repo_index}: Missing required field '{field}'"
                 )
 
-        # Validate repository name format if present
         if repo.get("repo_name"):
             try:
                 FieldValidator.validate_repo_name(
@@ -475,7 +457,6 @@ class ConfigValidator:
             except ValidationError as e:
                 errors.append(f"Config {config_index}, Repo {repo_index}: Repository name '{repo['repo_name']}' - {e.message}")
 
-        # Validate architecture if present
         if repo.get("arch"):
             try:
                 FieldValidator.validate_architecture(
@@ -484,10 +465,9 @@ class ConfigValidator:
             except ValidationError as e:
                 errors.append(f"Config {config_index}, Repo {repo_index}: Architecture '{repo['arch']}' - {e.message}")
 
-        # Validate URLs if present
         for url_field in ["url", "debug_url", "source_url"]:
             url_value = repo.get(url_field)
-            if url_value:  # Only validate if not empty
+            if url_value:
                 try:
                     FieldValidator.validate_url(
                         url_value,
@@ -499,7 +479,6 @@ class ConfigValidator:
                         f"Config {config_index}, Repo {repo_index}: {url_field.replace('_', ' ').title()} '{url_value}' - {e.message}"
                     )
 
-        # Validate production is boolean if present
         if "production" in repo and repo["production"] is not None:
             if not isinstance(repo["production"], bool):
                 errors.append(
@@ -528,7 +507,6 @@ class FormValidator:
         validated_data = {}
         errors = []
 
-        # Validate name
         try:
             validated_data["name"] = FieldValidator.validate_name(
                 form_data.get("name", ""), min_length=3, field_name="mirror name"
@@ -536,7 +514,6 @@ class FormValidator:
         except ValidationError as e:
             errors.append(e.message)
 
-        # Validate architecture
         try:
             validated_data["match_arch"] = FieldValidator.validate_architecture(
                 form_data.get("match_arch", ""), field_name="architecture"
@@ -544,7 +521,6 @@ class FormValidator:
         except ValidationError as e:
             errors.append(e.message)
 
-        # Copy other fields as-is for now (they have different validation requirements)
         for field in ["match_variant", "match_major_version", "match_minor_version"]:
             if field in form_data:
                 validated_data[field] = form_data[field]
@@ -567,7 +543,6 @@ class FormValidator:
         validated_data = {}
         errors = []
 
-        # Validate repository name
         try:
             validated_data["repo_name"] = FieldValidator.validate_repo_name(
                 form_data.get("repo_name", ""),
@@ -577,7 +552,6 @@ class FormValidator:
         except ValidationError as e:
             errors.append(e.message)
 
-        # Validate main URL (required)
         try:
             validated_data["url"] = FieldValidator.validate_url(
                 form_data.get("url", ""), field_name="repository URL", required=True
@@ -585,7 +559,6 @@ class FormValidator:
         except ValidationError as e:
             errors.append(e.message)
 
-        # Validate debug URL (optional)
         try:
             debug_url = FieldValidator.validate_url(
                 form_data.get("debug_url", ""), field_name="debug URL", required=False
@@ -594,7 +567,6 @@ class FormValidator:
         except ValidationError as e:
             errors.append(e.message)
 
-        # Validate source URL (optional)
         try:
             source_url = FieldValidator.validate_url(
                 form_data.get("source_url", ""), field_name="source URL", required=False
@@ -603,7 +575,6 @@ class FormValidator:
         except ValidationError as e:
             errors.append(e.message)
 
-        # Validate architecture
         try:
             validated_data["arch"] = FieldValidator.validate_architecture(
                 form_data.get("arch", ""), field_name="architecture"
@@ -611,7 +582,6 @@ class FormValidator:
         except ValidationError as e:
             errors.append(e.message)
 
-        # Copy production flag
         validated_data["production"] = form_data.get("production", False)
 
         return validated_data, errors
