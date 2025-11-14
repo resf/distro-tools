@@ -45,6 +45,15 @@ py_test(
     ],
 )
 
+py_test(
+    name = "test_api_updateinfo",
+    srcs = ["test_api_updateinfo.py"],
+    deps = [
+        "//apollo/server:server_lib",
+        "//apollo/db:db_lib",
+    ],
+)
+
 
 py_test(
     name = "test_validation",
