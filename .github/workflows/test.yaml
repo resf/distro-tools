@@ -40,6 +40,7 @@ jobs:
         bazel test //apollo/tests:test_admin_routes_supported_products --test_output=all
         bazel test //apollo/tests:test_api_osv --test_output=all
         bazel test //apollo/tests:test_database_service --test_output=all
+        bazel test //apollo/tests:test_rh_matcher_activities --test_output=all
 
     - name: Integration Tests
       run: ./build/scripts/test.bash

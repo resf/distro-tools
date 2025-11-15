@@ -495,14 +495,24 @@ async def clone_advisory(
                     "{http://linux.duke.edu/metadata/common}format"
                 ).find("{http://linux.duke.edu/metadata/rpm}sourcerpm")
 
-                # This means we're checking a source RPM
+                package_name = None
                 if advisory_nvra.endswith(".src.rpm"
                                          ) or advisory_nvra.endswith(".src"):
                     source_nvra = repomd.NVRA_RE.search(advisory_nvra)
-                    package_name = source_nvra.group(1)
-                else:
+                    if source_nvra:
+                        package_name = source_nvra.group(1)
+                elif source_rpm is not None and source_rpm.text:
                     source_nvra = repomd.NVRA_RE.search(source_rpm.text)
-                    package_name = source_nvra.group(1)
+                    if source_nvra:
+                        package_name = source_nvra.group(1)
+
+                if not package_name:
+                    logger.warning(
+                        "Could not extract package_name for %s in advisory %s, skipping package",
+                        nevra,
+                        advisory.name,
+                    )
+                    continue
 
                 checksum_tree = pkg.find(
                     "{http://linux.duke.edu/metadata/common}checksum"

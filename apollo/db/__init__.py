@@ -321,8 +321,8 @@ class AdvisoryPackage(Model):
 
     def __init__(self, **kwargs):
         if 'package_name' in kwargs:
-            kwargs['package_name'] = self._clean_package_name(
-                kwargs['package_name']
+            kwargs['_package_name'] = self._clean_package_name(
+                kwargs.pop('package_name')
             )
         super().__init__(**kwargs)
 

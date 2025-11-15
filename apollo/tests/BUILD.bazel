@@ -88,3 +88,12 @@ py_test(
         "//common:common_lib",
     ],
 )
+
+py_test(
+    name = "test_rh_matcher_activities",
+    srcs = ["test_rh_matcher_activities.py"],
+    deps = [
+        "//apollo/rpmworker:rpmworker_lib",
+        "//apollo/rpm_helpers:rpm_helpers_lib",
+    ],
+)
