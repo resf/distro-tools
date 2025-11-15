@@ -29,16 +29,14 @@ def resolve_product_slug(slug: str) -> Optional[str]:
 
 def get_source_package_name(pkg) -> str:
     """
-    Extract source package name from package, handling module prefix bug.
+    Extract source package name from package for grouping with source RPM.
 
-    The package_name field may contain "module." prefix for some module packages.
-    This function strips that prefix and returns a consistent key for grouping
-    binary packages with their source RPM.
+    Returns a consistent key for grouping binary packages with their source RPM.
+    For module packages, includes module context for proper identification.
     """
-    base_name = pkg.package_name.removeprefix("module.")
     if pkg.module_name:
-        return f"{pkg.module_name}:{base_name}:{pkg.module_stream}"
-    return base_name
+        return f"{pkg.module_name}:{pkg.package_name}:{pkg.module_stream}"
+    return pkg.package_name
 
 
 def build_source_rpm_mapping(packages: list) -> dict:
@@ -69,9 +67,8 @@ def build_source_rpm_mapping(packages: list) -> dict:
             if nvra:
                 nvr_name = nvra.group(1)
                 nvr_arch = nvra.group(4)
-                base_pkg_name = pkg.package_name.removeprefix("module.")
 
-                if base_pkg_name == nvr_name and nvr_arch == "src":
+                if pkg.package_name == nvr_name and nvr_arch == "src":
                     src_rpm = nvra_no_epoch
                     if not src_rpm.endswith(".rpm"):
                         src_rpm += ".rpm"

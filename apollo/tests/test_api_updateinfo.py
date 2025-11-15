@@ -63,20 +63,20 @@ class TestGetSourcePackageName(unittest.TestCase):
         result = get_source_package_name(pkg)
         self.assertEqual(result, "python27:python-markupsafe:el8")
 
-    def test_module_package_with_prefix(self):
-        """Test module package with module. prefix (bug case)"""
+    def test_module_package_cleaned_by_orm(self):
+        """Test module package (ORM strips module. prefix automatically)"""
         pkg = Mock()
-        pkg.package_name = "module.python-markupsafe"
+        pkg.package_name = "python-markupsafe"  # ORM already cleaned
         pkg.module_name = "python27"
         pkg.module_stream = "el8"
 
         result = get_source_package_name(pkg)
         self.assertEqual(result, "python27:python-markupsafe:el8")
 
-    def test_regular_package_with_prefix(self):
-        """Test regular package with module. prefix gets stripped"""
+    def test_regular_package_cleaned_by_orm(self):
+        """Test regular package (ORM strips module. prefix automatically)"""
         pkg = Mock()
-        pkg.package_name = "module.delve"
+        pkg.package_name = "delve"  # ORM already cleaned
         pkg.module_name = None
 
         result = get_source_package_name(pkg)
@@ -127,16 +127,16 @@ class TestBuildSourceRpmMapping(unittest.TestCase):
 
         self.assertEqual(result, {"python-markupsafe": "python-markupsafe-0.23-19.el8.src.rpm"})
 
-    def test_module_package_with_prefix(self):
-        """Test module package with module. prefix"""
+    def test_module_package_cleaned_by_orm(self):
+        """Test module package (ORM strips module. prefix automatically)"""
         src_pkg = Mock()
-        src_pkg.package_name = "module.python-markupsafe"
+        src_pkg.package_name = "python-markupsafe"  # ORM already cleaned
         src_pkg.module_name = "python27"
         src_pkg.module_stream = "el8"
         src_pkg.nevra = "python-markupsafe-0.23-19.module+el8.5.0+706+735ec4b3.src.rpm"
 
         bin_pkg = Mock()
-        bin_pkg.package_name = "python-markupsafe"
+        bin_pkg.package_name = "python-markupsafe"  # ORM already cleaned
         bin_pkg.module_name = "python27"
         bin_pkg.module_stream = "el8"
         bin_pkg.nevra = "python2-markupsafe-0.23-19.module+el8.5.0+706+735ec4b3.x86_64.rpm"
