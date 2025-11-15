@@ -8,6 +8,7 @@ from slugify import slugify
 from apollo.db import AdvisoryAffectedProduct, SupportedProduct
 from tortoise.exceptions import DoesNotExist
 from apollo.server.settings import COMPANY_NAME, MANAGING_EDITOR, UI_URL, get_setting
+from apollo.server.validation import Architecture
 
 from apollo.rpmworker.repomd import NEVRA_RE, NVRA_RE, EPOCH_RE
 
@@ -424,8 +425,11 @@ async def get_updateinfo_v2(
     except DoesNotExist:
         raise RenderErrorTemplateException(f"Product not found: {product_name}", 404)
 
-    valid_arches = ["x86_64", "aarch64", "ppc64le", "s390x"]
-    if arch not in valid_arches:
+    # Validate architecture using centralized validation
+    try:
+        Architecture(arch)
+    except ValueError:
+        valid_arches = [a.value for a in Architecture]
         raise RenderErrorTemplateException(
             f"Invalid architecture: {arch}. Must be one of {', '.join(valid_arches)}",
             400
