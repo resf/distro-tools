@@ -25,7 +25,7 @@ NS = {
 }
 
 PRODUCT_NAME_TO_SLUG = {v: k for k, v in PRODUCT_SLUG_MAP.items()}
-
+API_BASE_URL = "https://apollo.build.resf.org/api/v3/updateinfo"
 
 def get_product_slug(product_name: str) -> str:
     """
@@ -170,7 +170,6 @@ async def fetch_updateinfo_from_apollo(
     repo: dict,
     product_name: str,
     api_base: str = None,
-    api_version: int = 1,
     major_version: int = None,
     minor_version: int = None,
 ) -> str:
@@ -181,28 +180,27 @@ async def fetch_updateinfo_from_apollo(
         repo: Repository dict with 'name' and 'arch' keys
         product_name: Product name
         api_base: Optional API base URL override
-        api_version: 2 for new endpoint, 1 for legacy (default)
         major_version: Required for api_version=2
         minor_version: Optional for api_version=2
     """
     if not api_base:
-        api_base = "https://apollo.build.resf.org/api/v3/updateinfo"
+        api_base = API_BASE_URL
 
-    if api_version == 2:
+    if major_version:
         product_slug = get_product_slug(product_name)
         api_url = f"{api_base}/{product_slug}/{major_version}/{quote(repo['name'])}/updateinfo.xml"
-        api_url += f"?arch={repo['arch']}"
+        api_params = {'arch': repo['arch']}
         if minor_version is not None:
-            api_url += f"&minor_version={minor_version}"
-        logger.info("Using v2 endpoint: %s", api_url)
+            api_params['minor_version'] = minor_version
+        logger.info("Using v2 endpoint: %s with params %s", api_url, api_params)
     else:
         pname_arch = product_name.replace("$arch", repo["arch"])
         api_url = f"{api_base}/{quote(pname_arch)}/{quote(repo['name'])}/updateinfo.xml"
-        api_url += f"?req_arch={repo['arch']}"
-        logger.info("Using legacy endpoint: %s", api_url)
+        api_params = {'req_arch': repo['arch']}
+        logger.info("Using legacy endpoint: %s with params %s", api_url, api_params)
 
     async with aiohttp.ClientSession() as session:
-        async with session.get(api_url) as resp:
+        async with session.get(api_url, params=api_params) as resp:
             if resp.status != 200 and resp.status != 404:
                 logger.warning(
                     "Failed to fetch updateinfo from %s, skipping", api_url
@@ -354,7 +352,6 @@ async def run_apollo_tree(
     ignore: list[str],
     ignore_arch: list[str],
     product_name: str,
-    api_version: int = 1,
     major_version: int = None,
     minor_version: int = None,
     api_base: str = None,
@@ -376,7 +373,6 @@ async def run_apollo_tree(
                     repo,
                     product_name,
                     api_base=api_base,
-                    api_version=api_version,
                     major_version=major_version,
                     minor_version=minor_version,
                 )
@@ -456,13 +452,6 @@ if __name__ == "__main__":
         help="Product name (e.g., 'Rocky Linux', 'Rocky Linux 8 $arch')",
     )
     parser.add_argument(
-        "--api-version",
-        type=int,
-        choices=[2, 1],
-        default=1,
-        help="Updateinfo endpoint pattern: 1=legacy (default), 2=new major-version based",
-    )
-    parser.add_argument(
         "--major-version",
         type=int,
         help="Major version (required for --api-version 2)",
@@ -481,11 +470,8 @@ if __name__ == "__main__":
     if p_args.auto_scan and p_args.manual:
         parser.error("Cannot use --auto-scan and --manual together")
 
-    if p_args.api_version == 2 and not p_args.major_version:
-        parser.error("--major-version is required when using --api-version 2")
-
-    if p_args.minor_version and p_args.api_version != 2:
-        parser.error("--minor-version can only be used with --api-version 2")
+    if p_args.minor_version and not p_args.major_version:
+        parser.error("--minor-version can only be used with --major-version")
 
     if p_args.manual and not p_args.repos:
         parser.error("Must specify repos to publish in manual mode")
@@ -502,7 +488,6 @@ if __name__ == "__main__":
             [y for x in p_args.ignore for y in x],
             [y for x in p_args.ignore_arch for y in x],
             p_args.product_name,
-            p_args.api_version,
             p_args.major_version,
             p_args.minor_version,
             p_args.api_base,
