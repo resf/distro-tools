@@ -143,7 +143,6 @@ def to_osv_advisory(ui_url: str, advisory: Advisory) -> OSVAdvisory:
                 for pkg in affected_packages:
                     x = pkg[0]
                     nevra = pkg[1]
-                    # Only process "src" packages
                     if nevra.group(5) != "src":
                         continue
                     if x.nevra in processed_nvra:
@@ -198,11 +197,9 @@ def to_osv_advisory(ui_url: str, advisory: Advisory) -> OSVAdvisory:
     if advisory.red_hat_advisory:
         osv_credits.append(OSVCredit(name="Red Hat"))
 
-    # Calculate severity by finding the highest CVSS score
     highest_cvss_base_score = 0.0
     final_score_vector = None
     for x in advisory.cves:
-        # Convert cvss3_scoring_vector to a float
         base_score = x.cvss3_base_score
         if base_score and base_score != "UNKNOWN":
             base_score = float(base_score)
@@ -255,15 +252,14 @@ async def get_advisories_osv(
         cve,
         synopsis,
         severity,
-        kind="Security",
+        kind=None,
         fetch_related=True,
     )
-    count = fetch_adv[0]
     advisories = fetch_adv[1]
 
     ui_url = await get_setting(UI_URL)
-    osv_advisories = [to_osv_advisory(ui_url, x) for x in advisories]
-    page = create_page(osv_advisories, count, params)
+    osv_advisories = [to_osv_advisory(ui_url, adv) for adv in advisories if adv.cves]
+    page = create_page(osv_advisories, len(osv_advisories), params)
 
     state = await RedHatIndexState.first()
     page.last_updated_at = (
@@ -282,7 +278,7 @@ async def get_advisories_osv(
 )
 async def get_advisory_osv(advisory_id: str):
     advisory = (
-        await Advisory.filter(name=advisory_id, kind="Security")
+        await Advisory.filter(name=advisory_id)
         .prefetch_related(
             "packages",
             "cves",
@@ -295,7 +291,7 @@ async def get_advisory_osv(advisory_id: str):
         .get_or_none()
     )
 
-    if not advisory:
+    if not advisory or not advisory.cves:
         raise HTTPException(404)
 
     ui_url = await get_setting(UI_URL)

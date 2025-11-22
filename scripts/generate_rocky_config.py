@@ -602,7 +602,7 @@ def parse_repomd_path(repomd_url: str, base_url: str) -> Dict[str, str]:
 
 
 def build_mirror_config(
-    version: str, arch: str, name_suffix: Optional[str] = None
+    version: str, arch: str, name_suffix: Optional[str] = None, mirror_name_base: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Build a mirror configuration dictionary.
@@ -611,15 +611,19 @@ def build_mirror_config(
         version: Rocky Linux version
         arch: Architecture
         name_suffix: Optional suffix for mirror name
+        mirror_name_base: Optional custom base for mirror name (e.g., "Rocky Linux 9")
 
     Returns:
         Mirror configuration dictionary
     """
-    # Build mirror name with optional suffix
-    if name_suffix is not None and name_suffix != "":
-        mirror_name = f"Rocky Linux {version} {name_suffix} {arch}"
+    # Build mirror name with optional custom base or suffix
+    if not mirror_name_base:
+        mirror_name_base = f"Rocky Linux {version}"
+
+    if name_suffix:
+        mirror_name = f"{mirror_name_base} {name_suffix} {arch}"
     else:
-        mirror_name = f"Rocky Linux {version} {arch}"
+        mirror_name = f"{mirror_name_base} {arch}"
 
     # Parse version to extract major and minor components
     if version != UNKNOWN_VALUE and "." in version:
@@ -690,6 +694,7 @@ def generate_rocky_config(
     include_source: bool = True,
     architectures: List[str] = None,
     name_suffix: Optional[str] = None,
+    mirror_name_base: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Generate Rocky Linux configuration by discovering repository structure.
@@ -702,6 +707,7 @@ def generate_rocky_config(
         include_source: Whether to include source repository URLs (default: True)
         architectures: List of architectures to include (default: auto-detect)
         name_suffix: Optional suffix to add to mirror names (e.g., "test", "staging")
+        mirror_name_base: Optional custom base for mirror name (e.g., "Rocky Linux 9")
 
     Returns:
         List of configuration dictionaries ready for JSON export
@@ -730,10 +736,12 @@ def generate_rocky_config(
             continue
 
         # Skip if version filter specified and doesn't match
+        # Supports both exact version match (e.g., "9.5") and major version match (e.g., "9")
         if (
             version
             and metadata["version"] != version
             and metadata["version"] != UNKNOWN_VALUE
+            and metadata["version"].split(".")[0] != version
         ):
             continue
 
@@ -773,7 +781,7 @@ def generate_rocky_config(
             if not detected_version:
                 detected_version = UNKNOWN_VALUE
 
-        mirror_config = build_mirror_config(detected_version, arch, name_suffix)
+        mirror_config = build_mirror_config(detected_version, arch, name_suffix, mirror_name_base)
 
         # Group repos by name and type
         repo_groups = {}
@@ -828,6 +836,8 @@ Examples:
   %(prog)s https://mirror.example.com/pub/rocky/ --output rocky_config.json
   %(prog)s https://mirror.example.com/pub/rocky/ --name-suffix test --version 9.6
   %(prog)s https://staging.example.com/pub/rocky/ --name-suffix staging --arch riscv64
+  %(prog)s https://mirror.example.com/pub/rocky/ --mirror-name-base "Rocky Linux 9" --version 9.6
+  %(prog)s https://mirror.example.com/pub/rocky/ --mirror-name-base "Rocky Linux 9 (Legacy)" --version 9
         """,
     )
 
@@ -880,6 +890,11 @@ Examples:
         help="Optional suffix to add to mirror names (e.g., 'test', 'staging')",
     )
 
+    parser.add_argument(
+        "--mirror-name-base",
+        help="Optional custom base for mirror name (e.g., 'Rocky Linux 9' instead of 'Rocky Linux 9.6')",
+    )
+
     parser.add_argument("--output", "-o", help="Output file path (default: stdout)")
 
     parser.add_argument(
@@ -926,6 +941,7 @@ Examples:
             include_source=not args.no_source,
             architectures=args.arch,
             name_suffix=args.name_suffix,
+            mirror_name_base=args.mirror_name_base,
         )
 
         if not config:

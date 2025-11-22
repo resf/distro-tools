@@ -201,6 +201,7 @@ class SupportedProductsRhMirror(Model):
     match_major_version = fields.IntField()
     match_minor_version = fields.IntField(null=True)
     match_arch = fields.CharField(max_length=255)
+    active = fields.BooleanField(default=True)
 
     rpm_repomds: fields.ReverseRelation["SupportedProductsRpmRepomd"]
     rpm_rh_overrides: fields.ReverseRelation["SupportedProductsRpmRhOverride"]
@@ -303,7 +304,7 @@ class AdvisoryPackage(Model):
     module_stream = fields.TextField(null=True)
     module_version = fields.TextField(null=True)
     repo_name = fields.TextField()
-    package_name = fields.TextField()
+    _package_name = fields.TextField(source_field='package_name')
     product_name = fields.TextField()
     supported_products_rh_mirror = fields.ForeignKeyField(
         "models.SupportedProductsRhMirror",
@@ -317,6 +318,30 @@ class AdvisoryPackage(Model):
     class Meta:
         table = "advisory_packages"
         unique_together = ("advisory_id", "nevra")
+
+    def __init__(self, **kwargs):
+        if 'package_name' in kwargs:
+            kwargs['_package_name'] = self._clean_package_name(
+                kwargs.pop('package_name')
+            )
+        super().__init__(**kwargs)
+
+    @property
+    def package_name(self):
+        return self._clean_package_name(self._package_name)
+
+    @package_name.setter
+    def package_name(self, value):
+        self._package_name = self._clean_package_name(value)
+
+    def _clean_package_name(self, value):
+        if isinstance(value, str) and value.startswith('module.'):
+            return value.replace('module.', '')
+        return value
+
+    async def save(self, *args, **kwargs):
+        self._package_name = self._clean_package_name(self._package_name)
+        await super().save(*args, **kwargs)
 
 
 class AdvisoryCVE(Model):

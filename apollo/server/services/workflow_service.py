@@ -206,9 +206,9 @@ class WorkflowService:
         
         # Import here to avoid circular imports
         from apollo.db import SupportedProductsRhMirror
-        
+
         # Get available major versions from RH mirrors
-        rh_mirrors = await SupportedProductsRhMirror.all()
+        rh_mirrors = await SupportedProductsRhMirror.filter(active=True)
         available_versions = {int(mirror.match_major_version) for mirror in rh_mirrors}
         
         # Check if all requested major versions are available

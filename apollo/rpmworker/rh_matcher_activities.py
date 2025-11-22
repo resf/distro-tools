@@ -277,7 +277,7 @@ async def get_supported_products_with_rh_mirrors(filter_major_versions: Optional
     Filtering now happens at the mirror level within match_rh_repos activity.
     """
     logger = Logger()
-    rh_mirrors = await SupportedProductsRhMirror.all().prefetch_related(
+    rh_mirrors = await SupportedProductsRhMirror.filter(active=True).prefetch_related(
         "rpm_repomds",
     )
     ret = []
@@ -495,14 +495,24 @@ async def clone_advisory(
                     "{http://linux.duke.edu/metadata/common}format"
                 ).find("{http://linux.duke.edu/metadata/rpm}sourcerpm")
 
-                # This means we're checking a source RPM
+                package_name = None
                 if advisory_nvra.endswith(".src.rpm"
                                          ) or advisory_nvra.endswith(".src"):
                     source_nvra = repomd.NVRA_RE.search(advisory_nvra)
-                    package_name = source_nvra.group(1)
-                else:
+                    if source_nvra:
+                        package_name = source_nvra.group(1)
+                elif source_rpm is not None and source_rpm.text:
                     source_nvra = repomd.NVRA_RE.search(source_rpm.text)
-                    package_name = source_nvra.group(1)
+                    if source_nvra:
+                        package_name = source_nvra.group(1)
+
+                if not package_name:
+                    logger.warning(
+                        "Could not extract package_name for %s in advisory %s, skipping package",
+                        nevra,
+                        advisory.name,
+                    )
+                    continue
 
                 checksum_tree = pkg.find(
                     "{http://linux.duke.edu/metadata/common}checksum"
@@ -790,6 +800,9 @@ async def match_rh_repos(params) -> None:
     all_advisories = {}
 
     for mirror in supported_product.rh_mirrors:
+        if not mirror.active:
+            logger.debug(f"Skipping inactive mirror {mirror.name}")
+            continue
         # Apply major version filtering if specified
         if filter_major_versions is not None and int(mirror.match_major_version) not in filter_major_versions:
             logger.debug(f"Skipping mirror {mirror.name} with major version {mirror.match_major_version} due to filtering")
@@ -836,23 +849,20 @@ async def match_rh_repos(params) -> None:
 
 @activity.defn
 async def block_remaining_rh_advisories(supported_product_id: int) -> None:
-    supported_product = await SupportedProduct.filter(
-        id=supported_product_id
-    ).first().prefetch_related("rh_mirrors")
-    for mirror in supported_product.rh_mirrors:
-        mirrors = await SupportedProductsRhMirror.filter(
-            supported_product_id=supported_product_id
+    mirrors = await SupportedProductsRhMirror.filter(
+        supported_product_id=supported_product_id,
+        active=True
+    )
+    for mirror in mirrors:
+        advisories = await get_matching_rh_advisories(mirror)
+        await SupportedProductsRhBlock.bulk_create(
+            [
+                SupportedProductsRhBlock(
+                    **{
+                        "supported_products_rh_mirror_id": mirror.id,
+                        "red_hat_advsiory_id": advisory.id,
+                    }
+                ) for advisory in advisories
+            ],
+            ignore_conflicts=True
         )
-        for mirror in mirrors:
-            advisories = await get_matching_rh_advisories(mirror)
-            await SupportedProductsRhBlock.bulk_create(
-                [
-                    SupportedProductsRhBlock(
-                        **{
-                            "supported_products_rh_mirror_id": mirror.id,
-                            "red_hat_advsiory_id": advisory.id,
-                        }
-                    ) for advisory in advisories
-                ],
-                ignore_conflicts=True
-            )

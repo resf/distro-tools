@@ -6,12 +6,15 @@ import asyncio
 import logging
 import hashlib
 import gzip
+import re
 from dataclasses import dataclass
 import time
 from urllib.parse import quote
 from xml.etree import ElementTree as ET
 
 import aiohttp
+
+from apollo.server.routes.api_updateinfo import PRODUCT_SLUG_MAP
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("apollo_tree")
@@ -20,6 +23,31 @@ NS = {
     "": "http://linux.duke.edu/metadata/repo",
     "rpm": "http://linux.duke.edu/metadata/rpm"
 }
+
+PRODUCT_NAME_TO_SLUG = {v: k for k, v in PRODUCT_SLUG_MAP.items()}
+API_BASE_URL = "https://apollo.build.resf.org/api/v3/updateinfo"
+
+def get_product_slug(product_name: str) -> str:
+    """
+    Convert product name to API slug for v2 endpoint.
+    Strips version numbers and architecture placeholders before lookup.
+
+    Examples:
+        "Rocky Linux 9 $arch" -> "Rocky Linux"
+        "Rocky Linux 10.5" -> "Rocky Linux"
+        "Rocky Linux SIG Cloud" -> "Rocky Linux SIG Cloud"
+    """
+    clean_name = product_name.replace("$arch", "").strip()
+
+    clean_name = re.sub(r'\s+\d+(\.\d+)?$', '', clean_name).strip()
+
+    slug = PRODUCT_NAME_TO_SLUG.get(clean_name)
+    if not slug:
+        raise ValueError(
+            f"Unknown product: {clean_name}. "
+            f"Valid products: {', '.join(PRODUCT_NAME_TO_SLUG.keys())}"
+        )
+    return slug
 
 
 @dataclass
@@ -142,16 +170,37 @@ async def fetch_updateinfo_from_apollo(
     repo: dict,
     product_name: str,
     api_base: str = None,
+    major_version: int = None,
+    minor_version: int = None,
 ) -> str:
-    pname_arch = product_name.replace("$arch", repo["arch"])
-    if not api_base:
-        api_base = "https://apollo.build.resf.org/api/v3/updateinfo"
-    api_url = f"{api_base}/{quote(pname_arch)}/{quote(repo['name'])}/updateinfo.xml"
-    api_url += f"?req_arch={repo['arch']}"
+    """
+    Fetch updateinfo.xml from Apollo API.
 
-    logger.info("Fetching updateinfo from %s", api_url)
+    Args:
+        repo: Repository dict with 'name' and 'arch' keys
+        product_name: Product name
+        api_base: Optional API base URL override
+        major_version: Required for api_version=2
+        minor_version: Optional for api_version=2
+    """
+    if not api_base:
+        api_base = API_BASE_URL
+
+    if major_version:
+        product_slug = get_product_slug(product_name)
+        api_url = f"{api_base}/{product_slug}/{major_version}/{quote(repo['name'])}/updateinfo.xml"
+        api_params = {'arch': repo['arch']}
+        if minor_version is not None:
+            api_params['minor_version'] = minor_version
+        logger.info("Using v2 endpoint: %s with params %s", api_url, api_params)
+    else:
+        pname_arch = product_name.replace("$arch", repo["arch"])
+        api_url = f"{api_base}/{quote(pname_arch)}/{quote(repo['name'])}/updateinfo.xml"
+        api_params = {'req_arch': repo['arch']}
+        logger.info("Using legacy endpoint: %s with params %s", api_url, api_params)
+
     async with aiohttp.ClientSession() as session:
-        async with session.get(api_url) as resp:
+        async with session.get(api_url, params=api_params) as resp:
             if resp.status != 200 and resp.status != 404:
                 logger.warning(
                     "Failed to fetch updateinfo from %s, skipping", api_url
@@ -303,6 +352,9 @@ async def run_apollo_tree(
     ignore: list[str],
     ignore_arch: list[str],
     product_name: str,
+    major_version: int = None,
+    minor_version: int = None,
+    api_base: str = None,
 ):
     if manual:
         raise Exception("Manual mode not implemented yet")
@@ -320,6 +372,9 @@ async def run_apollo_tree(
                 updateinfo = await fetch_updateinfo_from_apollo(
                     repo,
                     product_name,
+                    api_base=api_base,
+                    major_version=major_version,
+                    minor_version=minor_version,
                 )
                 if not updateinfo:
                     logger.warning("No updateinfo found for %s", repo["name"])
@@ -394,12 +449,29 @@ if __name__ == "__main__":
         "-n",
         "--product-name",
         required=True,
-        help="Product name",
+        help="Product name (e.g., 'Rocky Linux', 'Rocky Linux 8 $arch')",
+    )
+    parser.add_argument(
+        "--major-version",
+        type=int,
+        help="Major version (required for --api-version 2)",
+    )
+    parser.add_argument(
+        "--minor-version",
+        type=int,
+        help="Minor version filter (optional, only with --api-version 2)",
+    )
+    parser.add_argument(
+        "--api-base",
+        help="API base URL (default: https://apollo.build.resf.org/api/v3/updateinfo)",
     )
 
     p_args = parser.parse_args()
     if p_args.auto_scan and p_args.manual:
         parser.error("Cannot use --auto-scan and --manual together")
+
+    if p_args.minor_version and not p_args.major_version:
+        parser.error("--minor-version can only be used with --major-version")
 
     if p_args.manual and not p_args.repos:
         parser.error("Must specify repos to publish in manual mode")
@@ -416,5 +488,8 @@ if __name__ == "__main__":
             [y for x in p_args.ignore for y in x],
             [y for x in p_args.ignore_arch for y in x],
             p_args.product_name,
+            p_args.major_version,
+            p_args.minor_version,
+            p_args.api_base,
         )
     )
