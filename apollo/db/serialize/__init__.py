@@ -80,8 +80,8 @@ class Advisory_Pydantic_V2_CVE(BaseModel):
     name: str
     sourceBy: str
     sourceLink: str
-    cvss3ScoringVector: str
-    cvss3BaseScore: str
+    cvss3ScoringVector: Optional[str]
+    cvss3BaseScore: Optional[str]
     cwe: Optional[str]
 
 
