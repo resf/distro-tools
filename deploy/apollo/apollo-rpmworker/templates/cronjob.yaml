@@ -1,0 +1,46 @@
+{{- if .Values.cron.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "apollo-rpmworker.fullname" . }}
+  labels:
+    {{- include "apollo-rpmworker.labels" . | nindent 4 }}
+spec:
+  schedule: '{{ .Values.cron.schedule }}'
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 8 }}
+          {{- end }}
+          serviceAccountName: {{ include "apollo-rpmworker.serviceAccountName" . }}
+          securityContext:
+            {{- toYaml .Values.podSecurityContext | indent 8 }}
+          activeDeadlineSeconds: 43200
+          containers:
+          - name: {{ .Chart.Name }}-rh-matcher-workflow
+            image: temporalio/admin-tools:1.10.5
+            securityContext:
+              {{- toYaml .Values.securityContext | indent 12 }}
+            env:
+              - name: TEMPORAL_CLI_ADDRESS
+                value: workflow-temporal-frontend.workflow.svc.cluster.local:7233
+            imagePullPolicy: IfNotPresent
+            command: ["/bin/bash", "-c"]
+            args:
+            - |
+              {{- range $cmd := $.Values.cron.preCommand }}
+              {{ $cmd }}
+              {{- end }}
+              {{- if .Values.cron.majorVersions }}
+              tctl wf run --tq v2-rpmworker --wt RhMatcherWorkflow --input '{"major_versions": {{ .Values.cron.majorVersions | toJson }}}'
+              {{- else }}
+              tctl wf run --tq v2-rpmworker --wt RhMatcherWorkflow
+              {{- end }}
+              {{- range $cmd := $.Values.cron.postCommand }}
+              {{ $cmd }}
+              {{- end }}
+{{- end }}
