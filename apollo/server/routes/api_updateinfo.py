@@ -201,11 +201,14 @@ def generate_updateinfo_xml(
         ]
 
         if supported_product_id is not None:
-            # v2: Filter by FK (normalized relational data)
-            filtered_packages = [
-                pkg for pkg in advisory.packages
-                if pkg.supported_product_id == supported_product_id and pkg.repo_name == repo_name
-            ]
+            # v2: Filter by FK (normalized relational data) and deduplicate by NEVRA
+            seen_nevras = set()
+            filtered_packages = []
+            for pkg in advisory.packages:
+                if pkg.supported_product_id == supported_product_id and pkg.repo_name == repo_name:
+                    if pkg.nevra not in seen_nevras:
+                        seen_nevras.add(pkg.nevra)
+                        filtered_packages.append(pkg)
         else:
             # v1: Filter by product_name (legacy denormalized field)
             filtered_packages = [
