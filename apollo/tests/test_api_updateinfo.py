@@ -356,6 +356,24 @@ class TestGenerateUpdateinfoXMLDeduplication(unittest.TestCase):
         tree = ET.fromstring(xml_str)
         self.assertEqual(len(tree.findall(".//package[@name='python-markupsafe']")), 1)
 
+    def test_v2_collection_naming_with_version_and_arch(self):
+        """V2 collection names should include version and arch, not 'none'"""
+        packages = [
+            self._create_mock_package("kernel-4.18.0-425.el8.src.rpm", "kernel", "BaseOS", 1),
+            self._create_mock_package("kernel-4.18.0-425.el8.x86_64.rpm", "kernel", "BaseOS", 1),
+        ]
+        advisory = self._create_mock_advisory(packages)
+
+        tree = self._generate_xml(advisory, supported_product_id=1,
+                                  product_name_for_packages="Rocky Linux 8 x86_64")
+
+        collection = tree.find(".//collection")
+        self.assertIsNotNone(collection)
+
+        collection_short = collection.get("short")
+        self.assertEqual(collection_short, "rocky-linux-8-x86-64-baseos-rpms")
+        self.assertNotIn("none", collection_short, "Collection should not contain 'none'")
+
 
 if __name__ == "__main__":
     unittest.main()
