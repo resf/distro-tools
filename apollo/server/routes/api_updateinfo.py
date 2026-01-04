@@ -101,12 +101,10 @@ def generate_updateinfo_xml(
         managing_editor: Editor email for XML header
         company_name: Company name for copyright
         supported_product_id: Optional supported_product_id for FK-based filtering (v2)
-        product_name_for_packages: Optional product_name for legacy filtering (v1)
+        product_name_for_packages: Product_name used for legacy filtering (v1) and default_collection and naming XML elements
 
     Returns:
         XML string in updateinfo.xml format
-
-    Note: Either supported_product_id (v2) or product_name_for_packages (v1) must be provided.
     """
     advisories = {}
     for affected_product in affected_products:
@@ -201,13 +199,14 @@ def generate_updateinfo_xml(
         ]
 
         if supported_product_id is not None:
-            # v2: Filter by FK (normalized relational data)
-            filtered_packages = [
-                pkg for pkg in advisory.packages
-                if pkg.supported_product_id == supported_product_id and pkg.repo_name == repo_name
-            ]
+            seen_nevras = set()
+            filtered_packages = []
+            for pkg in advisory.packages:
+                if pkg.supported_product_id == supported_product_id and pkg.repo_name == repo_name:
+                    if pkg.nevra not in seen_nevras:
+                        seen_nevras.add(pkg.nevra)
+                        filtered_packages.append(pkg)
         else:
-            # v1: Filter by product_name (legacy denormalized field)
             filtered_packages = [
                 pkg for pkg in advisory.packages
                 if pkg.product_name == product_name_for_packages and pkg.repo_name == repo_name
@@ -474,6 +473,7 @@ async def get_updateinfo_v2(
         managing_editor=managing_editor,
         company_name=company_name,
         supported_product_id=supported_product.id,
+        product_name_for_packages=f"{product_name} {major_version} {arch}",
     )
 
     return Response(content=xml_str, media_type="application/xml")
