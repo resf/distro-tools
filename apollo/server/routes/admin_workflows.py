@@ -7,6 +7,8 @@ from fastapi import APIRouter, Request, Form, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from typing import List, Optional
 
+from temporalio.client import RPCError
+
 from apollo.server.utils import templates, admin_user_scheme
 from apollo.server.services.workflow_service import WorkflowService
 from apollo.server.services.database_service import DatabaseService
@@ -23,6 +25,9 @@ async def admin_workflows(request: Request, user: User = Depends(admin_user_sche
     env_info = await db_service.get_environment_info()
     index_state = await db_service.get_last_indexed_at()
 
+    tracked_wf_id = request.session.pop("tracked_workflow_id", None)
+    tracked_wf_name = request.session.pop("tracked_workflow_name", None)
+
     return templates.TemplateResponse(
         "admin_workflows.jinja", {
             "request": request,
@@ -32,6 +37,8 @@ async def admin_workflows(request: Request, user: User = Depends(admin_user_sche
             "reset_allowed": env_info["reset_allowed"],
             "last_indexed_at": index_state.get("last_indexed_at_iso"),
             "last_indexed_exists": index_state.get("exists", False),
+            "tracked_workflow_id": tracked_wf_id,
+            "tracked_workflow_name": tracked_wf_name,
         }
     )
 
@@ -44,30 +51,50 @@ async def trigger_rh_matcher(
 ):
     """Trigger RHMatcherWorkflow from admin web interface"""
     try:
-        # Convert string versions to integers if provided
         int_versions = None
         if major_versions:
             int_versions = [int(v) for v in major_versions if v.isdigit()]
-        
+
         service = WorkflowService()
         workflow_id = await service.trigger_rh_matcher_workflow(int_versions)
-        
-        Logger().info(f"Admin user {user.email} triggered RhMatcherWorkflow {workflow_id} with major_versions: {int_versions}")
-        
-        # Store success message in session
-        request.session["workflow_message"] = f"RhMatcherWorkflow triggered successfully: {workflow_id}"
+
+        Logger().info(
+            f"Admin user {user.email} triggered RhMatcherWorkflow "
+            f"{workflow_id} with major_versions: {int_versions}"
+        )
+
+        request.session["workflow_message"] = (
+            f"RhMatcherWorkflow triggered successfully: {workflow_id}"
+        )
         request.session["workflow_type"] = "success"
-        
+        request.session["tracked_workflow_id"] = workflow_id
+        request.session["tracked_workflow_name"] = "RH Matcher"
+
+    except RPCError as e:
+        if "already running" in str(e).lower():
+            request.session["workflow_message"] = (
+                "A workflow for this version is already running"
+            )
+            request.session["workflow_type"] = "error"
+        else:
+            Logger().error(f"Temporal error triggering workflow: {e}")
+            request.session["workflow_message"] = (
+                f"Workflow service error: {e}"
+            )
+            request.session["workflow_type"] = "error"
+
     except ValueError as e:
-        Logger().error(f"Validation error triggering RhMatcher workflow: {str(e)}")
-        request.session["workflow_message"] = f"Error: {str(e)}"
+        Logger().error(f"Validation error triggering workflow: {e}")
+        request.session["workflow_message"] = f"Error: {e}"
         request.session["workflow_type"] = "error"
-        
+
     except Exception as e:
-        Logger().error(f"Error triggering RhMatcher workflow: {str(e)}")
-        request.session["workflow_message"] = f"Error triggering workflow: {str(e)}"
+        Logger().error(f"Error triggering RhMatcher workflow: {e}")
+        request.session["workflow_message"] = (
+            f"Error triggering workflow: {e}"
+        )
         request.session["workflow_type"] = "error"
-    
+
     return RedirectResponse(url="/admin/workflows", status_code=303)
 
 
@@ -80,19 +107,39 @@ async def trigger_poll_rhcsaf(
     try:
         service = WorkflowService()
         workflow_id = await service.trigger_poll_rhcsaf_workflow()
-        
-        Logger().info(f"Admin user {user.email} triggered PollRHCSAFAdvisoriesWorkflow {workflow_id}")
-        
-        # Store success message in session
-        request.session["workflow_message"] = f"PollRHCSAFAdvisoriesWorkflow triggered successfully: {workflow_id}"
+
+        Logger().info(
+            f"Admin user {user.email} triggered "
+            f"PollRHCSAFAdvisoriesWorkflow {workflow_id}"
+        )
+
+        request.session["workflow_message"] = (
+            f"PollRHCSAFAdvisoriesWorkflow triggered successfully: "
+            f"{workflow_id}"
+        )
         request.session["workflow_type"] = "success"
-        
+        request.session["tracked_workflow_id"] = workflow_id
+        request.session["tracked_workflow_name"] = "Poll RHCSAF"
+
     except Exception as e:
-        Logger().error(f"Error triggering PollRHCSAF workflow: {str(e)}")
-        request.session["workflow_message"] = f"Error triggering workflow: {str(e)}"
+        Logger().error(f"Error triggering PollRHCSAF workflow: {e}")
+        request.session["workflow_message"] = (
+            f"Error triggering workflow: {e}"
+        )
         request.session["workflow_type"] = "error"
-    
+
     return RedirectResponse(url="/admin/workflows", status_code=303)
+
+
+@router.get("/workflows/{workflow_id}/status")
+async def admin_workflow_status(
+    workflow_id: str,
+    user: User = Depends(admin_user_scheme),
+):
+    """Return workflow status as JSON for the admin polling UI."""
+    service = WorkflowService()
+    status_info = await service.get_workflow_status(workflow_id)
+    return JSONResponse(status_info)
 
 
 @router.post("/workflows/update-index-timestamp")

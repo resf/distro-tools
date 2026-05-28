@@ -5,7 +5,8 @@ import uuid
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
-from temporalio.client import WorkflowHandle
+from temporalio.client import RPCError, WorkflowHandle
+from temporalio.common import WorkflowIDReusePolicy
 
 from apollo.db import SupportedProduct
 from apollo.rpmworker.rh_matcher_workflows import RhMatcherWorkflow, RhMatcherWorkflowInput
@@ -48,40 +49,53 @@ class WorkflowService:
     
     async def trigger_rh_matcher_workflow(self, major_versions: Optional[List[int]] = None) -> str:
         """
-        Trigger RhMatcherWorkflow with optional major version filtering
-        
+        Trigger RhMatcherWorkflow with optional major version filtering.
+
+        Uses a deterministic workflow ID when a single major version is
+        specified so Temporal deduplicates concurrent triggers for the
+        same version. Raises ``WorkflowAlreadyRunning`` if a workflow
+        for that version is already in progress.
+
         Args:
-            major_versions: Optional list of Rocky Linux major versions to process (e.g., [8, 9, 10])
-                           If None, processes all versions (backward compatibility)
-        
+            major_versions: Optional list of Rocky Linux major versions
+                to process (e.g., [8, 9, 10]).  If None, processes all
+                versions (backward compatibility).
+
         Returns:
-            Workflow ID for tracking
+            Workflow ID for tracking.
         """
         temporal_client = await self._get_temporal_client()
-        
+
         if not temporal_client or not temporal_client.client:
             raise RuntimeError("Temporal client not initialized")
-        
-        # Validate major versions if provided
+
         if major_versions:
             await self._validate_major_versions(major_versions)
-        
-        # Create workflow input
-        workflow_input = RhMatcherWorkflowInput(major_versions=major_versions) if major_versions else None
-        
-        # Generate unique workflow ID
-        workflow_id = f"rh-matcher-{uuid.uuid4()}"
-        
-        self.logger.info(f"Starting RhMatcherWorkflow with ID: {workflow_id}, major_versions: {major_versions}")
-        
-        # Start the workflow
-        workflow_handle: WorkflowHandle = await temporal_client.client.start_workflow(
+
+        workflow_input = (
+            RhMatcherWorkflowInput(major_versions=major_versions)
+            if major_versions
+            else None
+        )
+
+        if major_versions and len(major_versions) == 1:
+            workflow_id = f"rh-matcher-compose-v{major_versions[0]}"
+        else:
+            workflow_id = f"rh-matcher-{uuid.uuid4()}"
+
+        self.logger.info(
+            f"Starting RhMatcherWorkflow with ID: {workflow_id}, "
+            f"major_versions: {major_versions}"
+        )
+
+        await temporal_client.client.start_workflow(
             RhMatcherWorkflow.run,
             workflow_input,
             id=workflow_id,
             task_queue=TASK_QUEUE,
+            id_reuse_policy=WorkflowIDReusePolicy.ALLOW_DUPLICATE,
         )
-        
+
         return workflow_id
     
     async def trigger_poll_rhcsaf_workflow(self) -> str:
@@ -112,64 +126,65 @@ class WorkflowService:
     
     async def get_workflow_status(self, workflow_id: str) -> Dict[str, Any]:
         """
-        Get status of a specific workflow
-        
+        Get status of a specific workflow via Temporal's describe API.
+
         Args:
-            workflow_id: The workflow ID to check
-        
+            workflow_id: The workflow ID to check.
+
         Returns:
-            Dictionary containing workflow status information
+            Dictionary containing workflow status information.
         """
         temporal_client = await self._get_temporal_client()
-        
+
         if not temporal_client or not temporal_client.client:
             raise RuntimeError("Temporal client not initialized")
-        
+
         try:
-            workflow_handle = temporal_client.client.get_workflow_handle(workflow_id)
-            
-            # Check workflow status without blocking
-            try:
-                # Try to get result with timeout to avoid blocking
-                import asyncio
-                result = await asyncio.wait_for(workflow_handle.result(), timeout=1.0)
-                status = "completed"
-                result_data = result
-            except asyncio.TimeoutError:
-                # Workflow is still running
-                status = "running"
-                result_data = None
-            except Exception as e:
-                # Check if workflow failed
-                if "workflow execution already completed" in str(e).lower():
-                    # Try to get the result without timeout
-                    try:
-                        result = await workflow_handle.result()
-                        status = "completed"
-                        result_data = result
-                    except Exception:
-                        status = "failed"
-                        result_data = str(e)
-                else:
-                    status = "error"
-                    result_data = str(e)
-            
+            handle = temporal_client.client.get_workflow_handle(workflow_id)
+            description = await handle.describe()
+            execution_status = description.status.name
+
+            result_data = None
+            if execution_status == "COMPLETED":
+                result_data = await handle.result()
+
             return {
                 "workflow_id": workflow_id,
-                "status": status,
+                "status": execution_status.lower(),
                 "result": result_data,
                 "execution_info": {
                     "workflow_id": workflow_id,
-                    "run_id": workflow_handle.run_id if hasattr(workflow_handle, 'run_id') else None
-                }
+                    "run_id": description.run_id,
+                    "start_time": (
+                        description.start_time.isoformat()
+                        if description.start_time
+                        else None
+                    ),
+                    "close_time": (
+                        description.close_time.isoformat()
+                        if description.close_time
+                        else None
+                    ),
+                },
             }
-            
-        except Exception as e:
-            self.logger.error(f"Error getting workflow status for {workflow_id}: {str(e)}")
+
+        except RPCError as e:
+            self.logger.error(
+                f"Temporal RPC error for workflow {workflow_id}: {e}"
+            )
             return {
                 "workflow_id": workflow_id,
                 "status": "error",
-                "error": str(e)
+                "error": str(e),
+            }
+        except Exception as e:
+            self.logger.error(
+                f"Error getting workflow status for {workflow_id}: {e}"
+            )
+            return {
+                "workflow_id": workflow_id,
+                "status": "error",
+                "error": str(e),
             }
     
     async def list_recent_workflows(self, limit: int = 50) -> List[Dict[str, Any]]:

@@ -27,8 +27,47 @@
             </div>
         {% endif %}
 
+        <!-- Workflow Status Monitor -->
+        {% if tracked_workflow_id %}
+        <div class="bx--row apollo-mt-3" id="workflow-status-panel">
+            <div class="bx--col">
+                <div class="bx--tile">
+                    <h2 class="bx--type-productive-heading-03">Workflow Status: {{ tracked_workflow_name }}</h2>
+                    <p class="bx--type-body-short-01" style="margin-top: 0.5rem;">
+                        <strong>Workflow ID:</strong> <code id="wf-id">{{ tracked_workflow_id }}</code>
+                    </p>
+                    <div style="margin-top: 1rem;">
+                        <table class="bx--data-table bx--data-table--compact">
+                            <tbody>
+                                <tr>
+                                    <td><strong>Status</strong></td>
+                                    <td><span id="wf-status" class="bx--tag bx--tag--blue">checking...</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Start Time</strong></td>
+                                    <td id="wf-start-time">--</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Close Time</strong></td>
+                                    <td id="wf-close-time">--</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Run ID</strong></td>
+                                    <td><code id="wf-run-id">--</code></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p id="wf-poll-message" class="bx--type-helper-text-01" style="margin-top: 0.5rem;">
+                        Polling every 15 seconds...
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- RH Matcher Workflow Section -->
-        <div class="bx--row">
+        <div class="bx--row apollo-mt-3">
             <div class="bx--col">
                 <div class="bx--tile">
                     <h2 class="bx--type-productive-heading-03">RH Matcher Workflow</h2>
@@ -210,6 +249,79 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Workflow status polling
+    {% if tracked_workflow_id %}
+    (function() {
+        const STATUS_TAG_CLASS = {
+            running: 'bx--tag--blue',
+            completed: 'bx--tag--green',
+            failed: 'bx--tag--red',
+            canceled: 'bx--tag--warm-gray',
+            terminated: 'bx--tag--red',
+            timed_out: 'bx--tag--red',
+            error: 'bx--tag--red',
+        };
+        const TERMINAL = new Set(['completed', 'failed', 'canceled', 'terminated', 'timed_out', 'error']);
+        const POLL_INTERVAL = 15000;
+        const workflowId = '{{ tracked_workflow_id }}';
+        let timer = null;
+        let pollCount = 0;
+
+        function formatTime(iso) {
+            if (!iso) return '--';
+            const d = new Date(iso);
+            return d.toLocaleString();
+        }
+
+        function updatePollMessage(extra) {
+            const now = new Date().toLocaleTimeString();
+            const msg = document.getElementById('wf-poll-message');
+            if (extra) {
+                msg.textContent = extra;
+            } else {
+                msg.textContent = 'Check #' + pollCount + ' at ' + now + '  ·  next check in 15s';
+            }
+        }
+
+        async function pollStatus() {
+            pollCount++;
+            const msg = document.getElementById('wf-poll-message');
+            msg.textContent = 'Checking... (#' + pollCount + ')';
+            try {
+                const resp = await fetch('/admin/workflows/' + encodeURIComponent(workflowId) + '/status');
+                if (!resp.ok) {
+                    document.getElementById('wf-status').textContent = 'fetch error';
+                    updatePollMessage();
+                    return;
+                }
+                const data = await resp.json();
+                const statusEl = document.getElementById('wf-status');
+                const st = data.status || 'unknown';
+                statusEl.textContent = st;
+                statusEl.className = 'bx--tag ' + (STATUS_TAG_CLASS[st] || 'bx--tag--warm-gray');
+
+                const info = data.execution_info || {};
+                document.getElementById('wf-start-time').textContent = formatTime(info.start_time);
+                document.getElementById('wf-close-time').textContent = formatTime(info.close_time);
+                document.getElementById('wf-run-id').textContent = info.run_id || '--';
+
+                if (TERMINAL.has(st)) {
+                    clearInterval(timer);
+                    updatePollMessage('Workflow finished (' + st + ') after ' + pollCount + ' checks.');
+                } else {
+                    updatePollMessage();
+                }
+            } catch (e) {
+                console.error('Status poll failed:', e);
+                updatePollMessage('Poll failed — retrying in 15s (check #' + pollCount + ')');
+            }
+        }
+
+        pollStatus();
+        timer = setInterval(pollStatus, POLL_INTERVAL);
+    })();
+    {% endif %}
+
     // Timestamp form handling
     const timestampForm = document.getElementById('timestamp-form');
     const timestampDateInput = document.getElementById('timestamp_date');
