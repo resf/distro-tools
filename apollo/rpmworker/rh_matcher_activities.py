@@ -682,7 +682,13 @@ async def process_repomd(
         # becomes the package stripped of any module information
         # and with the nvra prepended with 'module.'
         cleaned, raw = repomd.clean_nvra_pkg(pkg)
-        name = repomd.NVRA_RE.search(cleaned).group(1)
+        match = repomd.NVRA_RE.search(cleaned)
+        if not match:
+            logger.warning(
+                "Skipping package with unrecognized NVRA: %s", cleaned
+            )
+            continue
+        name = match.group(1)
 
         if cleaned not in raw_pkg_nvras:
             raw_pkg_nvras[cleaned] = []
