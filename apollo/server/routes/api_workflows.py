@@ -4,6 +4,8 @@ API routes for workflow management
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 
+from temporalio.client import RPCError
+
 from apollo.server.models.workflow import (
     ProductListResponse, ProductInfo, WorkflowTriggerRequest,
     WorkflowTriggerResponse, WorkflowStatusResponse, WorkflowListResponse
@@ -51,40 +53,53 @@ async def trigger_rh_matcher_workflow(
     """
     try:
         service = WorkflowService()
-        workflow_id = await service.trigger_rh_matcher_workflow(request.major_versions)
-        
+        workflow_id = await service.trigger_rh_matcher_workflow(
+            request.major_versions,
+        )
+
         logger = Logger()
-        logger.info(f"User {user.email} triggered RhMatcherWorkflow {workflow_id} with major_versions: {request.major_versions}")
-        
+        logger.info(
+            f"User {user.email} triggered RhMatcherWorkflow "
+            f"{workflow_id} with major_versions: {request.major_versions}"
+        )
+
         return WorkflowTriggerResponse(
             workflow_id=workflow_id,
             status="started",
             message="RhMatcherWorkflow triggered successfully",
-            filtered_major_versions=request.major_versions
+            filtered_major_versions=request.major_versions,
         )
-        
-    except ValueError as e:
-        # Handle validation errors (invalid major versions)
+
+    except RPCError as e:
+        if "already running" in str(e).lower():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A workflow for this version is already running",
+            )
         logger = Logger()
-        logger.error(f"Validation error triggering workflow: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except RuntimeError as e:
-        # Handle Temporal client errors
-        logger = Logger()
-        logger.error(f"Runtime error triggering workflow: {str(e)}")
+        logger.error(f"Temporal RPC error triggering workflow: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Workflow service unavailable"
+            detail="Workflow service unavailable",
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except RuntimeError as e:
+        logger = Logger()
+        logger.error(f"Runtime error triggering workflow: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Workflow service unavailable",
         )
     except Exception as e:
         logger = Logger()
-        logger.error(f"Error triggering workflow: {str(e)}")
+        logger.error(f"Error triggering workflow: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to trigger workflow"
+            detail="Failed to trigger workflow",
         )
 
 
