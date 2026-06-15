@@ -12,6 +12,7 @@ from slugify import slugify
 from apollo.db import Advisory, RedHatIndexState
 from apollo.db.advisory import fetch_advisories
 from apollo.rpmworker.repomd import EPOCH_RE, NEVRA_RE
+from apollo.server import attribution
 from apollo.server.settings import UI_URL, get_setting
 
 from common.fastapi import Params, to_rfc3339_date
@@ -85,7 +86,9 @@ class OSVCredit(BaseModel):
 
 
 class OSVDatabaseSpecific(BaseModel):
-    pass
+    license: Optional[str] = None
+    license_url: Optional[str] = None
+    source_advisory: Optional[str] = None
 
 
 class OSVAdvisory(BaseModel):
@@ -194,8 +197,21 @@ def to_osv_advisory(ui_url: str, advisory: Advisory) -> OSVAdvisory:
         references.append(OSVReference(type="REPORT", url=fix.source))
 
     osv_credits = [OSVCredit(name=x) for x in vendors]
-    if advisory.red_hat_advisory:
-        osv_credits.append(OSVCredit(name="Red Hat"))
+    database_specific = None
+    red_hat_advisory = advisory.red_hat_advisory
+    if red_hat_advisory:
+        references.append(
+            OSVReference(
+                type="ADVISORY",
+                url=attribution.red_hat_errata_url(red_hat_advisory.name),
+            )
+        )
+        osv_credits.append(OSVCredit(name=attribution.SOURCE_VENDOR))
+        database_specific = OSVDatabaseSpecific(
+            license=attribution.SOURCE_LICENSE,
+            license_url=attribution.SOURCE_LICENSE_URL,
+            source_advisory=red_hat_advisory.name,
+        )
 
     highest_cvss_base_score = 0.0
     final_score_vector = None
@@ -225,7 +241,7 @@ def to_osv_advisory(ui_url: str, advisory: Advisory) -> OSVAdvisory:
         affected=affected_pkgs,
         references=references,
         credits=osv_credits,
-        database_specific=None,
+        database_specific=database_specific,
     )
 
 
@@ -280,6 +296,7 @@ async def get_advisory_osv(advisory_id: str):
     advisory = (
         await Advisory.filter(name=advisory_id)
         .prefetch_related(
+            "red_hat_advisory",
             "packages",
             "cves",
             "fixes",

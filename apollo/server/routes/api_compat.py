@@ -19,7 +19,8 @@ from rssgen.feed import RssGenerator
 
 from apollo.db import Advisory, RedHatIndexState
 from apollo.db.advisory import fetch_advisories
-from apollo.db.serialize import Advisory_Pydantic_V2, Advisory_Pydantic_V2_CVE, Advisory_Pydantic_V2_Fix, Advisory_Pydantic_V2_RPMs
+from apollo.db.serialize import Advisory_Pydantic_V2, Advisory_Pydantic_V2_CVE, Advisory_Pydantic_V2_Fix, Advisory_Pydantic_V2_RPMs, Advisory_Pydantic_V2_Source
+from apollo.server import attribution
 from apollo.server.settings import UI_URL, COMPANY_NAME, MANAGING_EDITOR, get_setting
 
 from common.fastapi import RenderErrorTemplateException, parse_rfc3339_date
@@ -137,6 +138,12 @@ def v3_advisory_to_v2(
     if severity == "NONE":
         severity = "UNKNOWN"
 
+    source = None
+    if fetch_related and advisory.red_hat_advisory_id:
+        source = Advisory_Pydantic_V2_Source(
+            **attribution.source_fields(advisory.red_hat_advisory.name)
+        )
+
     return Advisory_Pydantic_V2(
         id=advisory.id,
         publishedAt=published_at,
@@ -155,6 +162,7 @@ def v3_advisory_to_v2(
         buildReferences=[],
         fixes=fixes,
         cves=cves,
+        source=source,
     )
 
 
@@ -307,7 +315,9 @@ async def list_advisories_compat_v2_rss(
     fg.language("en")
     fg.description(f"Advisories issued by {company_name}")
     fg.copyright(
-        f"(C) {company_name} {datetime.datetime.now().year}. All rights reserved. CVE sources are copyright of their respective owners."
+        f"(C) {company_name} {datetime.datetime.now().year}. All rights reserved. "
+        f"CVE sources are copyright of their respective owners. "
+        f"{attribution.attribution_notice()}"
     )
     fg.managingEditor(f"{managing_editor} ({company_name})")
 
@@ -332,6 +342,7 @@ async def list_advisories_compat_v2_rss(
 )
 async def get_advisory_compat_v2(advisory_name: str):
     advisory = await Advisory.filter(name=advisory_name).prefetch_related(
+        "red_hat_advisory",
         "packages",
         "cves",
         "fixes",

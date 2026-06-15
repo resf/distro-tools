@@ -88,6 +88,23 @@ py_test(
 )
 
 py_test(
+    name = "test_api_compat",
+    srcs = ["test_api_compat.py"],
+    deps = [
+        "//apollo/server:server_lib",
+    ],
+)
+
+py_test(
+    name = "test_api_advisories",
+    srcs = ["test_api_advisories.py"],
+    deps = [
+        "//apollo/server:server_lib",
+        "@pypi_httpx//:pkg",
+    ],
+)
+
+py_test(
     name = "test_database_service",
     srcs = ["test_database_service.py"],
     deps = [

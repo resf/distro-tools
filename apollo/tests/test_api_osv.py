@@ -63,6 +63,13 @@ class MockFix:
         self.source = source
 
 
+class MockRedHatAdvisory:
+    """Mock RedHatAdvisory model (the source advisory)"""
+
+    def __init__(self, name="RHSA-2024:1234"):
+        self.name = name
+
+
 class MockAdvisory:
     """Mock Advisory model"""
 
@@ -242,6 +249,54 @@ class TestOSVCVEFiltering(unittest.TestCase):
 
         fixed_version = result.affected[0].ranges[0].events[1].fixed
         self.assertEqual(fixed_version, "0:252-38.el9_5")
+
+
+class TestOSVAttribution(unittest.TestCase):
+    """Test Red Hat source attribution and CC BY 4.0 license in OSV output"""
+
+    def _advisory(self, red_hat_advisory):
+        packages = [
+            MockPackage(
+                nevra="pcs-0:0.11.8-2.el9_5.src",
+                supported_products_rh_mirror=MockSupportedProductsRhMirror(9),
+            ),
+        ]
+        return MockAdvisory(
+            packages=packages,
+            cves=[MockCVE()],
+            red_hat_advisory=red_hat_advisory,
+        )
+
+    def test_red_hat_source_reference_and_license(self):
+        """Output references the source RHSA and records the CC BY 4.0 license"""
+        advisory = self._advisory(MockRedHatAdvisory("RHSA-2024:1234"))
+        result = to_osv_advisory("https://errata.rockylinux.org", advisory)
+
+        urls = [r.url for r in result.references if r.type == "ADVISORY"]
+        self.assertIn("https://access.redhat.com/errata/RHSA-2024:1234", urls)
+
+        self.assertIsNotNone(result.database_specific)
+        self.assertEqual(result.database_specific.license, "CC-BY-4.0")
+        self.assertEqual(
+            result.database_specific.license_url,
+            "https://creativecommons.org/licenses/by/4.0/",
+        )
+        self.assertEqual(
+            result.database_specific.source_advisory, "RHSA-2024:1234"
+        )
+
+        self.assertIn("Red Hat", [c.name for c in result.credits])
+
+    def test_no_red_hat_source_omits_attribution(self):
+        """Advisories with no Red Hat source emit no source ref or license block"""
+        result = to_osv_advisory(
+            "https://errata.rockylinux.org", self._advisory(None)
+        )
+
+        self.assertIsNone(result.database_specific)
+        rh_urls = [r.url for r in result.references if "access.redhat.com" in r.url]
+        self.assertEqual(rh_urls, [])
+        self.assertNotIn("Red Hat", [c.name for c in result.credits])
 
 
 if __name__ == "__main__":

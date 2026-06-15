@@ -8,6 +8,7 @@ from slugify import slugify
 from apollo.db import AdvisoryAffectedProduct, AdvisoryPackage, SupportedProduct
 from tortoise.exceptions import DoesNotExist
 from tortoise.queryset import Prefetch
+from apollo.server import attribution
 from apollo.server.settings import COMPANY_NAME, MANAGING_EDITOR, UI_URL, get_setting
 from apollo.server.validation import Architecture
 
@@ -151,9 +152,13 @@ def generate_updateinfo_xml(
         updated.set("date", advisory.updated_at.strftime(time_format))
 
         now = datetime.datetime.utcnow()
-        ET.SubElement(
-            update, "rights"
-        ).text = f"Copyright {now.year} {company_name}"
+        if advisory.red_hat_advisory_id:
+            rights_text = attribution.attribution_rights(
+                advisory.red_hat_advisory.name, company_name, now.year
+            )
+        else:
+            rights_text = f"Copyright {now.year} {company_name}"
+        ET.SubElement(update, "rights").text = rights_text
 
         release_name = f"{supported_product_name} {major_version}"
         if minor_version:
@@ -189,6 +194,20 @@ def generate_updateinfo_xml(
         reference.set("id", advisory.name)
         reference.set("type", "self")
         reference.set("title", advisory.name)
+
+        if advisory.red_hat_advisory_id:
+            rh_name = advisory.red_hat_advisory.name
+            source_ref = ET.SubElement(references, "reference")
+            source_ref.set("href", attribution.red_hat_errata_url(rh_name))
+            source_ref.set("id", rh_name)
+            source_ref.set("type", "vendor")
+            source_ref.set("title", f"{attribution.SOURCE_VENDOR} {rh_name}")
+
+            license_ref = ET.SubElement(references, "reference")
+            license_ref.set("href", attribution.SOURCE_LICENSE_URL)
+            license_ref.set("id", attribution.SOURCE_LICENSE)
+            license_ref.set("type", "other")
+            license_ref.set("title", f"License: {attribution.SOURCE_LICENSE}")
 
         packages_element = ET.SubElement(update, "pkglist")
 
@@ -353,6 +372,7 @@ async def get_updateinfo(
         **filters
     ).prefetch_related(
         "advisory",
+        "advisory__red_hat_advisory",
         "advisory__cves",
         "advisory__fixes",
         "advisory__packages",
@@ -450,6 +470,7 @@ async def get_updateinfo_v2(
         **filters
     ).prefetch_related(
         "advisory",
+        "advisory__red_hat_advisory",
         "advisory__cves",
         "advisory__fixes",
         Prefetch(
