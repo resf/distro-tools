@@ -35,6 +35,14 @@
     </h5>
     <h5 style="font-weight:500">Updated at: <span style="font-weight:400;">{{ advisory.updated_at.date() }}</span></h5>
   </div>
+  {% if advisory.red_hat_advisory_id %}
+  <p style="padding-top:0.5rem;font-size:var(--cds-body-short-01-font-size);color:var(--cds-text-02);">
+    Advisory content derived from
+    <a target="_blank" href="{{ attribution.red_hat_errata_url(advisory.red_hat_advisory.name) }}">{{ attribution.SOURCE_VENDOR }} {{ advisory.red_hat_advisory.name }}</a>,
+    &copy; {{ attribution.SOURCE_VENDOR }}, Inc., used under
+    <a target="_blank" href="{{ attribution.SOURCE_LICENSE_URL }}">{{ attribution.LICENSE_NAME }}</a>, with modifications.
+  </p>
+  {% endif %}
 </div>
 
 <div class="bx--grid bx--grid--full-width" style="margin:3rem 0;">

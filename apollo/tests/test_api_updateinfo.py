@@ -50,7 +50,8 @@ def create_mock_advisory(packages, name="RLSA-2024:0001",
                         synopsis="Important: kernel security update",
                         description="An update for kernel is now available.",
                         kind="Security", severity="Important",
-                        topic="An update is available"):
+                        topic="An update is available",
+                        red_hat_advisory_name="RHSA-2024:0001"):
     """Create a mock advisory with packages"""
     advisory = Mock()
     advisory.name = name
@@ -64,6 +65,14 @@ def create_mock_advisory(packages, name="RLSA-2024:0001",
     advisory.packages = packages
     advisory.cves = []
     advisory.fixes = []
+    if red_hat_advisory_name:
+        red_hat_advisory = Mock()
+        red_hat_advisory.name = red_hat_advisory_name
+        advisory.red_hat_advisory = red_hat_advisory
+        advisory.red_hat_advisory_id = 1
+    else:
+        advisory.red_hat_advisory = None
+        advisory.red_hat_advisory_id = None
     return advisory
 
 
@@ -569,6 +578,73 @@ class TestUpdateinfoEndpoints(unittest.TestCase):
         mock_aap.filter.assert_called_once()
         call_args = mock_aap.filter.call_args[1]
         self.assertEqual(call_args["minor_version"], 6)
+
+
+class TestUpdateinfoAttribution(unittest.TestCase):
+    """Test CC BY 4.0 attribution in generated updateinfo.xml"""
+
+    def _generate_tree(self, advisory):
+        affected_product = create_mock_affected_product(advisory)
+        xml_str = generate_updateinfo_xml(
+            affected_products=[affected_product],
+            repo_name="BaseOS",
+            product_arch="x86_64",
+            ui_url="https://errata.rockylinux.org",
+            managing_editor="editor@rockylinux.org",
+            company_name="Rocky Enterprise Software Foundation",
+            supported_product_id=1,
+            product_name_for_packages="Rocky Linux",
+        )
+        return ET.fromstring(xml_str)
+
+    def _advisory_with_pkgs(self, red_hat_advisory_name="RHSA-2024:0001"):
+        packages = [
+            create_mock_package("kernel-4.18.0-425.el8.src.rpm", "kernel", "BaseOS", 1),
+            create_mock_package("kernel-4.18.0-425.el8.x86_64.rpm", "kernel", "BaseOS", 1),
+        ]
+        return create_mock_advisory(
+            packages, red_hat_advisory_name=red_hat_advisory_name
+        )
+
+    def test_rights_includes_red_hat_attribution(self):
+        """<rights> credits the Red Hat source and links the CC BY 4.0 license"""
+        tree = self._generate_tree(self._advisory_with_pkgs())
+        rights = tree.find(".//rights").text
+        self.assertIn("RHSA-2024:0001", rights)
+        self.assertIn("CC BY 4.0", rights)
+        self.assertIn("creativecommons.org/licenses/by/4.0", rights)
+        self.assertIn("with modifications", rights)
+        self.assertIn("©", rights)
+        self.assertNotIn("modified by", rights)
+
+    def test_source_and_license_references_present(self):
+        """A vendor reference to the RHSA and a license reference are emitted"""
+        tree = self._generate_tree(self._advisory_with_pkgs())
+
+        vendor_ref = tree.find(".//reference[@type='vendor']")
+        self.assertIsNotNone(vendor_ref)
+        self.assertEqual(
+            vendor_ref.get("href"),
+            "https://access.redhat.com/errata/RHSA-2024:0001",
+        )
+        self.assertEqual(vendor_ref.get("id"), "RHSA-2024:0001")
+
+        license_ref = tree.find(".//reference[@id='CC-BY-4.0']")
+        self.assertIsNotNone(license_ref)
+        self.assertEqual(
+            license_ref.get("href"),
+            "https://creativecommons.org/licenses/by/4.0/",
+        )
+
+    def test_without_red_hat_source_falls_back_to_plain_copyright(self):
+        """Advisories with no Red Hat source keep a plain copyright and no source refs"""
+        tree = self._generate_tree(
+            self._advisory_with_pkgs(red_hat_advisory_name=None)
+        )
+        rights = tree.find(".//rights").text
+        self.assertIn("Copyright", rights)
+        self.assertNotIn("CC BY 4.0", rights)
+        self.assertIsNone(tree.find(".//reference[@type='vendor']"))
 
 
 if __name__ == "__main__":

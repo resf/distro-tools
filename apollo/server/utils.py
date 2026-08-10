@@ -4,6 +4,7 @@ from passlib.context import CryptContext
 import os
 
 from apollo.db import User
+from apollo.server import attribution
 from apollo.server.roles import ADMIN
 
 from common.fastapi import RenderErrorTemplateException
@@ -27,6 +28,7 @@ def get_environment_info():
     }
 
 templates.env.globals["get_environment_info"] = get_environment_info
+templates.env.globals["attribution"] = attribution
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

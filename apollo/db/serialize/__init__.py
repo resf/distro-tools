@@ -85,6 +85,14 @@ class Advisory_Pydantic_V2_CVE(BaseModel):
     cwe: Optional[str]
 
 
+class Advisory_Pydantic_V2_Source(BaseModel):
+    name: str
+    url: str
+    vendor: str
+    license: str
+    licenseUrl: str
+
+
 class Advisory_Pydantic_V2(BaseModel):
     type: str
     shortCode: str
@@ -102,6 +110,11 @@ class Advisory_Pydantic_V2(BaseModel):
     rpms: dict[str, Advisory_Pydantic_V2_RPMs]
     rebootSuggested: bool
     buildReferences: list[str]
+    source: Optional[Advisory_Pydantic_V2_Source] = None
 
     class Config:
         orm_mode = True
+
+
+class Advisory_Pydantic_WithSource(Advisory_Pydantic):
+    source: Optional[Advisory_Pydantic_V2_Source] = None

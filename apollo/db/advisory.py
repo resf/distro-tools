@@ -124,6 +124,7 @@ async def fetch_advisories(
     if fetch_related:
         for advisory in advisories:
             await advisory.fetch_related(
+                "red_hat_advisory",
                 "packages",
                 "cves",
                 "fixes",
