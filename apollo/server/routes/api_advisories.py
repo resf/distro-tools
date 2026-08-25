@@ -1,3 +1,4 @@
+import datetime
 from typing import TypeVar, Generic, Optional
 
 from fastapi import APIRouter, Depends
@@ -7,12 +8,14 @@ from fastapi_pagination.links import Page
 from fastapi_pagination.ext.tortoise import create_page
 
 from apollo.db import Advisory, RedHatIndexState
+from apollo.db.advisory import fetch_advisories
 from apollo.db.serialize import (
     Advisory_Pydantic,
     Advisory_Pydantic_V2_Source,
     Advisory_Pydantic_WithSource,
 )
 from apollo.server import attribution
+from common.fastapi import parse_rfc3339_date
 
 router = APIRouter(tags=["advisories"])
 
@@ -42,6 +45,16 @@ async def _advisory_with_source(advisory: Advisory) -> Advisory_Pydantic_WithSou
     )
 
 
+def _parse_list_date(raw: Optional[str], field: str) -> Optional[datetime.datetime]:
+    """Parse before_raw/after_raw. Invalid values are 400, matching v2 compat."""
+    if raw is None:
+        return None
+    parsed = parse_rfc3339_date(raw)
+    if parsed is None:
+        raise HTTPException(status_code=400, detail=f"Invalid {field} date")
+    return parsed
+
+
 @router.get(
     "/",
     response_model=Pagination[Advisory_Pydantic_WithSource],
@@ -57,24 +70,34 @@ async def list_advisories(
     severity: Optional[str] = None,
     kind: Optional[str] = None,
 ):
-    query = Advisory.all().prefetch_related(
-        "red_hat_advisory",
-        "packages",
-        "cves",
-        "fixes",
-        "affected_products",
-    ).order_by("-published_at")
+    before = _parse_list_date(before_raw, "before")
+    after = _parse_list_date(after_raw, "after")
 
-    total = await query.count()
-    page_orm = await query.offset(params.size * (params.page - 1)).limit(params.size)
+    # Honor cve/keyword/product/etc. The previous Advisory.all() path ignored
+    # every filter query param (distro-tools#38). OSV already uses this helper,
+    # which also omits unpublished rows (published_at IS NOT NULL).
+    total, page_orm = await fetch_advisories(
+        params.size,
+        params.size * (params.page - 1),
+        keyword,
+        product,
+        before,
+        after,
+        cve,
+        synopsis,
+        severity,
+        kind,
+        fetch_related=True,
+    )
     items = [await _advisory_with_source(adv) for adv in page_orm]
     advisories = create_page(items, total, params)
 
     state = await RedHatIndexState.first()
-    advisories.last_updated_at = state.last_indexed_at.isoformat("T").replace(
-        "+00:00",
-        "",
-    ) + "Z"
+    if state and state.last_indexed_at:
+        advisories.last_updated_at = state.last_indexed_at.isoformat("T").replace(
+            "+00:00",
+            "",
+        ) + "Z"
 
     return advisories
 
