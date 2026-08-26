@@ -221,6 +221,9 @@ class TestRedHatAdvisoryScraper(unittest.TestCase):
         self.assertIn("123456", result["red_hat_bugzilla_list"])
         self.assertNotIn("CVE-2025-1234", result["red_hat_bugzilla_list"])
         self.assertNotIn("https://example.com/1", result["red_hat_bugzilla_list"])
+        self.assertFalse(
+            any(not bugzilla_id.strip() for bugzilla_id in result["red_hat_bugzilla_list"])
+        )
 
     def test_bugfix_advisory(self):
         """Test parsing a bug fix advisory"""
