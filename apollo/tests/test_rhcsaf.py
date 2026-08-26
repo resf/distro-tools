@@ -161,6 +161,41 @@ class TestRedHatAdvisoryScraper(unittest.TestCase):
             result["red_hat_affected_products"]
         )
 
+    def test_preserves_jira_and_bugzilla_document_references(self):
+        """CSAF document.references Jira keys must be kept as fix tickets (distro-tools#84)."""
+        from apollo.rhcsaf import fix_source_url
+
+        self.sample_csaf["document"]["references"] = [
+            {
+                "category": "external",
+                "summary": "2450505",
+                "url": "https://bugzilla.redhat.com/show_bug.cgi?id=2450505",
+            },
+            {
+                "category": "external",
+                "summary": "RHEL-154262",
+                "url": "https://issues.redhat.com/browse/RHEL-154262",
+            },
+            {
+                "category": "self",
+                "summary": "Canonical URL",
+                "url": "https://security.access.redhat.com/data/csaf/v2/advisories/2026/rhsa-2026_19213.json",
+            },
+        ]
+        # vulnerability already has Bugzilla 123456 via ids[]
+        result = red_hat_advisory_scraper(self.sample_csaf)
+        self.assertIn("123456", result["red_hat_bugzilla_list"])
+        self.assertIn("2450505", result["red_hat_bugzilla_list"])
+        self.assertIn("RHEL-154262", result["red_hat_bugzilla_list"])
+        self.assertEqual(
+            fix_source_url("RHEL-154262"),
+            "https://issues.redhat.com/browse/RHEL-154262",
+        )
+        self.assertEqual(
+            fix_source_url("2450505"),
+            "https://bugzilla.redhat.com/show_bug.cgi?id=2450505",
+        )
+
     def test_bugfix_advisory(self):
         """Test parsing a bug fix advisory"""
         self.sample_csaf["document"]["tracking"]["id"] = "RHBA-2025:1234"
