@@ -86,7 +86,9 @@ def _collect_fix_ticket_ids(csaf: dict) -> set:
     for vulnerability in csaf.get("vulnerabilities") or []:
         for bug_id in vulnerability.get("ids") or []:
             if bug_id.get("system_name") == "Red Hat Bugzilla ID" and bug_id.get("text"):
-                tickets.add(str(bug_id["text"]))
+                ticket = str(bug_id["text"]).strip()
+                if _BUGZILLA_ID_RE.match(ticket):
+                    tickets.add(ticket)
         for ref in vulnerability.get("references") or []:
             ticket = _ticket_id_from_reference(ref.get("summary"), ref.get("url"))
             if ticket:

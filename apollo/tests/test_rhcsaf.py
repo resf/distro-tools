@@ -209,6 +209,19 @@ class TestRedHatAdvisoryScraper(unittest.TestCase):
         self.assertEqual(fix_source_url("not-a-ticket"), "")
         self.assertEqual(fix_source_url("CVE-2024-1234"), "")
 
+    def test_ignores_nonnumeric_bugzilla_ids(self):
+        """vulnerability.ids labeled Bugzilla must still be numeric (CodeRabbit)."""
+        self.sample_csaf["vulnerabilities"][0]["ids"] = [
+            {"system_name": "Red Hat Bugzilla ID", "text": "123456"},
+            {"system_name": "Red Hat Bugzilla ID", "text": "CVE-2025-1234"},
+            {"system_name": "Red Hat Bugzilla ID", "text": "https://example.com/1"},
+            {"system_name": "Red Hat Bugzilla ID", "text": "  "},
+        ]
+        result = red_hat_advisory_scraper(self.sample_csaf)
+        self.assertIn("123456", result["red_hat_bugzilla_list"])
+        self.assertNotIn("CVE-2025-1234", result["red_hat_bugzilla_list"])
+        self.assertNotIn("https://example.com/1", result["red_hat_bugzilla_list"])
+
     def test_bugfix_advisory(self):
         """Test parsing a bug fix advisory"""
         self.sample_csaf["document"]["tracking"]["id"] = "RHBA-2025:1234"
