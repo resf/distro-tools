@@ -16,6 +16,84 @@ from common.logger import Logger
 RHEL_CONTAINER_RE = re.compile(r"rhel(?:\d|)\/")
 
 
+def _normalize_module_nevra_key(nevra_key: str) -> str:
+    return nevra_key.replace(".rocky", "")
+
+
+def _lookup_module_pkgs(module_pkgs: dict, nevra_key: str):
+    if nevra_key in module_pkgs:
+        return module_pkgs[nevra_key]
+    normalized = _normalize_module_nevra_key(nevra_key)
+    return module_pkgs.get(normalized)
+
+
+def _module_fields_from_yaml(module_pkgs: dict, nevra_key: str):
+    data = _lookup_module_pkgs(module_pkgs, nevra_key)
+    if not data:
+        return None, None, None, None
+    return data[0], data[1], data[2], data[3]
+
+
+def _enrich_module_version_from_yaml(module_pkgs, module_name, module_stream, module_version, module_context):
+    if module_version and module_context:
+        return module_version, module_context
+    if not module_name or not module_stream:
+        return module_version, module_context
+    for data in module_pkgs.values():
+        if data[0] == module_name and data[1] == module_stream:
+            return data[2], data[3]
+    return module_version, module_context
+
+
+def _rh_modules_by_cleaned_nevra(advisory) -> dict:
+    rh_modules = {}
+    for advisory_pkg in advisory.packages:
+        if not advisory_pkg.module_name:
+            continue
+        cleaned, _ = repomd.clean_nvra(advisory_pkg.nevra)
+        rh_modules[cleaned] = {
+            "module_name": advisory_pkg.module_name,
+            "module_stream": advisory_pkg.module_stream,
+            "module_version": advisory_pkg.module_version,
+            "module_context": advisory_pkg.module_context,
+        }
+    return rh_modules
+
+
+def _resolve_modular_package_fields(
+    release: str,
+    nevra: str,
+    cleaned_rh_nvra: str,
+    module_pkgs: dict,
+    rh_modules_by_cleaned: dict,
+):
+    module_context = None
+    module_name = None
+    module_stream = None
+    module_version = None
+    if ".module+" not in release:
+        return module_name, module_stream, module_version, module_context
+
+    module_name, module_stream, module_version, module_context = _module_fields_from_yaml(
+        module_pkgs, nevra.removesuffix(".rpm")
+    )
+    if not module_name:
+        rh = rh_modules_by_cleaned.get(cleaned_rh_nvra)
+        if rh:
+            module_name = rh["module_name"]
+            module_stream = rh["module_stream"]
+            module_version = rh.get("module_version")
+            module_context = rh.get("module_context")
+    module_version, module_context = _enrich_module_version_from_yaml(
+        module_pkgs,
+        module_name,
+        module_stream,
+        module_version,
+        module_context,
+    )
+    return module_name, module_stream, module_version, module_context
+
+
 @dataclass
 class NewPackage:
     nevra: str
@@ -106,6 +184,20 @@ async def create_or_update_advisory_packages(
             advisory.name,
         )
         await AdvisoryPackage.filter(id__in=ids).update(product_name=product_name)
+
+    # Fill missing module fields on existing packages (do not overwrite resolved streams)
+    for pkg in packages:
+        existing = existing_by_nevra.get(pkg.nevra)
+        if not existing or existing.module_name:
+            continue
+        if not pkg.module_name:
+            continue
+        await AdvisoryPackage.filter(id=existing.id).update(
+            module_name=pkg.module_name,
+            module_stream=pkg.module_stream,
+            module_version=pkg.module_version,
+            module_context=pkg.module_context,
+        )
 
     # Remove packages not in the new list if updating
     if update_advisory:
@@ -501,7 +593,9 @@ async def clone_advisory(
 
         # Clone packages
         new_pkgs = []
-        for advisory_nvra, _ in clean_advisory_nvras.items():
+        rh_modules_by_cleaned = _rh_modules_by_cleaned_nevra(advisory)
+        for cleaned_rh_nvra, _ in clean_advisory_nvras.items():
+            advisory_nvra = cleaned_rh_nvra
             if advisory_nvra not in pkg_nvras:
                 if advisory_nvra in nvra_alias:
                     advisory_nvra = nvra_alias[advisory_nvra]
@@ -553,18 +647,13 @@ async def clone_advisory(
                 checksum = checksum_tree.text
                 checksum_type = checksum_tree.attrib["type"]
 
-                module_context = None
-                module_name = None
-                module_stream = None
-                module_version = None
-
-                if ".module+" in release:
-                    for module_pkg, data in module_pkgs.items():
-                        if module_pkg == nevra.removesuffix(".rpm"):
-                            module_name = data[0]
-                            module_stream = data[1]
-                            module_version = data[2]
-                            module_context = data[3]
+                module_name, module_stream, module_version, module_context = _resolve_modular_package_fields(
+                    release,
+                    nevra,
+                    cleaned_rh_nvra,
+                    module_pkgs,
+                    rh_modules_by_cleaned,
+                )
 
                 for mirror in mirrors:
                     if pkg.attrib["mirror_id"] != str(mirror.id):
@@ -706,6 +795,9 @@ async def process_repomd(
                         data.get("version"),
                         data.get("context"),
                     )
+                    normalized = _normalize_module_nevra_key(nevra)
+                    if normalized != nevra:
+                        module_packages[normalized] = module_packages[nevra]
 
     ret = {}
     raw_pkg_nvras = {}
