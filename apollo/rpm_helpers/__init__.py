@@ -114,3 +114,100 @@ def parse_nevra(nevra_str: str) -> dict:
         "dist_major": major,
         "dist_minor": minor,
     }
+
+
+def rpmvercmp(a: str, b: str) -> int:
+    """
+    Compare two RPM version or release strings (rpmvercmp semantics).
+
+    Returns -1 if a < b, 0 if equal, 1 if a > b.
+    """
+    if a == b:
+        return 0
+
+    def _is_alnum(c: str) -> bool:
+        return c.isalnum()
+
+    i = j = 0
+    la, lb = len(a), len(b)
+    while i < la or j < lb:
+        while i < la and not _is_alnum(a[i]):
+            i += 1
+        while j < lb and not _is_alnum(b[j]):
+            j += 1
+
+        if i >= la and j >= lb:
+            return 0
+        if i >= la:
+            return -1
+        if j >= lb:
+            return 1
+
+        # Numeric segment vs alpha segment: numbers win (RPM rule).
+        a_is_num = a[i].isdigit()
+        b_is_num = b[j].isdigit()
+        if a_is_num and not b_is_num:
+            return 1
+        if not a_is_num and b_is_num:
+            return -1
+
+        start_i, start_j = i, j
+        if a_is_num:
+            while i < la and a[i].isdigit():
+                i += 1
+            while j < lb and b[j].isdigit():
+                j += 1
+            seg_a = a[start_i:i].lstrip("0") or "0"
+            seg_b = b[start_j:j].lstrip("0") or "0"
+            if len(seg_a) != len(seg_b):
+                return 1 if len(seg_a) > len(seg_b) else -1
+            if seg_a != seg_b:
+                return 1 if seg_a > seg_b else -1
+        else:
+            while i < la and a[i].isalpha():
+                i += 1
+            while j < lb and b[j].isalpha():
+                j += 1
+            seg_a = a[start_i:i]
+            seg_b = b[start_j:j]
+            if seg_a != seg_b:
+                return 1 if seg_a > seg_b else -1
+
+    return 0
+
+
+def label_compare(
+    e1: str | int,
+    v1: str,
+    r1: str,
+    e2: str | int,
+    v2: str,
+    r2: str,
+) -> int:
+    """
+    Compare two EVR labels (epoch, version, release).
+
+    Returns -1 if first < second, 0 if equal, 1 if first > second.
+    """
+    epoch1 = int(e1 or 0)
+    epoch2 = int(e2 or 0)
+    if epoch1 != epoch2:
+        return 1 if epoch1 > epoch2 else -1
+
+    ver_cmp = rpmvercmp(str(v1), str(v2))
+    if ver_cmp != 0:
+        return ver_cmp
+
+    return rpmvercmp(str(r1), str(r2))
+
+
+def evr_gte(
+    e1: str | int,
+    v1: str,
+    r1: str,
+    e2: str | int,
+    v2: str,
+    r2: str,
+) -> bool:
+    """True if (e1,v1,r1) >= (e2,v2,r2) under RPM labelCompare rules."""
+    return label_compare(e1, v1, r1, e2, v2, r2) >= 0

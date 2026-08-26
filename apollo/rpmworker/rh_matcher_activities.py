@@ -9,6 +9,7 @@ from tortoise.transactions import in_transaction
 from apollo.db import SupportedProduct, SupportedProductsRhMirror, SupportedProductsRpmRepomd, SupportedProductsRpmRhOverride, SupportedProductsRhBlock
 from apollo.db import RedHatAdvisory, Advisory, AdvisoryAffectedProduct, AdvisoryCVE, AdvisoryFix, AdvisoryPackage
 from apollo.rpmworker import repomd
+from apollo.rpmworker.nvra_match import find_nvra_alias
 from apollo.rpm_helpers import parse_nevra
 
 from common.logger import Logger
@@ -374,7 +375,7 @@ async def clone_advisory(
             continue
         cleaned, raw = repomd.clean_nvra(advisory_pkg.nevra)
         if cleaned not in clean_advisory_nvras:
-            clean_advisory_nvras[cleaned] = True
+            clean_advisory_nvras[cleaned] = advisory_pkg.nevra
 
     if not clean_advisory_nvras:
         logger.info(
@@ -412,23 +413,20 @@ async def clone_advisory(
                 pkg_name_map[name] = []
             pkg_name_map[name].append(cleaned)
 
-    nvra_alias = {} # Mapping of advisory nvra to pkg nvra where the pkg nvra comes from the pkg_name_map, however this only will get the first match and will ignore all others.
-    for advisory_nvra, _ in clean_advisory_nvras.items():
+    # Alias advisory NVRA → repo NVRA via .rocky prefix or EVR >=
+    nvra_alias = {}
+    for advisory_nvra, advisory_nevra in clean_advisory_nvras.items():
+        if advisory_nvra in pkg_nvras:
+            continue
         name = repomd.NVRA_RE.search(advisory_nvra).group(1)
-        name_pkgs = pkg_name_map.get(name, [])
-        for pkg_nvra in name_pkgs:
-            pkg_nvra_rs = pkg_nvra.rsplit(".", 1)
-            cleaned_rs = advisory_nvra.rsplit(".", 1)
-
-            pkg_arch = pkg_nvra_rs[1]
-            cleaned_arch = cleaned_rs[1]
-
-            pkg_nvr = pkg_nvra_rs[0]
-            cleaned_nvr = cleaned_rs[0]
-
-            if pkg_nvr.startswith(cleaned_nvr) and pkg_arch == cleaned_arch:
-                nvra_alias[advisory_nvra] = pkg_nvra
-                break
+        alias = find_nvra_alias(
+            advisory_nvra,
+            pkg_name_map.get(name, []),
+            advisory_nevra=advisory_nevra,
+            raw_pkg_nvras=pkg_nvras,
+        )
+        if alias:
+            nvra_alias[advisory_nvra] = alias
 
     async with in_transaction():
         # Create advisory
@@ -722,27 +720,17 @@ async def process_repomd(
                 continue
             name = results["name"]
             if cleaned not in clean_advisory_nvras:
-                if not cleaned in raw_pkg_nvras:
-                    # Check if we can match the prefix instead
-                    # First let's fetch the name matching NVRAs
-                    # To cut down on the number of checks
-                    name_pkgs = pkg_name_map.get(name, [])
-                    # pkg_name_map values are cleaned NVRAs
-                    for pkg_nvra in name_pkgs:
-                        pkg_nvra_rs = pkg_nvra.rsplit(".", 1)
-                        cleaned_rs = cleaned.rsplit(".", 1)
-
-                        pkg_arch = pkg_nvra_rs[1]
-                        cleaned_arch = cleaned_rs[1]
-
-                        pkg_nvr = pkg_nvra_rs[0]
-                        cleaned_nvr = cleaned_rs[0]
-                        if pkg_nvr.startswith(
-                            cleaned_nvr
-                        ) and pkg_arch == cleaned_arch:
-                            nvra_alias[cleaned] = pkg_nvra
-                            break
-                clean_advisory_nvras[cleaned] = raw
+                if cleaned not in raw_pkg_nvras:
+                    # Prefix (.rocky) or EVR >= when Rocky already ships newer
+                    alias = find_nvra_alias(
+                        cleaned,
+                        pkg_name_map.get(name, []),
+                        advisory_nevra=advisory_pkg.nevra,
+                        raw_pkg_nvras=raw_pkg_nvras,
+                    )
+                    if alias:
+                        nvra_alias[cleaned] = alias
+                clean_advisory_nvras[cleaned] = advisory_pkg.nevra
 
         if not clean_advisory_nvras:
             logger.debug(f"No cleaned packages for {advisory.name}, moving on.")
