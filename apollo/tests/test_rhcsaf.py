@@ -177,6 +177,12 @@ class TestRedHatAdvisoryScraper(unittest.TestCase):
                 "url": "https://issues.redhat.com/browse/RHEL-154262",
             },
             {
+                # URL-only Jira ref (empty/non-ticket summary)
+                "category": "external",
+                "summary": "Related issue",
+                "url": "https://issues.redhat.com/browse/OCPBUGS-12345",
+            },
+            {
                 "category": "self",
                 "summary": "Canonical URL",
                 "url": "https://security.access.redhat.com/data/csaf/v2/advisories/2026/rhsa-2026_19213.json",
@@ -187,14 +193,21 @@ class TestRedHatAdvisoryScraper(unittest.TestCase):
         self.assertIn("123456", result["red_hat_bugzilla_list"])
         self.assertIn("2450505", result["red_hat_bugzilla_list"])
         self.assertIn("RHEL-154262", result["red_hat_bugzilla_list"])
+        self.assertIn("OCPBUGS-12345", result["red_hat_bugzilla_list"])
         self.assertEqual(
             fix_source_url("RHEL-154262"),
             "https://issues.redhat.com/browse/RHEL-154262",
         )
         self.assertEqual(
+            fix_source_url("ocpbugs-99"),
+            "https://issues.redhat.com/browse/OCPBUGS-99",
+        )
+        self.assertEqual(
             fix_source_url("2450505"),
             "https://bugzilla.redhat.com/show_bug.cgi?id=2450505",
         )
+        self.assertEqual(fix_source_url("not-a-ticket"), "")
+        self.assertEqual(fix_source_url("CVE-2024-1234"), "")
 
     def test_bugfix_advisory(self):
         """Test parsing a bug fix advisory"""

@@ -26,11 +26,15 @@ EUS_PRODUCT_NAME_KEYWORDS = frozenset([
     "telecommunications update service",
 ])
 
-_JIRA_TICKET_RE = re.compile(r"^(RHEL-\d+)$", re.IGNORECASE)
+# Jira issue keys (RHEL-123, OCPBUGS-456, …). Does not match CVE-YYYY-NNNN.
+_JIRA_TICKET_RE = re.compile(r"^[A-Z][A-Z0-9]+-\d+$", re.IGNORECASE)
 _BUGZILLA_ID_RE = re.compile(r"^\d+$")
 
 def fix_source_url(ticket_id: str) -> str:
-    """Build a canonical source URL for an advisory fix ticket id."""
+    """Build a canonical source URL for an advisory fix ticket id.
+
+    Returns "" for unrecognized ids so callers do not invent Bugzilla links.
+    """
     if not ticket_id:
         return ""
     if _JIRA_TICKET_RE.match(ticket_id):
@@ -39,7 +43,7 @@ def fix_source_url(ticket_id: str) -> str:
         return f"https://bugzilla.redhat.com/show_bug.cgi?id={ticket_id}"
     if ticket_id.startswith("http://") or ticket_id.startswith("https://"):
         return ticket_id
-    return f"https://bugzilla.redhat.com/show_bug.cgi?id={ticket_id}"
+    return ""
 
 
 def _ticket_id_from_reference(summary: str, url: str):
@@ -48,6 +52,7 @@ def _ticket_id_from_reference(summary: str, url: str):
 
     Preserves Bugzilla numeric IDs and Red Hat Jira keys (e.g. RHEL-154262)
     that appear on the errata page but were previously dropped at ingest.
+    Summary and URL are both accepted; URL-only refs are fine.
     """
     summary = (summary or "").strip()
     url = (url or "").strip()
