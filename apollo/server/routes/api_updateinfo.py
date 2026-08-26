@@ -18,6 +18,10 @@ from common.fastapi import RenderErrorTemplateException
 
 router = APIRouter(tags=["updateinfo"])
 
+# CVE product statuses (not_shipped / under_investigation) are intentionally
+# excluded from updateinfo — only package-bearing RLSAs are emitted here.
+# See /api/v3/cves and /api/v3/vex for the #73 status surface.
+
 
 PRODUCT_SLUG_MAP = {
     "rocky-linux": "Rocky Linux",

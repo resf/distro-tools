@@ -900,9 +900,32 @@ async def block_remaining_rh_advisories(supported_product_id: int) -> None:
                 SupportedProductsRhBlock(
                     **{
                         "supported_products_rh_mirror_id": mirror.id,
-                        "red_hat_advsiory_id": advisory.id,
+                        "red_hat_advisory_id": advisory.id,
                     }
                 ) for advisory in advisories
             ],
             ignore_conflicts=True
         )
+
+
+@activity.defn
+async def clear_rh_blocks_for_product(supported_product_id: int) -> int:
+    """
+    Delete RhBlocks for a product so matcher can retry (EVR≥ rematch).
+
+    RhBlock is an operator rematch throttle, not a public CVE status.
+    """
+    mirrors = await SupportedProductsRhMirror.filter(
+        supported_product_id=supported_product_id,
+    )
+    mirror_ids = [m.id for m in mirrors]
+    if not mirror_ids:
+        return 0
+    deleted = await SupportedProductsRhBlock.filter(
+        supported_products_rh_mirror_id__in=mirror_ids,
+    ).delete()
+    # Tortoise delete returns a tuple (count, details) or count depending on version
+    if isinstance(deleted, tuple):
+        return int(deleted[0])
+    return int(deleted or 0)
+

@@ -35,6 +35,7 @@ class SupportedProduct(Model):
     advisory_packages: fields.ReverseRelation["AdvisoryPackage"]
     advisory_affected_products: fields.ReverseRelation["AdvisoryAffectedProduct"
                                                       ]
+    cve_statuses: fields.ReverseRelation["CveProductStatus"]
 
     class Meta:
         table = "supported_products"
@@ -263,6 +264,44 @@ class SupportedProductsRhBlock(Model):
 
     class Meta:
         table = "supported_products_rh_blocks"
+
+
+class CveProductStatus(Model):
+    """
+    Rocky-facing CVE status per supported product.
+
+    Statuses:
+      - fixed: an RLSA exists (advisory_id set when known)
+      - not_shipped: RHSA packages for this product never matched Rocky repos
+      - under_investigation: blocked/uncloned but still within rematch window
+
+    Never emitted into yum updateinfo; use API / VEX instead.
+    """
+
+    id = fields.BigIntField(pk=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True, null=True)
+    cve = fields.TextField()
+    supported_product = fields.ForeignKeyField(
+        "models.SupportedProduct",
+        related_name="cve_statuses",
+    )
+    status = fields.CharField(max_length=64)
+    reason = fields.TextField(null=True)
+    red_hat_advisory = fields.ForeignKeyField(
+        "models.RedHatAdvisory",
+        related_name="cve_statuses",
+        null=True,
+    )
+    advisory = fields.ForeignKeyField(
+        "models.Advisory",
+        related_name="cve_statuses",
+        null=True,
+    )
+
+    class Meta:
+        table = "cve_product_statuses"
+        unique_together = ("cve", "supported_product_id")
 
 
 class Advisory(Model):
