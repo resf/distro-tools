@@ -418,10 +418,12 @@ async def clone_advisory(
     for advisory_nvra, advisory_nevra in clean_advisory_nvras.items():
         if advisory_nvra in pkg_nvras:
             continue
-        name = repomd.NVRA_RE.search(advisory_nvra).group(1)
+        match = repomd.NVRA_RE.search(advisory_nvra)
+        if not match:
+            continue
         alias = find_nvra_alias(
             advisory_nvra,
-            pkg_name_map.get(name, []),
+            pkg_name_map.get(match.group(1), []),
             advisory_nevra=advisory_nevra,
             raw_pkg_nvras=pkg_nvras,
         )
@@ -718,13 +720,18 @@ async def process_repomd(
             except ValueError as e:
                 logger.warning(f"Skipping invalid NEVRA '{advisory_pkg.nevra}': {e}")
                 continue
-            name = results["name"]
+            # Use cleaned NVRA name (includes "module." prefix) so modular
+            # packages hit the same pkg_name_map keys as repo indexing.
+            cleaned_match = repomd.NVRA_RE.search(cleaned)
+            lookup_name = (
+                cleaned_match.group(1) if cleaned_match else results["name"]
+            )
             if cleaned not in clean_advisory_nvras:
                 if cleaned not in raw_pkg_nvras:
                     # Prefix (.rocky) or EVR >= when Rocky already ships newer
                     alias = find_nvra_alias(
                         cleaned,
-                        pkg_name_map.get(name, []),
+                        pkg_name_map.get(lookup_name, []),
                         advisory_nevra=advisory_pkg.nevra,
                         raw_pkg_nvras=raw_pkg_nvras,
                     )

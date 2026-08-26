@@ -120,21 +120,48 @@ def rpmvercmp(a: str, b: str) -> int:
     """
     Compare two RPM version or release strings (rpmvercmp semantics).
 
+    Handles numeric/alpha segments, and the special ``~`` / ``^`` markers
+    used by RPM (``1.0~rc1`` < ``1.0``; ``^`` sorts after the base when the
+    other side ends, else like a normal separator).
+
     Returns -1 if a < b, 0 if equal, 1 if a > b.
     """
     if a == b:
         return 0
 
-    def _is_alnum(c: str) -> bool:
-        return c.isalnum()
-
     i = j = 0
     la, lb = len(a), len(b)
+
     while i < la or j < lb:
-        while i < la and not _is_alnum(a[i]):
+        # Skip non-alnum separators except ~ and ^.
+        while i < la and not a[i].isalnum() and a[i] not in "~^":
             i += 1
-        while j < lb and not _is_alnum(b[j]):
+        while j < lb and not b[j].isalnum() and b[j] not in "~^":
             j += 1
+
+        # '~' always sorts before anything (including end-of-string).
+        if (i < la and a[i] == "~") or (j < lb and b[j] == "~"):
+            if i >= la or a[i] != "~":
+                return 1
+            if j >= lb or b[j] != "~":
+                return -1
+            i += 1
+            j += 1
+            continue
+
+        # '^' sorts after end-of-string, otherwise like a normal separator.
+        if (i < la and a[i] == "^") or (j < lb and b[j] == "^"):
+            if i >= la:
+                return -1
+            if j >= lb:
+                return 1
+            if a[i] != "^":
+                return 1
+            if b[j] != "^":
+                return -1
+            i += 1
+            j += 1
+            continue
 
         if i >= la and j >= lb:
             return 0

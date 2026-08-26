@@ -3,7 +3,7 @@
 import unittest
 from xml.etree import ElementTree as ET
 
-from apollo.rpmworker.nvra_match import find_nvra_alias
+from apollo.rpmworker.nvra_match import find_nvra_alias, _is_rebuild_prefix
 
 NS = "http://linux.duke.edu/metadata/common"
 
@@ -27,6 +27,33 @@ class TestFindNvraAlias(unittest.TestCase):
             "openssh-8.7p1-49.x86_64",
             [rocky, "openssh-8.7p1-50.x86_64"],
             advisory_nevra="openssh-0:8.7p1-49.el9_7.x86_64.rpm",
+            raw_pkg_nvras=raw,
+        )
+        self.assertEqual(alias, rocky)
+
+    def test_prefix_requires_dot_boundary(self):
+        """Release 80 must not prefix-match cleaned release 8."""
+        self.assertFalse(_is_rebuild_prefix("openssh-8.7p1-80", "openssh-8.7p1-8"))
+        self.assertTrue(
+            _is_rebuild_prefix("openssh-8.7p1-8.rocky.0.1", "openssh-8.7p1-8")
+        )
+        # Without package XML, digit-extension must not alias via prefix.
+        alias = find_nvra_alias(
+            "openssh-8.7p1-8.x86_64",
+            ["openssh-8.7p1-80.x86_64"],
+            advisory_nevra="openssh-0:8.7p1-8.el9.x86_64.rpm",
+            raw_pkg_nvras=None,
+        )
+        self.assertIsNone(alias)
+
+    def test_digit_extension_can_still_evr_match(self):
+        """After boundary reject, EVR >= may still select a newer release."""
+        rocky = "openssh-8.7p1-80.x86_64"
+        raw = {rocky: [_pkg("openssh", "8.7p1", "80.el9", "x86_64")]}
+        alias = find_nvra_alias(
+            "openssh-8.7p1-8.x86_64",
+            [rocky],
+            advisory_nevra="openssh-0:8.7p1-8.el9.x86_64.rpm",
             raw_pkg_nvras=raw,
         )
         self.assertEqual(alias, rocky)

@@ -103,6 +103,14 @@ class TestRpmHelpers(unittest.TestCase):
             ("49", "48", 1),
             ("48.rocky.0.1", "49", -1),
             ("50.rocky.0.1", "49", 1),
+            # Tilde: pre-release sorts before the base version.
+            ("1.0~rc1", "1.0", -1),
+            ("1.0", "1.0~rc1", 1),
+            ("1.0~rc1", "1.0~rc2", -1),
+            # Caret: snapshot after base when other side ends.
+            ("1.0", "1.0^20240101", -1),
+            ("1.0^20240101", "1.0", 1),
+            ("1.0^20240101", "1.0.1", -1),
         ]
         for a, b, expected in cases:
             with self.subTest(a=a, b=b):
