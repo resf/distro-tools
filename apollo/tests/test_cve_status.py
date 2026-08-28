@@ -7,7 +7,10 @@ from apollo.rpmworker.cve_status_activities import (
     STATUS_FIXED,
     STATUS_NOT_SHIPPED,
     STATUS_UNDER_INVESTIGATION,
+    _STATUS_PRIORITY,
 )
+from apollo.server.routes.api_vex import _STATUS_TO_VEX
+from apollo.server.routes.api_updateinfo import router as updateinfo_router
 
 
 class TestPackageNameFromNevra(unittest.TestCase):
@@ -39,6 +42,32 @@ class TestStatusConstants(unittest.TestCase):
         self.assertEqual(STATUS_FIXED, "fixed")
         self.assertEqual(STATUS_NOT_SHIPPED, "not_shipped")
         self.assertEqual(STATUS_UNDER_INVESTIGATION, "under_investigation")
+
+    def test_fixed_outranks_other_statuses(self):
+        self.assertGreater(
+            _STATUS_PRIORITY[STATUS_FIXED],
+            _STATUS_PRIORITY[STATUS_UNDER_INVESTIGATION],
+        )
+        self.assertGreater(
+            _STATUS_PRIORITY[STATUS_UNDER_INVESTIGATION],
+            _STATUS_PRIORITY[STATUS_NOT_SHIPPED],
+        )
+
+
+class TestOpenVexMapping(unittest.TestCase):
+    def test_not_shipped_is_not_affected_not_fixed(self):
+        self.assertEqual(_STATUS_TO_VEX[STATUS_NOT_SHIPPED], "not_affected")
+        self.assertEqual(_STATUS_TO_VEX[STATUS_FIXED], "fixed")
+        self.assertEqual(
+            _STATUS_TO_VEX[STATUS_UNDER_INVESTIGATION], "under_investigation"
+        )
+        self.assertNotIn("affected", _STATUS_TO_VEX.values())
+
+
+class TestUpdateinfoExclusion(unittest.TestCase):
+    def test_updateinfo_router_has_no_cve_status_routes(self):
+        paths = [getattr(route, "path", "") for route in updateinfo_router.routes]
+        self.assertTrue(all("/cves" not in path for path in paths))
 
 
 if __name__ == "__main__":

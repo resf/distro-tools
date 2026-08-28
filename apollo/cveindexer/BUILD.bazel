@@ -8,6 +8,7 @@ py_binary(
     visibility = ["//:__subpackages__"],
     deps = [
         ":cveindexer_lib",
+        "//apollo/rpmworker:rpmworker_lib",
         "//common:common_lib",
         "@pypi_click//:pkg",
         "@pypi_temporalio//:pkg",

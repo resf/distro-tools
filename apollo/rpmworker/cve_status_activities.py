@@ -54,8 +54,7 @@ def package_name_from_nevra(nevra: str) -> str | None:
             return None
         nvr = parts[0]
         try:
-            name_ver, _rel = nvr.rsplit("-", 1)
-            name, _ver = name_ver.rsplit("-", 1)
+            name = nvr.rsplit("-", 1)[0].rsplit("-", 1)[0]
             return name
         except ValueError:
             return None

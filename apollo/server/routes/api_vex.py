@@ -6,6 +6,8 @@ under_investigation. Fixed statuses reference the RLSA id when known.
 Excluded from updateinfo by design (updateinfo stays package-fix only).
 """
 
+from __future__ import annotations
+
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query

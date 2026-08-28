@@ -122,3 +122,12 @@ py_test(
         "//apollo/rpm_helpers:rpm_helpers_lib",
     ],
 )
+
+py_test(
+    name = "test_cve_status",
+    srcs = ["test_cve_status.py"],
+    deps = [
+        "//apollo/rpmworker:rpmworker_lib",
+        "//apollo/server:server_lib",
+    ],
+)
