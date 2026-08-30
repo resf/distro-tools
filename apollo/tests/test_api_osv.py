@@ -4,9 +4,14 @@ Tests for OSV API CVE filtering functionality
 
 import unittest
 import datetime
-from unittest.mock import Mock
+from unittest.mock import Mock, AsyncMock, patch
 
-from apollo.server.routes.api_osv import to_osv_advisory
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from fastapi_pagination import add_pagination
+
+from apollo.server.routes.api_osv import to_osv_advisory, OSVAdvisory
+from apollo.server.routes import api_osv
 
 
 class MockSupportedProduct:
@@ -333,6 +338,115 @@ class TestOSVAttribution(unittest.TestCase):
         rh_urls = [r.url for r in result.references if "access.redhat.com" in r.url]
         self.assertEqual(rh_urls, [])
         self.assertNotIn("Red Hat", [c.name for c in result.credits])
+
+
+OSV_TOTAL = 25
+OSV_INDEXED_AT = datetime.datetime(
+    2026, 1, 2, 3, 4, 5, tzinfo=datetime.timezone.utc
+)
+
+
+def _osv_list_rows(count):
+    rows = []
+    for index in range(count):
+        row = Mock()
+        row.name = f"RLSA-2026:{index:04d}"
+        row.cves = [Mock()]
+        rows.append(row)
+    return rows
+
+
+def _fake_osv_doc(_ui_url, advisory):
+    return OSVAdvisory(
+        id=advisory.name,
+        modified="2026-01-02T03:04:05Z",
+        published="2026-01-02T03:04:05Z",
+        summary="summary",
+        details="details",
+        affected=[],
+        references=[],
+        credits=[],
+    )
+
+
+class TestOSVListPagination(unittest.TestCase):
+    """total must be the result-set size, not the current page length."""
+
+    def setUp(self):
+        self.rows = _osv_list_rows(OSV_TOTAL)
+
+        async def fake_fetch(size, offset, *args, **kwargs):
+            return (OSV_TOTAL, self.rows[offset:offset + size])
+
+        fetch_patch = patch.object(
+            api_osv, "fetch_advisories", side_effect=fake_fetch
+        )
+        fetch_patch.start()
+        self.addCleanup(fetch_patch.stop)
+
+        setting_patch = patch.object(
+            api_osv,
+            "get_setting",
+            new=AsyncMock(return_value="https://errata.example"),
+        )
+        setting_patch.start()
+        self.addCleanup(setting_patch.stop)
+
+        state = Mock()
+        state.last_indexed_at = OSV_INDEXED_AT
+        state_patch = patch.object(api_osv, "RedHatIndexState")
+        state_patch.start().first = AsyncMock(return_value=state)
+        self.addCleanup(state_patch.stop)
+
+        osv_patch = patch.object(
+            api_osv, "to_osv_advisory", side_effect=_fake_osv_doc
+        )
+        osv_patch.start()
+        self.addCleanup(osv_patch.stop)
+
+        app = FastAPI()
+        app.include_router(api_osv.router)
+        add_pagination(app)
+        self.client = TestClient(app)
+
+    def _page(self, page, size, after=None):
+        params = {"page": page, "size": size}
+        if after is not None:
+            params["after"] = after.isoformat()
+        response = self.client.get("/", params=params)
+        self.assertEqual(response.status_code, 200)
+        return response.json()
+
+    @staticmethod
+    def _ids(body):
+        return [item["id"] for item in body["advisories"]]
+
+    def test_total_does_not_echo_page_size(self):
+        body = self._page(1, 2)
+        self.assertEqual(body["total"], OSV_TOTAL)
+        self.assertEqual(len(body["advisories"]), 2)
+
+    def test_second_page_returns_distinct_ids(self):
+        first = self._ids(self._page(1, 3))
+        second = self._ids(self._page(2, 3))
+        self.assertEqual(
+            first, ["RLSA-2026:0000", "RLSA-2026:0001", "RLSA-2026:0002"]
+        )
+        self.assertEqual(
+            second, ["RLSA-2026:0003", "RLSA-2026:0004", "RLSA-2026:0005"]
+        )
+        self.assertEqual(len(set(first) & set(second)), 0)
+
+    def test_after_aware_datetime_does_not_raise(self):
+        after = datetime.datetime(
+            2026, 7, 19, 0, 0, 0, tzinfo=datetime.timezone.utc
+        )
+        body = self._page(1, 5, after=after)
+        self.assertEqual(body["total"], OSV_TOTAL)
+
+    def test_last_updated_at_reports_the_index_state(self):
+        body = self._page(1, 2)
+        self.assertEqual(body["last_updated_at"], "2026-01-02T03:04:05Z")
 
 
 if __name__ == "__main__":

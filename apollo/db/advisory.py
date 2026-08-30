@@ -6,6 +6,20 @@ from tortoise import connections
 from apollo.db import Advisory
 
 
+def naive_utc(dt: Optional[datetime.datetime]) -> Optional[datetime.datetime]:
+    """Bind timestamps as naive UTC for ``timestamp``/``timestamptz`` query args.
+
+    FastAPI parses ISO-8601 ``after``/``before`` as timezone-aware datetimes.
+    asyncpg raises when those are sent to a ``timestamp`` bind, which is why
+    ``GET /api/v3/osv/?after=...`` returned HTTP 500.
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+    return dt
+
+
 async def fetch_advisories(
     size: int,
     page_offset: int,
@@ -18,13 +32,14 @@ async def fetch_advisories(
     severity: Optional[str],
     kind: Optional[str],
     fetch_related: bool = False,
+    require_cves: bool = False,
 ) -> tuple[int, list[Advisory]]:
     # Joining CVEs, fixes, or products here Cartesian-explodes the result;
     # GROUP BY a.id then times out GET /v2/advisories. Related filters
     # use EXISTS below.
     a = """
         with vars (search, size, page_offset, product, before, after, cve, synopsis, severity, kind) as (
-            values ($1 :: text, $2 :: bigint, $3 :: bigint, $4 :: text, $5 :: timestamp, $6 :: timestamp, $7 :: text, $8 :: text, $9 :: text, $10 :: text)
+            values ($1 :: text, $2 :: bigint, $3 :: bigint, $4 :: text, $5 :: timestamptz, $6 :: timestamptz, $7 :: text, $8 :: text, $9 :: text, $10 :: text)
         )
         select
             a.id,
@@ -93,9 +108,14 @@ async def fetch_advisories(
             a.name ilike '%' || (select search from vars) || '%')
         """
 
+    if require_cves:
+        where_stmt += """
+            and exists (select 1 from advisory_cves where advisory_id = a.id)
+        """
+
     a += where_stmt
     a += """
-        order by a.published_at desc
+        order by a.published_at desc, a.id desc
         limit (select size from vars) offset (select page_offset from vars)
     """
 
@@ -106,8 +126,8 @@ async def fetch_advisories(
             size,
             page_offset,
             product,
-            before,
-            after,
+            naive_utc(before),
+            naive_utc(after),
             cve,
             synopsis,
             severity,

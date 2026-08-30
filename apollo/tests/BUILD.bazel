@@ -84,6 +84,7 @@ py_test(
     srcs = ["test_api_osv.py"],
     deps = [
         "//apollo/server:server_lib",
+        "@pypi_httpx//:pkg",
     ],
 )
 
@@ -109,6 +110,15 @@ py_test(
     srcs = ["test_database_service.py"],
     deps = [
         "//apollo/server:server_lib",
+        "//apollo/db:db_lib",
+        "//common:common_lib",
+    ],
+)
+
+py_test(
+    name = "test_fetch_advisories",
+    srcs = ["test_fetch_advisories.py"],
+    deps = [
         "//apollo/db:db_lib",
         "//common:common_lib",
     ],
