@@ -459,7 +459,9 @@ async def clone_advisory(
             pkg_nvr = pkg_nvra_rs[0]
             cleaned_nvr = cleaned_rs[0]
 
-            if pkg_nvr.startswith(cleaned_nvr) and pkg_arch == cleaned_arch:
+            if pkg_arch == cleaned_arch and repomd.nvr_is_rebuild_of(
+                pkg_nvr, cleaned_nvr
+            ):
                 nvra_alias[advisory_nvra] = pkg_nvra
                 break
 
@@ -770,9 +772,9 @@ async def process_repomd(
 
                         pkg_nvr = pkg_nvra_rs[0]
                         cleaned_nvr = cleaned_rs[0]
-                        if pkg_nvr.startswith(
-                            cleaned_nvr
-                        ) and pkg_arch == cleaned_arch:
+                        if pkg_arch == cleaned_arch and repomd.nvr_is_rebuild_of(
+                            pkg_nvr, cleaned_nvr
+                        ):
                             nvra_alias[cleaned] = pkg_nvra
                             break
                 clean_advisory_nvras[cleaned] = raw
