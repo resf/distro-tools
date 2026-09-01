@@ -19,6 +19,9 @@ async def fetch_advisories(
     kind: Optional[str],
     fetch_related: bool = False,
 ) -> tuple[int, list[Advisory]]:
+    # Joining CVEs, fixes, or products here Cartesian-explodes the result;
+    # GROUP BY a.id then times out GET /v2/advisories. Related filters
+    # use EXISTS below.
     a = """
         with vars (search, size, page_offset, product, before, after, cve, synopsis, severity, kind) as (
             values ($1 :: text, $2 :: bigint, $3 :: bigint, $4 :: text, $5 :: timestamp, $6 :: timestamp, $7 :: text, $8 :: text, $9 :: text, $10 :: text)
@@ -38,9 +41,6 @@ async def fetch_advisories(
             count(a.*) over () as total
         from
             advisories a
-        left outer join advisory_affected_products ap on ap.advisory_id = a.id
-        left outer join advisory_cves c on c.advisory_id = a.id
-        left outer join advisory_fixes f on f.advisory_id = a.id
         where
             a.published_at is not null
 """
@@ -84,7 +84,8 @@ async def fetch_advisories(
 
     if keyword:
         where_stmt += """
-            and (ap.name like '%' || (select search from vars) || '%' or
+            and (
+            exists (select name from advisory_affected_products where advisory_id = a.id and name like '%' || (select search from vars) || '%') or
             a.synopsis ilike '%' || (select search from vars) || '%' or
             a.description ilike '%' || (select search from vars) || '%' or
             exists (select cve from advisory_cves where advisory_id = a.id and cve ilike '%' || (select search from vars) || '%') or
@@ -94,7 +95,6 @@ async def fetch_advisories(
 
     a += where_stmt
     a += """
-        group by a.id
         order by a.published_at desc
         limit (select size from vars) offset (select page_offset from vars)
     """

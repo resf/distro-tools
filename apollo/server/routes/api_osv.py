@@ -146,7 +146,8 @@ def to_osv_advisory(ui_url: str, advisory: Advisory) -> OSVAdvisory:
                 for pkg in affected_packages:
                     x = pkg[0]
                     nevra = pkg[1]
-                    if nevra.group(5) != "src":
+                    # Skip source RPMs; OSV affected lists binary subpackages (Red Hat parity).
+                    if nevra.group(5) == "src":
                         continue
                     if x.nevra in processed_nvra:
                         continue

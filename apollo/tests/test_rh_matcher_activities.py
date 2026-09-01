@@ -12,7 +12,7 @@ from xml.etree import ElementTree as ET
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from apollo.rpmworker import repomd
-from apollo.rpmworker.rh_matcher_activities import process_repomd
+from apollo.rpmworker.rh_matcher_activities import process_repomd, stream_product_name
 
 NS = "http://linux.duke.edu/metadata/common"
 RPM_NS = "http://linux.duke.edu/metadata/rpm"
@@ -390,6 +390,34 @@ class TestProcessRepomdMatching(unittest.TestCase):
         self.assertIn("RHSA-2026:0007", result)
         self.assertNotIn("RHSA-2026:0008", result)
         self.assertIn("RHSA-2026:0009", result)
+
+
+class TestStreamProductName(unittest.TestCase):
+    """packages.product_name must match affected_products.name on the major stream."""
+
+    def test_collapses_point_release_in_mirror_name(self):
+        mirror = _make_mirror(name="Rocky Linux 9.6 aarch64")
+        mirror.match_arch = "aarch64"
+        mirror.match_minor_version = 6
+        self.assertEqual(stream_product_name(mirror), "Rocky Linux 9 aarch64")
+
+    def test_stream_mirror_name_unchanged(self):
+        mirror = _make_mirror(name="Rocky Linux 9 x86_64")
+        mirror.match_minor_version = None
+        self.assertEqual(stream_product_name(mirror), "Rocky Linux 9 x86_64")
+
+    def test_riscv64_name_without_minor_unchanged(self):
+        mirror = _make_mirror(name="Rocky Linux 10 riscv64")
+        mirror.match_major_version = 10
+        mirror.match_minor_version = None
+        mirror.match_arch = "x86_64"
+        self.assertEqual(stream_product_name(mirror), "Rocky Linux 10 riscv64")
+
+    def test_zero_minor_collapsed(self):
+        mirror = _make_mirror(name="Rocky Linux 10.0 riscv64")
+        mirror.match_major_version = 10
+        mirror.match_minor_version = 0
+        self.assertEqual(stream_product_name(mirror), "Rocky Linux 10 riscv64")
 
 
 if __name__ == "__main__":

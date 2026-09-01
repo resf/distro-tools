@@ -4,11 +4,12 @@ Tests for the v2 compatibility API serialization (advisory source attribution)
 
 import unittest
 import datetime
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from apollo.server.routes.api_compat import v3_advisory_to_v2
 from apollo.server import attribution
 from apollo.db.serialize import Advisory_Pydantic, Advisory_Pydantic_WithSource
+from apollo.db.advisory import fetch_advisories
 
 
 def create_mock_advisory(red_hat_advisory_name="RHSA-2024:1234"):
@@ -94,6 +95,58 @@ class TestSourceFieldsAndModels(unittest.TestCase):
 
     def test_with_source_model_adds_source(self):
         self.assertIn("source", Advisory_Pydantic_WithSource.__fields__)
+
+
+class TestFetchAdvisoriesSql(unittest.IsolatedAsyncioTestCase):
+    """List SQL must not join related tables (that path times out /v2/advisories)."""
+
+    async def _sql(self, **overrides):
+        kwargs = {
+            "size": 10,
+            "page_offset": 0,
+            "keyword": None,
+            "product": None,
+            "before": None,
+            "after": None,
+            "cve": None,
+            "synopsis": None,
+            "severity": None,
+            "kind": None,
+        }
+        kwargs.update(overrides)
+        captured = {}
+
+        async def execute_query(sql, params):
+            captured["sql"] = sql
+            captured["params"] = params
+            return (0, [])
+
+        connection = Mock()
+        connection.execute_query = execute_query
+        with patch("apollo.db.advisory.connections") as connections:
+            connections.get.return_value = connection
+            count, rows = await fetch_advisories(**kwargs)
+        self.assertEqual(count, 0)
+        self.assertEqual(rows, [])
+        return captured["sql"]
+
+    async def test_list_query_does_not_join_or_group_related_tables(self):
+        sql = (await self._sql()).lower()
+        self.assertNotIn("left outer join", sql)
+        self.assertNotIn("group by", sql)
+        self.assertIn("advisories a", sql)
+        self.assertIn("count(a.*) over () as total", sql)
+
+    async def test_keyword_filter_uses_exists_for_product_name(self):
+        sql = (await self._sql(keyword="Rocky")).lower()
+        self.assertIn("exists (select name from advisory_affected_products", sql)
+        self.assertNotIn("ap.name", sql)
+        self.assertNotIn("left outer join", sql)
+        self.assertNotIn("group by", sql)
+
+    async def test_product_filter_still_uses_exists(self):
+        sql = (await self._sql(product="Rocky Linux 9")).lower()
+        self.assertIn("exists (select name from advisory_affected_products", sql)
 
 
 if __name__ == "__main__":
