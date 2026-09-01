@@ -156,8 +156,8 @@ class TestOSVCVEFiltering(unittest.TestCase):
         self.assertIsNotNone(result.upstream)
         self.assertEqual(len(result.upstream), 0)
 
-    def test_source_packages_only(self):
-        """Test that only source packages are processed, not binary packages"""
+    def test_binary_packages_only(self):
+        """distro-tools#3 / Red Hat parity: OSV affected lists binaries, not src.rpm."""
         packages = [
             MockPackage(
                 nevra="httpd-0:2.4.57-8.el9.src",
@@ -177,9 +177,45 @@ class TestOSVCVEFiltering(unittest.TestCase):
         advisory = MockAdvisory(packages=packages, cves=cves)
         result = to_osv_advisory("https://errata.rockylinux.org", advisory)
 
-        # Should only have 1 affected package (the source package)
+        names = {a.package.name for a in result.affected}
+        self.assertEqual(names, {"httpd"})
+        self.assertEqual(len(result.affected), 2)
+        fixed = {a.ranges[0].events[1].fixed for a in result.affected}
+        self.assertEqual(fixed, {"0:2.4.57-8.el9"})
+
+    def test_noarch_binary_is_exported(self):
+        packages = [
+            MockPackage(
+                nevra="python3-setuptools-0:69.0.3-1.el9.src",
+                supported_products_rh_mirror=MockSupportedProductsRhMirror(9),
+            ),
+            MockPackage(
+                nevra="python3-setuptools-0:69.0.3-1.el9.noarch",
+                supported_products_rh_mirror=MockSupportedProductsRhMirror(9),
+            ),
+        ]
+        result = to_osv_advisory(
+            "https://errata.rockylinux.org",
+            MockAdvisory(packages=packages, cves=[MockCVE()]),
+        )
+        names = {a.package.name for a in result.affected}
+        self.assertEqual(names, {"python3-setuptools"})
         self.assertEqual(len(result.affected), 1)
-        self.assertEqual(result.affected[0].package.name, "httpd")
+
+    def test_source_rpms_are_not_exported(self):
+        packages = [
+            MockPackage(
+                nevra="httpd-0:2.4.57-8.el9.src",
+                supported_products_rh_mirror=MockSupportedProductsRhMirror(9),
+            ),
+        ]
+        cves = [MockCVE()]
+
+        result = to_osv_advisory(
+            "https://errata.rockylinux.org",
+            MockAdvisory(packages=packages, cves=cves),
+        )
+        self.assertEqual(result.affected, [])
 
     def test_severity_from_highest_cvss(self):
         """Test that severity uses the highest CVSS score from multiple CVEs"""
@@ -221,7 +257,7 @@ class TestOSVCVEFiltering(unittest.TestCase):
         """Test that ecosystem field is formatted correctly"""
         packages = [
             MockPackage(
-                nevra="bash-0:5.1.8-9.el9.src",
+                nevra="bash-0:5.1.8-9.el9.x86_64",
                 product_name="Rocky Linux 9",
                 supported_products_rh_mirror=MockSupportedProductsRhMirror(9),
             ),
@@ -238,7 +274,7 @@ class TestOSVCVEFiltering(unittest.TestCase):
         """Test that fixed version includes epoch in epoch:version-release format"""
         packages = [
             MockPackage(
-                nevra="systemd-0:252-38.el9_5.src",
+                nevra="systemd-0:252-38.el9_5.x86_64",
                 supported_products_rh_mirror=MockSupportedProductsRhMirror(9),
             ),
         ]
@@ -257,7 +293,7 @@ class TestOSVAttribution(unittest.TestCase):
     def _advisory(self, red_hat_advisory):
         packages = [
             MockPackage(
-                nevra="pcs-0:0.11.8-2.el9_5.src",
+                nevra="pcs-0:0.11.8-2.el9_5.x86_64",
                 supported_products_rh_mirror=MockSupportedProductsRhMirror(9),
             ),
         ]
