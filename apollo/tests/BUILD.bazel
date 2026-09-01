@@ -115,6 +115,14 @@ py_test(
 )
 
 py_test(
+    name = "test_advisory_package",
+    srcs = ["test_advisory_package.py"],
+    deps = [
+        "//apollo/db:db_lib",
+    ],
+)
+
+py_test(
     name = "test_rh_matcher_activities",
     srcs = ["test_rh_matcher_activities.py"],
     deps = [
