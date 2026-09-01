@@ -618,7 +618,10 @@ def build_mirror_config(
     """
     # Build mirror name with optional custom base or suffix
     if not mirror_name_base:
-        mirror_name_base = f"Rocky Linux {version}"
+        if version != UNKNOWN_VALUE and "." in version:
+            mirror_name_base = f"Rocky Linux {version.split('.')[0]}"
+        else:
+            mirror_name_base = f"Rocky Linux {version}"
 
     if name_suffix:
         mirror_name = f"{mirror_name_base} {name_suffix} {arch}"
