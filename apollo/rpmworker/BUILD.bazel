@@ -13,6 +13,7 @@ py_library(
     visibility = ["//:__subpackages__"],
     deps = [
         "//apollo/db:db_lib",
+        "//apollo/rhcsaf:rhcsaf_lib",
         "//common:common_lib",
         "@pypi_aiohttp//:pkg",
         "@pypi_pyyaml//:pkg",
