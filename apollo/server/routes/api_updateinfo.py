@@ -355,6 +355,22 @@ def generate_updateinfo_xml(
     return xml_str
 
 
+def empty_updateinfo_xml() -> str:
+    """Repo with no advisories still needs a document RelEng can write."""
+    tree = ET.Element("updates")
+    ET.indent(tree)
+    return ET.tostring(
+        tree,
+        encoding="unicode",
+        method="xml",
+        short_empty_elements=True,
+    )
+
+
+def empty_updateinfo_response() -> Response:
+    return Response(content=empty_updateinfo_xml(), media_type="application/xml")
+
+
 @router.get("/{product_name}/{repo}/updateinfo.xml")
 async def get_updateinfo(
     product_name: str,
@@ -379,7 +395,7 @@ async def get_updateinfo(
         "supported_product",
     ).all()
     if not affected_products:
-        raise RenderErrorTemplateException("No advisories found", 404)
+        return empty_updateinfo_response()
 
     ui_url = await get_setting(UI_URL)
     managing_editor = await get_setting(MANAGING_EDITOR)
@@ -431,7 +447,7 @@ async def get_updateinfo_v2(
 
     Raises:
         400: Invalid architecture or missing required parameter
-        404: No advisories found or invalid product
+        404: Invalid product slug or product missing from the database
     """
     product_name = resolve_product_slug(product)
     if not product_name:
@@ -484,10 +500,7 @@ async def get_updateinfo_v2(
     ).all()
 
     if not affected_products:
-        raise RenderErrorTemplateException(
-            f"No advisories found for {product_name} {major_version} {repo} {arch}",
-            404
-        )
+        return empty_updateinfo_response()
 
     ui_url = await get_setting(UI_URL)
     managing_editor = await get_setting(MANAGING_EDITOR)

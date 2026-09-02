@@ -201,13 +201,15 @@ async def fetch_updateinfo_from_apollo(
 
     async with aiohttp.ClientSession() as session:
         async with session.get(api_url, params=api_params) as resp:
-            if resp.status != 200 and resp.status != 404:
+            if resp.status == 404:
+                # Empty product/repo/arch (SAP, RT, EL10 AppStream ppc, …).
+                # RelEng still writes updateinfo; aborting the tree walk is wrong.
+                return "<updates/>"
+            if resp.status != 200:
                 logger.warning(
                     "Failed to fetch updateinfo from %s, skipping", api_url
                 )
                 return None
-            if resp.status != 200:
-                raise Exception(f"Failed to fetch updateinfo from {api_url}")
             return await resp.text()
 
 
