@@ -12,7 +12,12 @@ from xml.etree import ElementTree as ET
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from apollo.rpmworker import repomd
-from apollo.rpmworker.rh_matcher_activities import process_repomd, stream_product_name
+
+# rh_matcher_activities imports apollo.rhcsaf, which constructs Logger/Info at
+# import time — same pattern as test_rhcsaf.
+with patch("common.logger.Logger") as mock_logger_class:
+    mock_logger_class.return_value = MagicMock()
+    from apollo.rpmworker.rh_matcher_activities import process_repomd, stream_product_name
 
 NS = "http://linux.duke.edu/metadata/common"
 RPM_NS = "http://linux.duke.edu/metadata/rpm"

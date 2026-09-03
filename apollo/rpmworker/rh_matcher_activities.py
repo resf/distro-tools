@@ -10,6 +10,7 @@ from apollo.db import SupportedProduct, SupportedProductsRhMirror, SupportedProd
 from apollo.db import RedHatAdvisory, Advisory, AdvisoryAffectedProduct, AdvisoryCVE, AdvisoryFix, AdvisoryPackage
 from apollo.rpmworker import repomd
 from apollo.rpm_helpers import parse_nevra
+from apollo.rhcsaf import fix_source_url
 
 from common.logger import Logger
 
@@ -211,7 +212,7 @@ async def create_or_update_advisory_fixes(
                 AdvisoryFix(
                     advisory_id=advisory.id,
                     ticket_id=fix.bugzilla_bug_id,
-                    source=f"https://bugzilla.redhat.com/show_bug.cgi?id={fix.bugzilla_bug_id}",
+                    source=fix_source_url(fix.bugzilla_bug_id),
                     description=fix.description,
                 )
             )
