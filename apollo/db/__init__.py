@@ -360,7 +360,7 @@ class AdvisoryPackage(Model):
 
     def __init__(self, **kwargs):
         if 'package_name' in kwargs:
-            kwargs['_package_name'] = self._clean_package_name(
+            kwargs['_package_name'] = AdvisoryPackage._clean_package_name(
                 kwargs.pop('package_name')
             )
         super().__init__(**kwargs)
@@ -373,9 +373,10 @@ class AdvisoryPackage(Model):
     def package_name(self, value):
         self._package_name = self._clean_package_name(value)
 
-    def _clean_package_name(self, value):
+    @staticmethod
+    def _clean_package_name(value):
         if isinstance(value, str) and value.startswith('module.'):
-            return value.replace('module.', '')
+            return value.replace('module.', '', 1)
         return value
 
     async def save(self, *args, **kwargs):

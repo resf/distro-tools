@@ -75,10 +75,9 @@ async def shipped_package_names_for_product(supported_product_id: int) -> set[st
     ).values_list("_package_name", "nevra")
     for package_name, nevra in rows:
         if package_name:
-            # Mirror AdvisoryPackage._clean_package_name for module. prefix
-            if isinstance(package_name, str) and package_name.startswith("module."):
-                package_name = package_name.replace("module.", "", 1)
-            names.add(package_name)
+            cleaned = AdvisoryPackage._clean_package_name(package_name)
+            if cleaned:
+                names.add(cleaned)
             continue
         extracted = package_name_from_nevra(nevra)
         if extracted:
@@ -208,6 +207,8 @@ async def classify_product_cve_statuses(supported_product_id: int) -> dict:
         counts[row.status] += 1
 
     async with in_transaction():
+        # Per-row SELECT+save is fine for infrequent Temporal runs; switch to
+        # bulk INSERT ... ON CONFLICT if classify of ~12k CVEs/product is slow.
         for row in by_cve.values():
             existing = await CveProductStatus.filter(
                 cve=row.cve,
