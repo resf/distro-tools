@@ -420,5 +420,55 @@ class TestStreamProductName(unittest.TestCase):
         self.assertEqual(stream_product_name(mirror), "Rocky Linux 10 riscv64")
 
 
+class TestModularFieldResolution(unittest.TestCase):
+    """distro-tools#72: RH CSAF module fallback when modules.yaml misses Rocky NEVRA."""
+
+    def test_rh_csaf_fallback_when_yaml_misses(self):
+        from apollo.rpmworker.rh_matcher_activities import _resolve_modular_package_fields
+
+        rocky_nevra = "nodejs-1:16.20.2-4.module+el8.9.0+1760+903d54b9.x86_64.rpm"
+        cleaned_rh = "module.nodejs-1:16.20.2-4.el8.9.0.x86_64"
+        module_pkgs = {}
+        rh_modules = {
+            cleaned_rh: {
+                "module_name": "nodejs",
+                "module_stream": "16",
+                "module_version": "8060020220913080029",
+                "module_context": "d63f516d",
+            }
+        }
+        name, stream, version, context = _resolve_modular_package_fields(
+            "4.module+el8.9.0+1760+903d54b9",
+            rocky_nevra,
+            cleaned_rh,
+            module_pkgs,
+            rh_modules,
+        )
+        self.assertEqual(name, "nodejs")
+        self.assertEqual(stream, "16")
+        self.assertEqual(version, "8060020220913080029")
+        self.assertEqual(context, "d63f516d")
+
+    def test_yaml_lookup_normalizes_rocky_suffix(self):
+        from apollo.rpmworker.rh_matcher_activities import _resolve_modular_package_fields
+
+        rocky_nevra = (
+            "ocaml-libguestfs-1:1.44.0-5.module+el8.6.0+1052+ff61d164.rocky.aarch64.rpm"
+        )
+        yaml_key = "ocaml-libguestfs-1:1.44.0-5.module+el8.6.0+1052+ff61d164.aarch64"
+        module_pkgs = {
+            yaml_key: ("virt-devel", "rhel", "8060020220913080029", "d63f516d"),
+        }
+        name, stream, version, context = _resolve_modular_package_fields(
+            "5.module+el8.6.0+1052+ff61d164.rocky",
+            rocky_nevra,
+            "module.ocaml-libguestfs-1:1.44.0-5.el8.6.0.aarch64",
+            module_pkgs,
+            {},
+        )
+        self.assertEqual(name, "virt-devel")
+        self.assertEqual(stream, "rhel")
+
+
 if __name__ == "__main__":
     unittest.main()

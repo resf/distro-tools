@@ -82,6 +82,10 @@ class RedHatAdvisoryPackage(Model):
         related_name="packages",
     )
     nevra = fields.TextField()
+    module_context = fields.TextField(null=True)
+    module_name = fields.TextField(null=True)
+    module_stream = fields.TextField(null=True)
+    module_version = fields.TextField(null=True)
 
     class Meta:
         table = "red_hat_advisory_packages"

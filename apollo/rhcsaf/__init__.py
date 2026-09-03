@@ -1,5 +1,7 @@
 import pathlib
 import json
+from typing import Optional
+from urllib.parse import parse_qs, urlparse
 
 from common.logger import Logger
 from apollo.rpm_helpers import parse_nevra
@@ -163,7 +165,55 @@ def _traverse_for_eus(branches, product_eus_map=None):
     return product_eus_map
 
 
-def _extract_packages_from_branches(branches, product_eus_map, packages=None):
+def _strip_csaf_product_prefix(product_id: str) -> str:
+    """Remove optional CSAF repo prefix (e.g. AppStream-8.9.0.Z.MAIN:nevra)."""
+    if ":" not in product_id:
+        return product_id
+    prefix, rest = product_id.split(":", 1)
+    if prefix and not rest[:1].isdigit() and "-" in prefix:
+        return rest
+    return product_id
+
+
+def _module_fields_from_purl(purl: Optional[str]) -> Optional[dict[str, str]]:
+    if not purl or "rpmmod=" not in purl:
+        return None
+    rpmmod = parse_qs(urlparse(purl).query).get("rpmmod", [None])[0]
+    if not rpmmod:
+        return None
+    parts = rpmmod.split(":")
+    if len(parts) < 4:
+        return None
+    return {
+        "module_name": parts[0],
+        "module_stream": parts[1],
+        "module_version": parts[2],
+        "module_context": parts[3],
+    }
+
+
+def _parse_csaf_package_product_id(product_id: str, purl: Optional[str]) -> tuple[str, Optional[dict[str, str]]]:
+    """
+    Parse CSAF product_id into bare NEVRA and optional module fields.
+
+    Format: [repo-prefix:]pkg-epoch:ver-rel.arch[::module:stream]
+    """
+    module_fields = _module_fields_from_purl(purl)
+    base = product_id
+    if "::" in product_id:
+        base, module_suffix = product_id.split("::", 1)
+        if ":" in module_suffix:
+            mod_name, mod_stream = module_suffix.split(":", 1)
+            merged = module_fields.copy() if module_fields else {}
+            merged.setdefault("module_name", mod_name)
+            merged.setdefault("module_stream", mod_stream)
+            module_fields = merged or None
+
+    nevra = _strip_csaf_product_prefix(base)
+    return nevra, module_fields
+
+
+def _extract_packages_from_branches(branches, product_eus_map, packages=None, package_modules=None):
     """
     Recursively traverse CSAF branches to extract package NEVRAs.
 
@@ -177,6 +227,8 @@ def _extract_packages_from_branches(branches, product_eus_map, packages=None):
     """
     if packages is None:
         packages = set()
+    if package_modules is None:
+        package_modules = {}
 
     for branch in branches:
         category = branch.get("category")
@@ -203,16 +255,20 @@ def _extract_packages_from_branches(branches, product_eus_map, packages=None):
             if skip_eus:
                 continue
 
-            # Format: "package-epoch:version-release.arch" or "package-epoch:version-release.arch::module:stream"
-            packages.add(product_id.split("::")[0])
+            nevra, module_fields = _parse_csaf_package_product_id(product_id, purl)
+            packages.add(nevra)
+            if module_fields:
+                package_modules[nevra] = module_fields
 
         if "branches" in branch:
-            _extract_packages_from_branches(branch["branches"], product_eus_map, packages)
+            _extract_packages_from_branches(
+                branch["branches"], product_eus_map, packages, package_modules
+            )
 
     return packages
 
 
-def _extract_packages_from_product_tree(csaf: dict) -> set:
+def _extract_packages_from_product_tree(csaf: dict) -> tuple[set, dict[str, dict[str, str]]]:
     """
     Extracts fixed packages from CSAF product_tree using product_id fields.
     Handles both regular and modular packages by extracting NEVRAs directly from product_id.
@@ -222,22 +278,28 @@ def _extract_packages_from_product_tree(csaf: dict) -> set:
         csaf: CSAF document dict
 
     Returns:
-        Set of NEVRA strings
+        Tuple of (nevra set, module fields keyed by nevra)
     """
     product_tree = csaf.get("product_tree", {})
 
     if not product_tree:
-        return set()
+        return set(), {}
 
     product_eus_map = {}
     for vendor_branch in product_tree.get("branches", []):
         product_eus_map = _traverse_for_eus(vendor_branch.get("branches", []), product_eus_map)
 
-    packages = set()
+    packages: set = set()
+    package_modules: dict[str, dict[str, str]] = {}
     for vendor_branch in product_tree.get("branches", []):
-        packages = _extract_packages_from_branches(vendor_branch.get("branches", []), product_eus_map, packages)
+        packages = _extract_packages_from_branches(
+            vendor_branch.get("branches", []),
+            product_eus_map,
+            packages,
+            package_modules,
+        )
 
-    return packages
+    return packages, package_modules
 
 
 def red_hat_advisory_scraper(csaf: dict):
@@ -273,7 +335,7 @@ def red_hat_advisory_scraper(csaf: dict):
     red_hat_synopsis = red_hat_synopsis.replace("Red Hat Security Advisory:", f"{severity}:")
     red_hat_synopsis = red_hat_synopsis.replace("Red Hat Enhancement Advisory: ", f"{severity}:")
 
-    red_hat_fixed_packages = _extract_packages_from_product_tree(csaf)
+    red_hat_fixed_packages, red_hat_package_module_fields = _extract_packages_from_product_tree(csaf)
 
     red_hat_cve_set = set()
     red_hat_bugzilla_set = set()
@@ -299,6 +361,7 @@ def red_hat_advisory_scraper(csaf: dict):
         "severity": str(severity),
         "topic": str(topic),
         "red_hat_fixed_packages": list(red_hat_fixed_packages),
+        "red_hat_package_module_fields": red_hat_package_module_fields,
         "red_hat_cve_list": list(red_hat_cve_set),
         "red_hat_bugzilla_list": list(red_hat_bugzilla_set),
         "red_hat_affected_products": list(red_hat_affected_products),

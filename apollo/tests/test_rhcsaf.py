@@ -435,6 +435,30 @@ class TestModularPackages(unittest.TestCase):
             if "redis" in pkg:
                 self.assertIn("0:", pkg, "Epoch should be preserved in NEVRA")
 
+        modules = result["red_hat_package_module_fields"]
+        binary = "redis-0:7.2.10-1.module+el9.6.0+23332+115a3b01.x86_64"
+        self.assertEqual(modules[binary]["module_name"], "redis")
+        self.assertEqual(modules[binary]["module_stream"], "7")
+        self.assertEqual(modules[binary]["module_version"], "9060020250716081121")
+        self.assertEqual(modules[binary]["module_context"], "9")
+
+
+class TestParseCsafModuleProductId(unittest.TestCase):
+    def test_appstream_prefix_and_module_suffix(self):
+        from apollo.rhcsaf import _parse_csaf_package_product_id
+
+        product_id = (
+            "AppStream-8.9.0.Z.MAIN:nodejs-1:16.20.2-4.module+el8.9.0+21536+8fdee1fb.x86_64"
+            "::nodejs:16"
+        )
+        nevra, fields = _parse_csaf_package_product_id(product_id, None)
+        self.assertEqual(
+            nevra,
+            "nodejs-1:16.20.2-4.module+el8.9.0+21536+8fdee1fb.x86_64",
+        )
+        self.assertEqual(fields["module_name"], "nodejs")
+        self.assertEqual(fields["module_stream"], "16")
+
 
 class TestEUSAdvisoryFiltering(unittest.TestCase):
     """Test that EUS-only advisories are filtered out"""

@@ -30,6 +30,7 @@ bz_re = re.compile(r"BZ#([0-9]+)")
 async def create_or_update_red_hat_advisory_packages(
     advisory: RedHatAdvisory,
     new_nevras: set,
+    package_module_fields: Optional[dict] = None,
     update_advisory: bool = False,
 ) -> None:
     """
@@ -39,26 +40,44 @@ async def create_or_update_red_hat_advisory_packages(
     logger = Logger()
     logger.info(f"Creating or updating packages for advisory {advisory.name}")
 
-    existing_packages = set(
-        p.nevra for p in await RedHatAdvisoryPackage.filter(red_hat_advisory_id=advisory.id).all()
-    )
+    package_module_fields = package_module_fields or {}
+
+    existing_packages = {
+        p.nevra: p
+        for p in await RedHatAdvisoryPackage.filter(red_hat_advisory_id=advisory.id).all()
+    }
+    existing_nevras = set(existing_packages.keys())
 
     # Add new packages
-    to_add = new_nevras - existing_packages
+    to_add = new_nevras - existing_nevras
     if to_add:
         logger.info(f"Adding new packages for advisory {advisory.name}: {to_add}")
         await RedHatAdvisoryPackage.bulk_create([
             RedHatAdvisoryPackage(
                 red_hat_advisory_id=advisory.id,
-                nevra=nevra
+                nevra=nevra,
+                **(package_module_fields.get(nevra) or {}),
             ) for nevra in to_add
         ], ignore_conflicts=True)
     else:
         logger.info(f"No new packages to add for advisory {advisory.name}")
 
+    # Refresh module fields on existing packages when CSAF provides them
+    for nevra, fields in package_module_fields.items():
+        if nevra not in existing_nevras:
+            continue
+        pkg = existing_packages[nevra]
+        updates = {}
+        for key in ("module_name", "module_stream", "module_version", "module_context"):
+            new_val = fields.get(key)
+            if new_val and getattr(pkg, key) != new_val:
+                updates[key] = new_val
+        if updates:
+            await RedHatAdvisoryPackage.filter(id=pkg.id).update(**updates)
+
     # Remove packages not in the new set if updating
     if update_advisory:
-        to_remove = existing_packages - new_nevras
+        to_remove = existing_nevras - new_nevras
         if to_remove:
             logger.info(f"Removing packages for advisory {advisory.name}: {to_remove}")
             await RedHatAdvisoryPackage.filter(
@@ -272,9 +291,11 @@ def standardize_datetime_string(dt_str: str) -> str:
 def parse_datetime(dt_str: str) -> datetime:
     """Parse datetime string with various formats"""
     formats = [
-        "%Y-%m-%dT%H:%M:%S%z",  # 2025-04-17T12:08:56+0000
-        "%Y-%m-%dT%H%M%S%z",    # 2025-04-17T143259+0000
-        "%Y-%m-%d %H:%M:%S%z"   # 2025-04-17 14:32:59+0000
+        "%Y-%m-%dT%H:%M:%S.%f%z",  # 2025-04-17T12:08:56.999941+0000
+        "%Y-%m-%dT%H:%M:%S%z",     # 2025-04-17T12:08:56+0000
+        "%Y-%m-%dT%H%M%S%z",       # 2025-04-17T143259+0000
+        "%Y-%m-%d %H:%M:%S.%f%z",  # 2025-04-17 14:32:59.999941+0000
+        "%Y-%m-%d %H:%M:%S%z",     # 2025-04-17 14:32:59+0000
     ]
 
     dt_str = standardize_datetime_string(dt_str)
@@ -588,7 +609,10 @@ async def process_csaf_file(json_data: dict, filepath: str) -> Optional[RedHatAd
             logger.info(f"Processing packages for advisory {advisory.name}")
             new_nevras = set(data["red_hat_fixed_packages"])
             await create_or_update_red_hat_advisory_packages(
-                advisory, new_nevras, update_advisory=update_advisory
+                advisory,
+                new_nevras,
+                package_module_fields=data.get("red_hat_package_module_fields") or {},
+                update_advisory=update_advisory,
             )
 
             # Handle CVEs
