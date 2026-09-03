@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import re
 import json
 
@@ -114,3 +116,127 @@ def parse_nevra(nevra_str: str) -> dict:
         "dist_major": major,
         "dist_minor": minor,
     }
+
+
+def rpmvercmp(a: str, b: str) -> int:
+    """
+    Compare two RPM version or release strings (rpmvercmp semantics).
+
+    Handles numeric/alpha segments, and the special ``~`` / ``^`` markers
+    used by RPM (``1.0~rc1`` < ``1.0``; ``^`` sorts after the base when the
+    other side ends, else like a normal separator).
+
+    Returns -1 if a < b, 0 if equal, 1 if a > b.
+    """
+    if a == b:
+        return 0
+
+    i = j = 0
+    la, lb = len(a), len(b)
+
+    while i < la or j < lb:
+        # Skip non-alnum separators except ~ and ^.
+        while i < la and not a[i].isalnum() and a[i] not in "~^":
+            i += 1
+        while j < lb and not b[j].isalnum() and b[j] not in "~^":
+            j += 1
+
+        # '~' always sorts before anything (including end-of-string).
+        if (i < la and a[i] == "~") or (j < lb and b[j] == "~"):
+            if i >= la or a[i] != "~":
+                return 1
+            if j >= lb or b[j] != "~":
+                return -1
+            i += 1
+            j += 1
+            continue
+
+        # '^' sorts after end-of-string, otherwise like a normal separator.
+        if (i < la and a[i] == "^") or (j < lb and b[j] == "^"):
+            if i >= la:
+                return -1
+            if j >= lb:
+                return 1
+            if a[i] != "^":
+                return 1
+            if b[j] != "^":
+                return -1
+            i += 1
+            j += 1
+            continue
+
+        if i >= la and j >= lb:
+            return 0
+        if i >= la:
+            return -1
+        if j >= lb:
+            return 1
+
+        # Numeric segment vs alpha segment: numbers win (RPM rule).
+        a_is_num = a[i].isdigit()
+        b_is_num = b[j].isdigit()
+        if a_is_num and not b_is_num:
+            return 1
+        if not a_is_num and b_is_num:
+            return -1
+
+        start_i, start_j = i, j
+        if a_is_num:
+            while i < la and a[i].isdigit():
+                i += 1
+            while j < lb and b[j].isdigit():
+                j += 1
+            seg_a = a[start_i:i].lstrip("0") or "0"
+            seg_b = b[start_j:j].lstrip("0") or "0"
+            if len(seg_a) != len(seg_b):
+                return 1 if len(seg_a) > len(seg_b) else -1
+            if seg_a != seg_b:
+                return 1 if seg_a > seg_b else -1
+        else:
+            while i < la and a[i].isalpha():
+                i += 1
+            while j < lb and b[j].isalpha():
+                j += 1
+            seg_a = a[start_i:i]
+            seg_b = b[start_j:j]
+            if seg_a != seg_b:
+                return 1 if seg_a > seg_b else -1
+
+    return 0
+
+
+def label_compare(
+    e1: str | int,
+    v1: str,
+    r1: str,
+    e2: str | int,
+    v2: str,
+    r2: str,
+) -> int:
+    """
+    Compare two EVR labels (epoch, version, release).
+
+    Returns -1 if first < second, 0 if equal, 1 if first > second.
+    """
+    epoch1 = int(e1 or 0)
+    epoch2 = int(e2 or 0)
+    if epoch1 != epoch2:
+        return 1 if epoch1 > epoch2 else -1
+
+    ver_cmp = rpmvercmp(str(v1), str(v2))
+    if ver_cmp != 0:
+        return ver_cmp
+
+    return rpmvercmp(str(r1), str(r2))
+
+
+def evr_gte(
+    e1: str | int,
+    v1: str,
+    r1: str,
+    e2: str | int,
+    v2: str,
+    r2: str,
+) -> bool:
+    """True if (e1,v1,r1) >= (e2,v2,r2) under RPM labelCompare rules."""
+    return label_compare(e1, v1, r1, e2, v2, r2) >= 0

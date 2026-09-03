@@ -340,7 +340,7 @@ class TestProcessRepomdMatching(unittest.TestCase):
         self.assertNotIn("RHSA-2026:0005", result)
 
     def test_prefix_match_version_mismatch_no_match(self):
-        """Rocky package with different version doesn't prefix-match."""
+        """Older Rocky EVR than RH fixed must not match (prefix or EVR)."""
         repo_pkgs = [
             _make_pkg_element(
                 "openssh", "8.7p1", "48.el9_7.rocky.0.1", "x86_64"
@@ -357,6 +357,61 @@ class TestProcessRepomdMatching(unittest.TestCase):
                 process_repomd(_make_mirror(), _make_rpm_repomd(), [advisory])
             )
         self.assertNotIn("RHSA-2026:0006", result)
+
+    def test_evr_match_newer_rocky_release(self):
+        """Rocky already shipping a newer release than RH fixed still matches."""
+        repo_pkgs = [
+            _make_pkg_element(
+                "openssh", "8.7p1", "50.el9_7.rocky.0.1", "x86_64"
+            ),
+        ]
+        advisory = _make_advisory(
+            "RHSA-2026:0010",
+            ["openssh-0:8.7p1-49.el9_7.x86_64.rpm"],
+        )
+        fake_dl, fake_data = _mock_repomd_downloads(repo_pkgs)
+        with patch.object(repomd, "download_xml", side_effect=fake_dl), \
+             patch.object(repomd, "get_data_from_repomd", side_effect=fake_data):
+            result = self._run(
+                process_repomd(_make_mirror(), _make_rpm_repomd(), [advisory])
+            )
+        self.assertIn("RHSA-2026:0010", result)
+
+    def test_evr_match_different_release_string(self):
+        """RH 7.el9_2.1 vs Rocky 8.el9 (no shared NVR prefix) still matches."""
+        repo_pkgs = [
+            _make_pkg_element("dbus", "1.12.20", "8.el9", "x86_64", epoch="1"),
+        ]
+        advisory = _make_advisory(
+            "RHSA-2026:0011",
+            ["dbus-1:1.12.20-7.el9_2.1.x86_64.rpm"],
+        )
+        fake_dl, fake_data = _mock_repomd_downloads(repo_pkgs)
+        with patch.object(repomd, "download_xml", side_effect=fake_dl), \
+             patch.object(repomd, "get_data_from_repomd", side_effect=fake_data):
+            result = self._run(
+                process_repomd(_make_mirror(), _make_rpm_repomd(), [advisory])
+            )
+        self.assertIn("RHSA-2026:0011", result)
+
+    def test_evr_match_picks_lowest_satisfying(self):
+        """When multiple newer Rocky builds exist, still match the advisory."""
+        repo_pkgs = [
+            _make_pkg_element("bash", "5.1.8", "6.el9", "x86_64"),
+            _make_pkg_element("bash", "5.1.8", "10.el9", "x86_64"),
+            _make_pkg_element("bash", "5.1.8", "9.el9", "x86_64"),
+        ]
+        advisory = _make_advisory(
+            "RHSA-2026:0012",
+            ["bash-0:5.1.8-8.el9.x86_64.rpm"],
+        )
+        fake_dl, fake_data = _mock_repomd_downloads(repo_pkgs)
+        with patch.object(repomd, "download_xml", side_effect=fake_dl), \
+             patch.object(repomd, "get_data_from_repomd", side_effect=fake_data):
+            result = self._run(
+                process_repomd(_make_mirror(), _make_rpm_repomd(), [advisory])
+            )
+        self.assertIn("RHSA-2026:0012", result)
 
     def test_multiple_advisories_independent_matching(self):
         """Each advisory matches independently against repo packages."""
@@ -422,3 +477,4 @@ class TestStreamProductName(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -1,5 +1,11 @@
 import unittest
-from apollo.rpm_helpers import parse_nevra, parse_dist_version
+from apollo.rpm_helpers import (
+    parse_nevra,
+    parse_dist_version,
+    rpmvercmp,
+    label_compare,
+    evr_gte,
+)
 
 class TestRpmHelpers(unittest.TestCase):
     def test_parse_dist_version(self):
@@ -86,6 +92,40 @@ class TestRpmHelpers(unittest.TestCase):
             with self.subTest(nevra=nevra):
                 with self.assertRaises(ValueError):
                     parse_nevra(nevra)
+
+    def test_rpmvercmp(self):
+        cases = [
+            ("1.0", "1.0", 0),
+            ("1.0", "1.1", -1),
+            ("1.1", "1.0", 1),
+            ("8", "7.1", 1),
+            ("7.1", "8", -1),
+            ("49", "48", 1),
+            ("48.rocky.0.1", "49", -1),
+            ("50.rocky.0.1", "49", 1),
+            # Tilde: pre-release sorts before the base version.
+            ("1.0~rc1", "1.0", -1),
+            ("1.0", "1.0~rc1", 1),
+            ("1.0~rc1", "1.0~rc2", -1),
+            # Caret: snapshot after base when other side ends.
+            ("1.0", "1.0^20240101", -1),
+            ("1.0^20240101", "1.0", 1),
+            ("1.0^20240101", "1.0.1", -1),
+        ]
+        for a, b, expected in cases:
+            with self.subTest(a=a, b=b):
+                self.assertEqual(rpmvercmp(a, b), expected)
+
+    def test_label_compare_and_evr_gte(self):
+        self.assertEqual(
+            label_compare(0, "1.12.20", "8.el9", 0, "1.12.20", "7.el9_2.1"),
+            1,
+        )
+        self.assertTrue(evr_gte(1, "1.12.20", "8.el9", 1, "1.12.20", "7.el9_2.1"))
+        self.assertFalse(
+            evr_gte(0, "8.7p1", "48.el9_7.rocky.0.1", 0, "8.7p1", "49.el9_7")
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
