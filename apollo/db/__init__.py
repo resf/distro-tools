@@ -1,4 +1,5 @@
 import datetime
+from typing import Optional
 
 from tortoise.models import Model
 from tortoise import fields
@@ -290,6 +291,30 @@ class Advisory(Model):
         table = "advisories"
 
 
+class _PackageName:
+    """Expose cleaned ``package_name`` as both an attribute and a computed field.
+
+    The DB column is mapped to ``_package_name`` so a Python property can strip
+    a leftover ``module.`` prefix. Tortoise's pydantic creator only includes
+    computed names that resolve to a *method* with a return annotation, so a
+    plain ``@property`` never appeared in ``GET /api/v3/advisories`` JSON
+    (the field was always null / omitted). Class access returns that method;
+    instance access returns the cleaned string.
+    """
+
+    def __get__(self, obj, owner=None):
+        if obj is None:
+
+            def package_name(instance: "AdvisoryPackage") -> Optional[str]:
+                return AdvisoryPackage._clean_package_name(instance._package_name)
+
+            return package_name
+        return AdvisoryPackage._clean_package_name(obj._package_name)
+
+    def __set__(self, obj, value):
+        obj._package_name = AdvisoryPackage._clean_package_name(value)
+
+
 class AdvisoryPackage(Model):
     id = fields.BigIntField(pk=True)
     advisory = fields.ForeignKeyField(
@@ -315,9 +340,15 @@ class AdvisoryPackage(Model):
         related_name="advisory_packages",
     )
 
+    package_name = _PackageName()
+
     class Meta:
         table = "advisory_packages"
         unique_together = ("advisory_id", "nevra")
+
+    class PydanticMeta:
+        exclude = ("_package_name",)
+        computed = ("package_name",)
 
     def __init__(self, **kwargs):
         if 'package_name' in kwargs:
@@ -326,17 +357,10 @@ class AdvisoryPackage(Model):
             )
         super().__init__(**kwargs)
 
-    @property
-    def package_name(self):
-        return self._clean_package_name(self._package_name)
-
-    @package_name.setter
-    def package_name(self, value):
-        self._package_name = self._clean_package_name(value)
-
-    def _clean_package_name(self, value):
+    @staticmethod
+    def _clean_package_name(value):
         if isinstance(value, str) and value.startswith('module.'):
-            return value.replace('module.', '')
+            return value.replace('module.', '', 1)
         return value
 
     async def save(self, *args, **kwargs):
