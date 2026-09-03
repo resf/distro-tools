@@ -119,6 +119,7 @@ py_test(
     srcs = ["test_advisory_package.py"],
     deps = [
         "//apollo/db:db_lib",
+        "@pypi_pydantic//:pkg",
     ],
 )
 
