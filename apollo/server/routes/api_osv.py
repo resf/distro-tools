@@ -259,7 +259,7 @@ async def get_advisories_osv(
     keyword: Optional[str] = None,
     severity: Optional[str] = None,
 ):
-    fetch_adv = await fetch_advisories(
+    total, advisories = await fetch_advisories(
         params.get_size(),
         params.get_offset(),
         keyword,
@@ -271,21 +271,22 @@ async def get_advisories_osv(
         severity,
         kind=None,
         fetch_related=True,
+        require_cves=True,
     )
-    advisories = fetch_adv[1]
 
     ui_url = await get_setting(UI_URL)
     osv_advisories = [to_osv_advisory(ui_url, adv) for adv in advisories if adv.cves]
-    page = create_page(osv_advisories, len(osv_advisories), params)
+    page = create_page(osv_advisories, total, params)
 
     state = await RedHatIndexState.first()
-    page.last_updated_at = (
-        state.last_indexed_at.isoformat("T").replace(
-            "+00:00",
-            "",
+    if state and state.last_indexed_at:
+        page.last_updated_at = (
+            state.last_indexed_at.isoformat("T").replace(
+                "+00:00",
+                "",
+            )
+            + "Z"
         )
-        + "Z"
-    )
 
     return page
 
