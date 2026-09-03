@@ -4,6 +4,7 @@ load("//build/macros:pyimage.bzl", "py_binary")
 py_library(
     name = "rpmworker_lib",
     srcs = [
+        "nvra_match.py",
         "repomd.py",
         "rh_matcher_activities.py",
         "rh_matcher_workflows.py",
@@ -13,6 +14,7 @@ py_library(
     visibility = ["//:__subpackages__"],
     deps = [
         "//apollo/db:db_lib",
+        "//apollo/rpm_helpers:rpm_helpers_lib",
         "//common:common_lib",
         "@pypi_aiohttp//:pkg",
         "@pypi_pyyaml//:pkg",
