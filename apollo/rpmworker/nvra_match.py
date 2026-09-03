@@ -42,13 +42,18 @@ def _pkg_evr(pkg: ET.Element) -> tuple[str, str, str] | None:
 
 def _is_rebuild_prefix(pkg_nvr: str, cleaned_nvr: str) -> bool:
     """
-    True when pkg_nvr is cleaned_nvr or cleaned_nvr plus a dotted suffix.
+    True when pkg_nvr is cleaned_nvr or cleaned_nvr plus a dotted rebuild suffix.
 
     Requires a '.' boundary so release ``80`` does not prefix-match ``8``.
+    A trailing ``.N`` after the NVR (httpd ``51.1`` vs ``51``) is a later
+    module snapshot (issue 8), not a ``.rocky`` rebuild of the first build.
     """
     if pkg_nvr == cleaned_nvr:
         return True
-    return pkg_nvr.startswith(cleaned_nvr + ".")
+    if not pkg_nvr.startswith(cleaned_nvr + "."):
+        return False
+    first = pkg_nvr[len(cleaned_nvr) + 1:].split(".", 1)[0]
+    return not first.isdigit()
 
 
 def find_nvra_alias(

@@ -46,6 +46,22 @@ class TestFindNvraAlias(unittest.TestCase):
         )
         self.assertIsNone(alias)
 
+    def test_module_rebuild_suffix_is_not_prefix(self):
+        """httpd 51.1 is a later snapshot, not a .rocky rebuild of 51 (issue 8)."""
+        self.assertFalse(
+            _is_rebuild_prefix("httpd-2.4.37-51.1", "httpd-2.4.37-51")
+        )
+        self.assertTrue(
+            _is_rebuild_prefix("httpd-2.4.37-51.rocky.0.1", "httpd-2.4.37-51")
+        )
+        alias = find_nvra_alias(
+            "httpd-2.4.37-51.x86_64",
+            ["httpd-2.4.37-51.1.x86_64"],
+            advisory_nevra="httpd-0:2.4.37-51.module+el8.7.0+1059+126e9251.x86_64.rpm",
+            raw_pkg_nvras=None,
+        )
+        self.assertIsNone(alias)
+
     def test_digit_extension_can_still_evr_match(self):
         """After boundary reject, EVR >= may still select a newer release."""
         rocky = "openssh-8.7p1-80.x86_64"
