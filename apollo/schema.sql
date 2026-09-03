@@ -611,6 +611,47 @@ ALTER SEQUENCE public.supported_products_rh_blocks_id_seq OWNED BY public.suppor
 
 
 --
+-- Name: cve_product_statuses; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.cve_product_statuses (
+    id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone,
+    cve text NOT NULL,
+    supported_product_id bigint NOT NULL,
+    status character varying(64) NOT NULL,
+    reason text,
+    red_hat_advisory_id bigint,
+    advisory_id bigint,
+    CONSTRAINT cve_product_statuses_status_check CHECK (
+        ((status)::text = ANY (
+            (ARRAY['fixed'::character varying, 'not_shipped'::character varying, 'under_investigation'::character varying])::text[]
+        ))
+    )
+);
+
+
+--
+-- Name: cve_product_statuses_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.cve_product_statuses_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cve_product_statuses_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.cve_product_statuses_id_seq OWNED BY public.cve_product_statuses.id;
+
+
+--
 -- Name: supported_products_rh_mirrors; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1752,4 +1793,5 @@ ALTER TABLE ONLY public.supported_products_rpm_rh_overrides
 
 INSERT INTO public.schema_migrations (version) VALUES
     ('20230128201227'),
-    ('20250825165713');
+    ('20250825165713'),
+    ('20260826180000');

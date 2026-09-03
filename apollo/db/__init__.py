@@ -35,6 +35,7 @@ class SupportedProduct(Model):
     advisory_packages: fields.ReverseRelation["AdvisoryPackage"]
     advisory_affected_products: fields.ReverseRelation["AdvisoryAffectedProduct"
                                                       ]
+    cve_statuses: fields.ReverseRelation["CveProductStatus"]
 
     class Meta:
         table = "supported_products"
@@ -265,6 +266,44 @@ class SupportedProductsRhBlock(Model):
         table = "supported_products_rh_blocks"
 
 
+class CveProductStatus(Model):
+    """
+    Rocky-facing CVE status per supported product.
+
+    Statuses:
+      - fixed: an RLSA exists (advisory_id set when known)
+      - not_shipped: RHSA packages for this product never matched Rocky repos
+      - under_investigation: blocked/uncloned but still within rematch window
+
+    Never emitted into yum updateinfo; use API / VEX instead.
+    """
+
+    id = fields.BigIntField(pk=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True, null=True)
+    cve = fields.TextField()
+    supported_product = fields.ForeignKeyField(
+        "models.SupportedProduct",
+        related_name="cve_statuses",
+    )
+    status = fields.CharField(max_length=64)
+    reason = fields.TextField(null=True)
+    red_hat_advisory = fields.ForeignKeyField(
+        "models.RedHatAdvisory",
+        related_name="cve_statuses",
+        null=True,
+    )
+    advisory = fields.ForeignKeyField(
+        "models.Advisory",
+        related_name="cve_statuses",
+        null=True,
+    )
+
+    class Meta:
+        table = "cve_product_statuses"
+        unique_together = ("cve", "supported_product_id")
+
+
 class Advisory(Model):
     id = fields.BigIntField(pk=True)
     created_at = fields.DatetimeField(auto_now_add=True)
@@ -321,7 +360,7 @@ class AdvisoryPackage(Model):
 
     def __init__(self, **kwargs):
         if 'package_name' in kwargs:
-            kwargs['_package_name'] = self._clean_package_name(
+            kwargs['_package_name'] = AdvisoryPackage._clean_package_name(
                 kwargs.pop('package_name')
             )
         super().__init__(**kwargs)
@@ -334,9 +373,10 @@ class AdvisoryPackage(Model):
     def package_name(self, value):
         self._package_name = self._clean_package_name(value)
 
-    def _clean_package_name(self, value):
+    @staticmethod
+    def _clean_package_name(value):
         if isinstance(value, str) and value.startswith('module.'):
-            return value.replace('module.', '')
+            return value.replace('module.', '', 1)
         return value
 
     async def save(self, *args, **kwargs):
