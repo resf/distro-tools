@@ -326,7 +326,10 @@ async def test_fetch_updateinfo_from_apollo_live_no_updateinfo():
                     "Rocky Linux 8 x86_64 NONEXISTENT",
                 )
 
-                assert updateinfo is None
+                assert updateinfo is not None
+                tree = ET.fromstring(updateinfo)
+                assert tree.tag == "updates"
+                assert list(tree) == []
 
 
 @pytest.mark.asyncio
@@ -356,6 +359,25 @@ async def test_fetch_updateinfo_from_apollo_mock(mocker):
                 )
 
                 assert updateinfo == updateinfo_xml
+
+
+@pytest.mark.asyncio
+async def test_fetch_updateinfo_from_apollo_empty_404(mocker):
+    with tempfile.TemporaryDirectory() as directory:
+        repos = await _setup_test_baseos(directory)
+
+        resp = MockResponse("", 404)
+        mocker.patch("aiohttp.ClientSession.get", return_value=resp)
+
+        for _, repo_variants in repos.items():
+            for repo in repo_variants:
+                updateinfo = await apollo_tree.fetch_updateinfo_from_apollo(
+                    repo,
+                    "Rocky Linux 10 ppc64le",
+                )
+                tree = ET.fromstring(updateinfo)
+                assert tree.tag == "updates"
+                assert list(tree) == []
 
 
 @pytest.mark.asyncio

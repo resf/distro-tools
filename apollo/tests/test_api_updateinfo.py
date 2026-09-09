@@ -451,16 +451,19 @@ class TestUpdateinfoEndpoints(unittest.TestCase):
         self.assertIn(b"<updates>", response.body)
 
     @patch("apollo.server.routes.api_updateinfo.AdvisoryAffectedProduct")
-    def test_get_updateinfo_not_found(self, mock_aap):
-        """V1 endpoint raises 404 when no advisories found"""
+    def test_get_updateinfo_empty_repo(self, mock_aap):
+        """V1 endpoint returns empty updateinfo XML when no advisories exist"""
         mock_filter = Mock()
         mock_filter.prefetch_related = self._create_mock_query_chain([])
         mock_aap.filter.return_value = mock_filter
 
-        with self.assertRaises(RenderErrorTemplateException) as ctx:
-            asyncio.run(get_updateinfo("Rocky Linux", "BaseOS"))
+        response = asyncio.run(get_updateinfo("Rocky Linux 10 ppc64le", "SAP"))
 
-        self.assertEqual(ctx.exception.status_code, 404)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.media_type, "application/xml")
+        tree = ET.fromstring(response.body)
+        self.assertEqual(tree.tag, "updates")
+        self.assertEqual(list(tree), [])
 
     @patch("apollo.server.routes.api_updateinfo.get_setting")
     @patch("apollo.server.routes.api_updateinfo.AdvisoryAffectedProduct")
@@ -538,7 +541,7 @@ class TestUpdateinfoEndpoints(unittest.TestCase):
     @patch("apollo.server.routes.api_updateinfo.AdvisoryAffectedProduct")
     @patch("apollo.server.routes.api_updateinfo.AdvisoryPackage")
     def test_get_updateinfo_v2_no_advisories(self, mock_ap, mock_aap, mock_sp):
-        """V2 endpoint raises 404 when no advisories found"""
+        """V2 endpoint returns empty updateinfo XML when no advisories exist"""
         mock_product = Mock()
         mock_product.id = 1
         mock_product.name = "Rocky Linux"
@@ -548,10 +551,13 @@ class TestUpdateinfoEndpoints(unittest.TestCase):
         mock_filter.prefetch_related = self._create_mock_query_chain([])
         mock_aap.filter.return_value = mock_filter
 
-        with self.assertRaises(RenderErrorTemplateException) as ctx:
-            asyncio.run(get_updateinfo_v2("rocky-linux", 8, "BaseOS", "x86_64"))
+        response = asyncio.run(get_updateinfo_v2("rocky-linux", 10, "SAP", "ppc64le"))
 
-        self.assertEqual(ctx.exception.status_code, 404)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.media_type, "application/xml")
+        tree = ET.fromstring(response.body)
+        self.assertEqual(tree.tag, "updates")
+        self.assertEqual(list(tree), [])
 
     @patch("apollo.server.routes.api_updateinfo.get_setting")
     @patch("apollo.server.routes.api_updateinfo.SupportedProduct")
