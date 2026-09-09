@@ -450,7 +450,11 @@ ALTER SEQUENCE public.red_hat_advisory_cves_id_seq OWNED BY public.red_hat_advis
 CREATE TABLE public.red_hat_advisory_packages (
     id bigint NOT NULL,
     red_hat_advisory_id bigint,
-    nevra text NOT NULL
+    nevra text NOT NULL,
+    module_context text,
+    module_name text,
+    module_stream text,
+    module_version text
 );
 
 
