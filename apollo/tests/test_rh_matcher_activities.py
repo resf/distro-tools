@@ -391,6 +391,125 @@ class TestProcessRepomdMatching(unittest.TestCase):
         self.assertNotIn("RHSA-2026:0008", result)
         self.assertIn("RHSA-2026:0009", result)
 
+    def test_module_rebuild_suffix_does_not_alias_first_build(self):
+        """Issue 8: later .1 / .5 module rebuilds are not the first snapshot."""
+        repo_pkgs = [
+            _make_pkg_element(
+                "httpd",
+                "2.4.37",
+                "51.module+el8.7.0+1182+86a6cd60.5",
+                "x86_64",
+            ),
+        ]
+        first = _make_advisory(
+            "RHSA-2022:7647",
+            ["httpd-0:2.4.37-51.module+el8.7.0+1059+126e9251.x86_64.rpm"],
+        )
+        later = _make_advisory(
+            "RHSA-2023:1673",
+            ["httpd-0:2.4.37-51.module+el8.7.0+1182+86a6cd60.5.x86_64.rpm"],
+        )
+        fake_dl, fake_data = _mock_repomd_downloads(repo_pkgs)
+        with patch.object(repomd, "download_xml", side_effect=fake_dl), \
+             patch.object(repomd, "get_data_from_repomd", side_effect=fake_data):
+            result = self._run(
+                process_repomd(
+                    _make_mirror(name="Rocky Linux 8 x86_64"),
+                    _make_rpm_repomd(),
+                    [first, later],
+                )
+            )
+        self.assertNotIn("RHSA-2022:7647", result)
+        self.assertIn("RHSA-2023:1673", result)
+
+    def test_module_rebuilds_match_their_own_snapshot(self):
+        repo_pkgs = [
+            _make_pkg_element(
+                "httpd",
+                "2.4.37",
+                "51.module+el8.7.0+1059+126e9251",
+                "x86_64",
+            ),
+            _make_pkg_element(
+                "httpd",
+                "2.4.37",
+                "51.module+el8.7.0+1155+5163394a.1",
+                "x86_64",
+            ),
+            _make_pkg_element(
+                "httpd",
+                "2.4.37",
+                "51.module+el8.7.0+1182+86a6cd60.5",
+                "x86_64",
+            ),
+        ]
+        advisories = [
+            _make_advisory(
+                "RHSA-2022:7647",
+                ["httpd-0:2.4.37-51.module+el8.7.0+1059+126e9251.x86_64.rpm"],
+            ),
+            _make_advisory(
+                "RHSA-2023:0852",
+                ["httpd-0:2.4.37-51.module+el8.7.0+1155+5163394a.1.x86_64.rpm"],
+            ),
+            _make_advisory(
+                "RHSA-2023:1673",
+                ["httpd-0:2.4.37-51.module+el8.7.0+1182+86a6cd60.5.x86_64.rpm"],
+            ),
+        ]
+        fake_dl, fake_data = _mock_repomd_downloads(repo_pkgs)
+        with patch.object(repomd, "download_xml", side_effect=fake_dl), \
+             patch.object(repomd, "get_data_from_repomd", side_effect=fake_data):
+            result = self._run(
+                process_repomd(
+                    _make_mirror(name="Rocky Linux 8 x86_64"),
+                    _make_rpm_repomd(),
+                    advisories,
+                )
+            )
+        self.assertIn("RHSA-2022:7647", result)
+        self.assertIn("RHSA-2023:0852", result)
+        self.assertIn("RHSA-2023:1673", result)
+
+
+class TestCleanNvraModuleRebuild(unittest.TestCase):
+    def test_trailing_rebuild_stays_on_cleaned_key(self):
+        base, _ = repomd.clean_nvra(
+            "httpd-0:2.4.37-51.module+el8.7.0+1059+126e9251.x86_64.rpm"
+        )
+        r1, _ = repomd.clean_nvra(
+            "httpd-0:2.4.37-51.module+el8.7.0+1155+5163394a.1.x86_64.rpm"
+        )
+        r5, _ = repomd.clean_nvra(
+            "httpd-0:2.4.37-51.module+el8.7.0+1182+86a6cd60.5.x86_64.rpm"
+        )
+        self.assertEqual(base, "module.httpd-2.4.37-51.x86_64")
+        self.assertEqual(r1, "module.httpd-2.4.37-51.1.x86_64")
+        self.assertEqual(r5, "module.httpd-2.4.37-51.5.x86_64")
+
+    def test_rh_vs_rocky_module_hash_still_collapses(self):
+        rh, _ = repomd.clean_nvra(
+            "nodejs-1:16.20.2-4.module+el8.9.0+21536+8fdee1fb.x86_64.rpm"
+        )
+        rocky, _ = repomd.clean_nvra(
+            "nodejs-1:16.20.2-4.module+el8.9.0+1666+930e28e8.x86_64.rpm"
+        )
+        self.assertEqual(rh, rocky)
+        self.assertEqual(rh, "module.nodejs-16.20.2-4.x86_64")
+
+    def test_nvr_rebuild_rejects_numeric_module_suffix(self):
+        self.assertFalse(
+            repomd.nvr_is_rebuild_of("httpd-2.4.37-51.1", "httpd-2.4.37-51")
+        )
+        self.assertTrue(
+            repomd.nvr_is_rebuild_of(
+                "openssh-8.7p1-49.rocky.0.1", "openssh-8.7p1-49"
+            )
+        )
+        self.assertTrue(
+            repomd.nvr_is_rebuild_of("httpd-2.4.37-51", "httpd-2.4.37-51")
+        )
+
 
 class TestStreamProductName(unittest.TestCase):
     """packages.product_name must match affected_products.name on the major stream."""

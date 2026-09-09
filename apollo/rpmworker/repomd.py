@@ -18,7 +18,36 @@ NEVRA_RE = re.compile(
 )
 EPOCH_RE = re.compile(r"(\d+):")
 DIST_RE = re.compile(r"(\.el\d+(?:_\d+|))")
-MODULE_DIST_RE = re.compile(r"\.module.+$")
+# ``.module+el8.7.0+1155+5163394a.1`` — strip NSVC, keep trailing ``.1``.
+_MODULE_NSVC_RE = re.compile(r"\.module\+[^+]+\+\d+\+[0-9a-fA-F]+")
+_MODULE_DIST_RE = re.compile(r"\.module.+$")
+
+
+def strip_module_dist(release: str) -> str:
+    """Drop ``.module+dist+build+context``; keep a trailing ``.N`` rebuild.
+
+    RHEL vs Rocky module hashes are not comparable. Trailing ``.1`` / ``.5``
+    after the context is a later snapshot (issue 8). Greedy ``.module.+$``
+    collapsed ``httpd-2.4.37-51.module+…+126e9251`` with ``…+5163394a.1``.
+    """
+    stripped, n = _MODULE_NSVC_RE.subn("", release, count=1)
+    if n:
+        return stripped
+    return _MODULE_DIST_RE.sub("", release)
+
+
+def nvr_is_rebuild_of(pkg_nvr: str, cleaned_nvr: str) -> bool:
+    """True for an exact NVR or a ``.rocky`` rebuild, not a later ``.N`` snapshot.
+
+    ``httpd-2.4.37-51.1`` is not a rebuild of ``httpd-2.4.37-51``.
+    ``openssh-8.7p1-49.rocky.0.1`` is a rebuild of ``openssh-8.7p1-49``.
+    """
+    if pkg_nvr == cleaned_nvr:
+        return True
+    if not pkg_nvr.startswith(cleaned_nvr + "."):
+        return False
+    first = pkg_nvr[len(cleaned_nvr) + 1:].split(".", 1)[0]
+    return not first.isdigit()
 
 
 def clean_nvra_pkg(matching_pkg: ET.Element) -> tuple[str, str]:
@@ -31,7 +60,7 @@ def clean_nvra_pkg(matching_pkg: ET.Element) -> tuple[str, str]:
     ).attrib["rel"]
     arch = matching_pkg.find("{http://linux.duke.edu/metadata/common}arch").text
 
-    clean_release = MODULE_DIST_RE.sub("", DIST_RE.sub("", release))
+    clean_release = strip_module_dist(DIST_RE.sub("", release))
 
     cleaned = f"{name}-{version}-{clean_release}.{arch}"
     raw = f"{name}-{version}-{release}.{arch}"
@@ -52,7 +81,7 @@ def clean_nvra(nvra_raw: str) -> tuple[str, str]:
     release = results["release"]
     arch = results["arch"]
 
-    clean_release = MODULE_DIST_RE.sub("", DIST_RE.sub("", release))
+    clean_release = strip_module_dist(DIST_RE.sub("", release))
 
     cleaned = f"{name}-{version}-{clean_release}.{arch}"
     raw = f"{name}-{version}-{release}.{arch}"
