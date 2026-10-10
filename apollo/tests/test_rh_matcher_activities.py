@@ -473,6 +473,12 @@ class TestProcessRepomdMatching(unittest.TestCase):
 
 
 class TestCleanNvraModuleRebuild(unittest.TestCase):
+    def test_release_ten_is_not_a_rebuild_of_release_one(self):
+        """peridot#204: numeric prefix matching corrupts historical fix bounds."""
+        self.assertFalse(
+            repomd.nvr_is_rebuild_of("krb5-1.21.1-10", "krb5-1.21.1-1")
+        )
+
     def test_trailing_rebuild_stays_on_cleaned_key(self):
         base, _ = repomd.clean_nvra(
             "httpd-0:2.4.37-51.module+el8.7.0+1059+126e9251.x86_64.rpm"
