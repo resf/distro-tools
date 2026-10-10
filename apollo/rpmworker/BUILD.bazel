@@ -5,6 +5,7 @@ py_library(
     name = "rpmworker_lib",
     srcs = [
         "repomd.py",
+        "repair_advisory.py",
         "rh_matcher_activities.py",
         "rh_matcher_workflows.py",
         "temporal.py",

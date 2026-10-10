@@ -131,3 +131,15 @@ py_test(
         "//apollo/rpm_helpers:rpm_helpers_lib",
     ],
 )
+
+py_test(
+    name = "test_repair_advisory",
+    srcs = ["test_repair_advisory.py"],
+    deps = [
+        "//apollo/rpmworker:rpmworker_lib",
+        "//apollo/server:server_lib",
+        "//apollo/db:db_lib",
+        "//common:common_lib",
+        "@pypi_tortoise_orm//:pkg",
+    ],
+)
