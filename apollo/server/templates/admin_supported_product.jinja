@@ -42,9 +42,14 @@
       <div class="bx--col">
         <div class="apollo-section-header">
           <h2 class="bx--type-productive-heading-04">Red Hat Mirrors ({{ mirrors|length }})</h2>
-          <a href="/admin/supported-products/{{ product.id }}/mirrors/new" class="bx--btn bx--btn--primary">
-            Add New Mirror
-          </a>
+          <div style="display: flex; gap: 0.5rem;">
+            <a href="/admin/supported-products/{{ product.id }}/rollover" class="bx--btn bx--btn--secondary">
+              Minor Version Rollover
+            </a>
+            <a href="/admin/supported-products/{{ product.id }}/mirrors/new" class="bx--btn bx--btn--primary">
+              Add New Mirror
+            </a>
+          </div>
         </div>
 
         {% if mirrors %}

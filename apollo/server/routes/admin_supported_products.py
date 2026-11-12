@@ -11,6 +11,7 @@ from fastapi_pagination import Params
 from fastapi_pagination.ext.tortoise import paginate
 
 from tortoise.models import Model
+from common.logger import Logger
 from apollo.db import (
     SupportedProduct,
     SupportedProductsRhMirror,
@@ -20,9 +21,17 @@ from apollo.db import (
     RedHatAdvisory,
     AdvisoryPackage,
     AdvisoryAffectedProduct,
-    Code
+    Code,
+    User,
 )
-from apollo.server.utils import templates
+from apollo.server.services.minor_version_rollover import (
+    RolloverError,
+    UrlCheckFailed,
+    apply_rollover,
+    check_urls,
+    preview_rollover,
+)
+from apollo.server.utils import admin_user_scheme, templates
 from apollo.server.validation import (
     FieldValidator,
     FormValidator,
@@ -437,6 +446,104 @@ async def admin_supported_product_delete(
 
     await product.delete()
     return RedirectResponse("/admin/supported-products?success=Supported product deleted successfully", status_code=302)
+
+
+async def _render_rollover(request: Request, product: SupportedProduct, **context) -> HTMLResponse:
+    # match_major_version is numeric in Postgres (Decimal) and the form posts ints back.
+    majors = await SupportedProductsRhMirror.filter(
+        supported_product=product, active=True
+    ).distinct().values_list("match_major_version", flat=True)
+    return templates.TemplateResponse(
+        "admin_supported_product_rollover.jinja", {
+            "request": request,
+            "product": product,
+            "major_versions": sorted({int(m) for m in majors}, reverse=True),
+            **context,
+        }
+    )
+
+
+@router.get("/{product_id}/rollover", response_class=HTMLResponse)
+async def admin_supported_product_rollover(request: Request, product_id: int):
+    product = await get_entity_or_error_response(
+        request, SupportedProduct, f"Supported product with id {product_id}", entity_id=product_id
+    )
+    if isinstance(product, Response):
+        return product
+    return await _render_rollover(request, product)
+
+
+@router.post("/{product_id}/rollover/preview", response_class=HTMLResponse)
+async def admin_supported_product_rollover_preview(
+    request: Request,
+    product_id: int,
+    major_version: int = Form(),
+    from_minor: int = Form(),
+    to_minor: int = Form(),
+):
+    product = await get_entity_or_error_response(
+        request, SupportedProduct, f"Supported product with id {product_id}", entity_id=product_id
+    )
+    if isinstance(product, Response):
+        return product
+
+    form = {"major_version": major_version, "from_minor": from_minor, "to_minor": to_minor}
+    try:
+        plan = await preview_rollover(product.id, major_version, from_minor, to_minor)
+    except RolloverError as e:
+        return await _render_rollover(request, product, form=form, error=str(e))
+
+    url_checks = await check_urls(plan.new_urls)
+    return await _render_rollover(request, product, form=form, plan=plan, url_checks=url_checks)
+
+
+@router.post("/{product_id}/rollover/apply", response_class=HTMLResponse)
+async def admin_supported_product_rollover_apply(
+    request: Request,
+    product_id: int,
+    major_version: int = Form(),
+    from_minor: int = Form(),
+    to_minor: int = Form(),
+    plan_hash: str = Form(),
+    allow_failed_url_checks: bool = Form(default=False),
+    user: User = Depends(admin_user_scheme),
+):
+    product = await get_entity_or_error_response(
+        request, SupportedProduct, f"Supported product with id {product_id}", entity_id=product_id
+    )
+    if isinstance(product, Response):
+        return product
+
+    form = {"major_version": major_version, "from_minor": from_minor, "to_minor": to_minor}
+    try:
+        applied_plan = await apply_rollover(
+            product.id,
+            major_version,
+            from_minor,
+            to_minor,
+            expected_hash=plan_hash,
+            actor=user.email,
+            allow_failed_url_checks=allow_failed_url_checks,
+        )
+    except UrlCheckFailed as e:
+        return await _render_rollover(
+            request, product, form=form, plan=e.plan, url_checks=e.checks, error=str(e)
+        )
+    except RolloverError as e:
+        return await _render_rollover(request, product, form=form, error=str(e))
+    except Exception:  # pylint: disable=broad-except
+        # Not "rolled back" for certain: a connection lost during COMMIT leaves the outcome unknown.
+        Logger().exception(
+            "Rollover of product %s major %s from minor %s to %s by %s failed",
+            product.id, major_version, from_minor, to_minor, user.email,
+        )
+        return await _render_rollover(
+            request, product, form=form,
+            error="Rollover failed; see the server logs. Preview again to see the current configuration.",
+        )
+
+    return await _render_rollover(request, product, form=form, applied_plan=applied_plan)
+
 
 @router.get("/{product_id}/mirrors/new", response_class=HTMLResponse)
 async def admin_supported_product_mirror_new(request: Request, product_id: int):
