@@ -7,9 +7,11 @@ import unittest
 import asyncio
 import json
 from decimal import Decimal
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock, MagicMock, AsyncMock, patch
 from datetime import datetime
 from typing import Dict, List, Any
+
+from fastapi.responses import Response
 
 # Add the project root to the Python path
 import sys
@@ -17,6 +19,7 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
+from apollo.server.routes import admin_supported_products as routes
 from apollo.server.routes.admin_supported_products import (
     format_dependency_error_parts,
     create_error_redirect,
@@ -25,6 +28,11 @@ from apollo.server.routes.admin_supported_products import (
     _format_export_data,
     _get_mirror_config_data,
     _validate_import_data,
+)
+from apollo.server.services.minor_version_rollover import (
+    RolloverConflict,
+    RolloverError,
+    UrlCheckFailed,
 )
 
 
@@ -648,6 +656,118 @@ class TestImportWithActiveField(unittest.TestCase):
         # Should still be valid - active field is optional for backwards compatibility
         errors = asyncio.run(_validate_import_data(valid_data))
         self.assertEqual(errors, [])
+
+
+class TestRolloverRoutes(unittest.TestCase):
+    """Rollover routes delegate to the service and render each outcome."""
+
+    def setUp(self):
+        self.product = Mock(id=1)
+        self.render = AsyncMock(return_value="rendered")
+        patches = [
+            patch.object(routes, "get_entity_or_error_response", AsyncMock(return_value=self.product)),
+            patch.object(routes, "_render_rollover", self.render),
+        ]
+        for p in patches:
+            p.start()
+            self.addCleanup(p.stop)
+        self.form = {"major_version": 10, "from_minor": 2, "to_minor": 3}
+
+    def _context(self):
+        return self.render.await_args.kwargs
+
+    def test_preview_renders_plan_and_url_checks(self):
+        plan = Mock(new_urls=["https://example.com/10.3/repomd.xml"])
+        checks = {"https://example.com/10.3/repomd.xml": Mock()}
+        with patch.object(routes, "preview_rollover", AsyncMock(return_value=plan)) as preview, \
+             patch.object(routes, "check_urls", AsyncMock(return_value=checks)) as check:
+            asyncio.run(routes.admin_supported_product_rollover_preview(Mock(), 1, 10, 2, 3))
+
+        preview.assert_awaited_once_with(1, 10, 2, 3)
+        check.assert_awaited_once_with(plan.new_urls)
+        self.assertEqual(self._context(), {"form": self.form, "plan": plan, "url_checks": checks})
+
+    def test_preview_renders_validation_error(self):
+        with patch.object(routes, "preview_rollover", AsyncMock(side_effect=RolloverError("bad versions"))), \
+             patch.object(routes, "check_urls", AsyncMock()) as check:
+            asyncio.run(routes.admin_supported_product_rollover_preview(Mock(), 1, 10, 2, 2))
+
+        check.assert_not_awaited()
+        self.assertEqual(self._context(), {"form": {**self.form, "to_minor": 2}, "error": "bad versions"})
+
+    def test_apply_renders_applied_plan_and_records_actor(self):
+        plan = Mock()
+        with patch.object(routes, "apply_rollover", AsyncMock(return_value=plan)) as apply:
+            asyncio.run(routes.admin_supported_product_rollover_apply(
+                Mock(), 1, 10, 2, 3, "abc", True, Mock(email="admin@example.com")
+            ))
+
+        apply.assert_awaited_once_with(
+            1, 10, 2, 3, expected_hash="abc", actor="admin@example.com", allow_failed_url_checks=True
+        )
+        self.assertEqual(self._context(), {"form": self.form, "applied_plan": plan})
+
+    def test_apply_url_check_failure_re_renders_preview(self):
+        plan, checks = Mock(), {"u": Mock(ok=False)}
+        error = UrlCheckFailed(plan, checks)
+        with patch.object(routes, "apply_rollover", AsyncMock(side_effect=error)):
+            asyncio.run(routes.admin_supported_product_rollover_apply(
+                Mock(), 1, 10, 2, 3, "abc", False, Mock(email="admin@example.com")
+            ))
+
+        context = self._context()
+        self.assertIs(context["plan"], plan)
+        self.assertIs(context["url_checks"], checks)
+        self.assertIn("did not return HTTP 200", context["error"])
+
+    def test_apply_conflict_renders_error_without_plan(self):
+        with patch.object(routes, "apply_rollover", AsyncMock(side_effect=RolloverConflict("preview again"))):
+            asyncio.run(routes.admin_supported_product_rollover_apply(
+                Mock(), 1, 10, 2, 3, "stale", False, Mock(email="admin@example.com")
+            ))
+
+        self.assertEqual(self._context(), {"form": self.form, "error": "preview again"})
+
+    def test_apply_unexpected_error_is_logged_and_rendered(self):
+        with patch.object(routes, "apply_rollover", AsyncMock(side_effect=RuntimeError("db down"))), \
+             patch.object(routes, "Logger") as logger:
+            asyncio.run(routes.admin_supported_product_rollover_apply(
+                Mock(), 1, 10, 2, 3, "abc", False, Mock(email="admin@example.com")
+            ))
+
+        logger.return_value.exception.assert_called_once()
+        context = self._context()
+        self.assertEqual(context["form"], self.form)
+        self.assertIn("Rollover failed; see the server logs", context["error"])
+        self.assertNotIn("plan", context)
+
+    def test_missing_product_returns_error_response(self):
+        error_response = Response("not found")
+        with patch.object(routes, "get_entity_or_error_response", AsyncMock(return_value=error_response)), \
+             patch.object(routes, "apply_rollover", AsyncMock()) as apply:
+            result = asyncio.run(routes.admin_supported_product_rollover_apply(
+                Mock(), 99, 10, 2, 3, "abc", False, Mock(email="admin@example.com")
+            ))
+
+        self.assertIs(result, error_response)
+        apply.assert_not_awaited()
+
+
+class TestRenderRollover(unittest.TestCase):
+
+    def test_major_versions_are_distinct_descending_ints(self):
+        query = MagicMock()
+        query.distinct.return_value.values_list = AsyncMock(
+            return_value=[Decimal("9"), Decimal("10"), Decimal("10.0"), Decimal("8")]
+        )
+        with patch.object(routes.SupportedProductsRhMirror, "filter", return_value=query), \
+             patch.object(routes.templates, "TemplateResponse") as response:
+            asyncio.run(routes._render_rollover(Mock(), Mock(id=1), error="x"))
+
+        context = response.call_args.args[1]
+        self.assertEqual(context["major_versions"], [10, 9, 8])
+        self.assertTrue(all(type(m) is int for m in context["major_versions"]))
+        self.assertEqual(context["error"], "x")
 
 
 if __name__ == "__main__":

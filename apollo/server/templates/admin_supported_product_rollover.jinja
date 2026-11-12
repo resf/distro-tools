@@ -1,0 +1,246 @@
+{% extends "admin_layout.jinja" %}
+
+{% macro url_with_segment(url, segment) -%}
+  {%- set parts = url.split(segment, 1) -%}
+  {%- if parts|length == 2 -%}{{ parts[0] }}<mark>{{ segment }}</mark>{{ parts[1] }}{%- else -%}{{ url }}{%- endif -%}
+{%- endmacro %}
+
+{% macro mirror_changes(plan, url_checks) %}
+  {% set old_segment = "/" ~ plan.major_version ~ "." ~ plan.from_minor ~ "/" %}
+  {% set new_segment = "/" ~ plan.major_version ~ "." ~ plan.to_minor ~ "/" %}
+  {% for mirror in plan.mirrors %}
+  <div class="bx--tile" style="margin-top: 1rem;">
+    <h3 class="bx--type-productive-heading-03">{{ mirror.mirror_name }}</h3>
+    <p class="bx--type-body-short-01">
+      {% if mirror.changes_minor %}
+      Match minor version: <strong>{{ mirror.minor_before }} &rarr; {{ mirror.minor_after }}</strong>
+      {% else %}
+      No pinned minor version; only URLs change.
+      {% endif %}
+    </p>
+    {% if mirror.url_changes %}
+    <table class="bx--data-table bx--data-table--compact" style="margin-top: 0.5rem;">
+      <thead>
+        <tr>
+          <th><span class="bx--table-header-label">Repo</span></th>
+          <th><span class="bx--table-header-label">Arch</span></th>
+          <th><span class="bx--table-header-label">Field</span></th>
+          <th><span class="bx--table-header-label">Before / After</span></th>
+          {% if url_checks %}<th><span class="bx--table-header-label">Check</span></th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for change in mirror.url_changes %}
+        <tr>
+          <td>{{ change.repo_name }}</td>
+          <td>{{ change.arch }}</td>
+          <td>{{ change.field }}</td>
+          <td style="font-family: monospace; font-size: 0.75rem; word-break: break-all;">
+            <div>- {{ url_with_segment(change.before, old_segment) }}</div>
+            <div>+ {{ url_with_segment(change.after, new_segment) }}</div>
+          </td>
+          {% if url_checks %}
+          {% set check = url_checks.get(change.after) %}
+          <td>
+            {% if check is none %}
+            <span class="bx--tag bx--tag--gray">not checked</span>
+            {% elif check.ok %}
+            <span class="bx--tag bx--tag--green">{{ check.detail }}</span>
+            {% elif check.status == "unverified" %}
+            <span class="bx--tag bx--tag--warm-gray" title="{{ check.detail }}">unverified</span>
+            {% else %}
+            <span class="bx--tag bx--tag--red">{{ check.detail }}</span>
+            {% endif %}
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+    {% if mirror.mismatched_urls %}
+    <div class="bx--inline-notification bx--inline-notification--warning" role="status" style="margin-top: 0.5rem;">
+      <div class="bx--inline-notification__details">
+        <div class="bx--inline-notification__text-wrapper">
+          <div class="bx--inline-notification__title">URLs for another minor release</div>
+          <div class="bx--inline-notification__subtitle">
+            These URLs point at a different {{ plan.major_version }}.x tree and are not changed:
+            <ul style="font-family: monospace; font-size: 0.75rem; word-break: break-all;">
+              {% for unchanged in mirror.mismatched_urls %}
+              <li>{{ unchanged.repo_name }} {{ unchanged.arch }} {{ unchanged.field }}: {{ url_with_segment(unchanged.url, unchanged.other_minor_segment) }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    {% if mirror.unchanged_urls %}
+    <details style="margin-top: 0.5rem;">
+      <summary>{{ mirror.unchanged_urls|length }} URL(s) without {{ old_segment }} are left unchanged</summary>
+      <ul style="font-family: monospace; font-size: 0.75rem; word-break: break-all;">
+        {% for unchanged in mirror.unchanged_urls %}
+        <li>{{ unchanged.repo_name }} {{ unchanged.arch }} {{ unchanged.field }}: {{ unchanged.url }}</li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+  </div>
+  {% endfor %}
+{% endmacro %}
+
+{% block admin_content %}
+<div class="bx--grid">
+    <div class="bx--row">
+      <div class="bx--col">
+        <nav aria-label="breadcrumb" class="bx--breadcrumb">
+          <div class="bx--breadcrumb-item">
+            <a href="/admin/supported-products/" class="bx--link">Supported Products</a>
+          </div>
+          <div class="bx--breadcrumb-item">
+            <a href="/admin/supported-products/{{ product.id }}" class="bx--link">{{ product.name }}</a>
+          </div>
+          <div class="bx--breadcrumb-item bx--breadcrumb-item--current">
+            <span>Minor Version Rollover</span>
+          </div>
+        </nav>
+
+        <h1 class="bx--type-expressive-heading-05">Minor Version Rollover</h1>
+        <p class="bx--type-body-long-02">
+          Repoint the active {{ product.name }} mirrors of one major version to a new minor release.
+          Mirrors with a pinned minor version have it moved; every repository URL has its
+          <code>/MAJOR.FROM/</code> path segment rewritten to <code>/MAJOR.TO/</code>.
+          Mirror names are not changed and no workflows are started.
+        </p>
+        <p class="bx--type-body-long-02">
+          Before applying, download a
+          <a href="/admin/supported-products/{{ product.id }}/export" class="bx--link">configuration export</a>
+          as a rollback snapshot.
+        </p>
+      </div>
+    </div>
+
+    {% if error %}
+    <div class="bx--row">
+      <div class="bx--col">
+        <div class="bx--inline-notification bx--inline-notification--error" role="alert">
+          <div class="bx--inline-notification__details">
+            <div class="bx--inline-notification__text-wrapper">
+              <div class="bx--inline-notification__title">Error</div>
+              <div class="bx--inline-notification__subtitle">{{ error }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if applied_plan %}
+    <div class="bx--row">
+      <div class="bx--col">
+        <div class="bx--inline-notification bx--inline-notification--success" role="status">
+          <div class="bx--inline-notification__details">
+            <div class="bx--inline-notification__text-wrapper">
+              <div class="bx--inline-notification__title">Rollover applied</div>
+              <div class="bx--inline-notification__subtitle">
+                Updated {{ applied_plan.minor_change_count }} mirror minor version(s) and
+                {{ applied_plan.url_change_count }} URL(s) for {{ product.name }} {{ applied_plan.major_version }}
+                ({{ applied_plan.major_version }}.{{ applied_plan.from_minor }} &rarr; {{ applied_plan.major_version }}.{{ applied_plan.to_minor }}).
+                When ready, run the RH matcher from the
+                <a href="/admin/workflows" class="bx--link">Workflows page</a>.
+              </div>
+            </div>
+          </div>
+        </div>
+        {{ mirror_changes(applied_plan, none) }}
+      </div>
+    </div>
+    {% else %}
+
+    <div class="bx--row">
+      <div class="bx--col-lg-8">
+        <form method="post" action="/admin/supported-products/{{ product.id }}/rollover/preview" class="bx--form">
+          <div class="bx--form-item">
+            <label for="major_version" class="bx--label">Major Version *</label>
+            <select id="major_version" name="major_version" class="bx--select-input" required>
+              {% for major in major_versions %}
+              <option value="{{ major }}" {% if form and form.major_version == major %}selected{% endif %}>{{ major }}</option>
+              {% endfor %}
+            </select>
+            <div class="bx--form__helper-text">Only active mirrors of this major version are changed</div>
+          </div>
+          <div class="bx--form-item">
+            <label for="from_minor" class="bx--label">From Minor Version *</label>
+            <input id="from_minor" name="from_minor" type="number" class="bx--text-input" min="0" max="99" required
+                   value="{{ form.from_minor if form else '' }}" placeholder="e.g., 2">
+          </div>
+          <div class="bx--form-item">
+            <label for="to_minor" class="bx--label">To Minor Version *</label>
+            <input id="to_minor" name="to_minor" type="number" class="bx--text-input" min="0" max="99" required
+                   value="{{ form.to_minor if form else '' }}" placeholder="e.g., 3">
+          </div>
+          <div class="apollo-form-actions-spaced">
+            <button type="submit" class="bx--btn bx--btn--primary">Preview Changes</button>
+            <a href="/admin/supported-products/{{ product.id }}" class="bx--btn bx--btn--secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    {% if plan %}
+    {% set failed_checks = url_checks.values()|rejectattr("ok")|list if url_checks else [] %}
+    <div class="bx--row" style="margin-top: 2rem;">
+      <div class="bx--col">
+        <h2 class="bx--type-productive-heading-04">
+          Preview: {{ product.name }} {{ plan.major_version }}.{{ plan.from_minor }} &rarr; {{ plan.major_version }}.{{ plan.to_minor }}
+        </h2>
+        <ul class="bx--list--unordered" style="margin: 1rem 0;">
+          <li class="bx--list__item">{{ plan.minor_change_count }} mirror minor version change(s)</li>
+          <li class="bx--list__item">{{ plan.url_change_count }} URL change(s)</li>
+          <li class="bx--list__item">{{ failed_checks|length }} rewritten URL(s) failing the HTTP check</li>
+          <li class="bx--list__item">{{ plan.skipped|length }} mirror(s) skipped</li>
+          <li class="bx--list__item">{{ plan.mismatched_urls|length }} unchanged URL(s) pointing at another minor release</li>
+        </ul>
+
+        {% if plan.skipped %}
+        <div class="bx--inline-notification bx--inline-notification--warning" role="status">
+          <div class="bx--inline-notification__details">
+            <div class="bx--inline-notification__text-wrapper">
+              <div class="bx--inline-notification__title">Skipped mirrors</div>
+              <div class="bx--inline-notification__subtitle">
+                These active mirrors will not be changed:
+                {% for skipped in plan.skipped %}{{ skipped.mirror_name }} ({{ skipped.reason }}){% if not loop.last %}, {% endif %}{% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        {{ mirror_changes(plan, url_checks) }}
+
+        {% if plan.is_empty %}
+        <p class="bx--type-body-long-02" style="margin-top: 1rem;">Nothing to apply.</p>
+        {% else %}
+        <form method="post" action="/admin/supported-products/{{ product.id }}/rollover/apply" class="bx--form" style="margin-top: 2rem;"
+              onsubmit="return confirm('Apply {{ plan.minor_change_count }} mirror minor change(s) and {{ plan.url_change_count }} URL change(s)?')">
+          <input type="hidden" name="major_version" value="{{ plan.major_version }}">
+          <input type="hidden" name="from_minor" value="{{ plan.from_minor }}">
+          <input type="hidden" name="to_minor" value="{{ plan.to_minor }}">
+          <input type="hidden" name="plan_hash" value="{{ plan.plan_hash }}">
+          {% if failed_checks %}
+          <div class="bx--form-item bx--checkbox-wrapper">
+            <input id="allow_failed_url_checks" name="allow_failed_url_checks" type="checkbox" value="true" class="bx--checkbox">
+            <label for="allow_failed_url_checks" class="bx--checkbox-label">
+              <span class="bx--checkbox-label-text">Apply even though {{ failed_checks|length }} rewritten URL(s) failed the HTTP check</span>
+            </label>
+          </div>
+          {% endif %}
+          <button type="submit" class="bx--btn bx--btn--danger">Apply Rollover</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

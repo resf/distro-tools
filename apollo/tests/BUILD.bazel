@@ -131,3 +131,11 @@ py_test(
         "//apollo/rpm_helpers:rpm_helpers_lib",
     ],
 )
+
+py_test(
+    name = "test_minor_version_rollover",
+    srcs = ["test_minor_version_rollover.py"],
+    deps = [
+        "//apollo/server:server_lib",
+    ],
+)
