@@ -6,6 +6,7 @@ import unittest
 import asyncio
 import sys
 import os
+from types import SimpleNamespace
 from unittest.mock import Mock, MagicMock, patch, AsyncMock
 from xml.etree import ElementTree as ET
 
@@ -13,6 +14,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from apollo.rpmworker import repomd
 from apollo.rpmworker.rh_matcher_activities import process_repomd, stream_product_name
+from apollo.rpmworker.rh_matcher_activities import NewPackage, create_or_update_advisory_packages
 
 NS = "http://linux.duke.edu/metadata/common"
 RPM_NS = "http://linux.duke.edu/metadata/rpm"
@@ -587,6 +589,120 @@ class TestModularFieldResolution(unittest.TestCase):
         )
         self.assertEqual(name, "virt-devel")
         self.assertEqual(stream, "rhel")
+
+
+class TestPackageRowsPerMirror(unittest.TestCase):
+    """One src/noarch NEVRA is stored once per arch mirror, so re-matching must update
+    each mirror's own row, not whichever row the NEVRA alone happens to find."""
+
+    SRC = "emacs-1:29.4-13.el10_2.src.rpm"
+    ARCH_BY_MIRROR = {35: "aarch64", 36: "ppc64le", 37: "s390x", 38: "x86_64"}
+
+    def setUp(self):
+        patcher = patch("apollo.rpmworker.rh_matcher_activities.Logger")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _row(self, mirror_id, arch, module_name=None):
+        return Mock(
+            id=1000 + mirror_id,
+            nevra=self.SRC,
+            repo_name="BaseOS",
+            supported_products_rh_mirror_id=mirror_id,
+            product_name=f"Rocky Linux 10.2 {arch}",
+            module_name=module_name,
+        )
+
+    def _matched(self, mirror_id, arch, module_name=None):
+        return NewPackage(
+            nevra=self.SRC,
+            checksum="abc",
+            checksum_type="sha256",
+            module_context=None,
+            module_name=module_name,
+            module_stream="29" if module_name else None,
+            module_version="1" if module_name else None,
+            repo_name="BaseOS",
+            package_name="emacs",
+            mirror_id=mirror_id,
+            supported_product_id=1,
+            product_name=f"Rocky Linux 10 {arch}",
+        )
+
+    def _run(self, existing_rows, matched):
+        """Returns {row id: fields} for every update issued."""
+        updates = {}
+
+        def fake_filter(**kwargs):
+            query = MagicMock()
+            query.all = AsyncMock(return_value=existing_rows)
+
+            async def record(**fields):
+                ids = kwargs.get("id__in") or [kwargs["id"]]
+                for row_id in ids:
+                    updates.setdefault(row_id, {}).update(fields)
+
+            query.update = record
+            query.delete = AsyncMock()
+            return query
+
+        with patch("apollo.rpmworker.rh_matcher_activities.AdvisoryPackage") as advisory_package:
+            advisory_package.side_effect = SimpleNamespace
+            advisory_package.filter.side_effect = fake_filter
+            advisory_package.bulk_create = AsyncMock()
+            asyncio.run(
+                create_or_update_advisory_packages(
+                    Mock(id=10, name="RLBA-2026:22541"), matched, update_advisory=True
+                )
+            )
+        return updates, advisory_package.bulk_create
+
+    def test_each_mirror_row_gets_its_own_product_name(self):
+        rows = [self._row(m, a) for m, a in self.ARCH_BY_MIRROR.items()]
+        matched = [self._matched(m, a) for m, a in self.ARCH_BY_MIRROR.items()]
+
+        updates, bulk_create = self._run(rows, matched)
+
+        self.assertEqual(
+            {row_id: fields["product_name"] for row_id, fields in updates.items()},
+            {1000 + m: f"Rocky Linux 10 {a}" for m, a in self.ARCH_BY_MIRROR.items()},
+        )
+        bulk_create.assert_not_awaited()
+
+    def test_row_already_labelled_for_its_mirror_is_left_alone(self):
+        row = self._row(38, "x86_64")
+        row.product_name = "Rocky Linux 10 x86_64"
+        updates, _ = self._run([row], [self._matched(38, "x86_64"), self._matched(37, "s390x")])
+
+        self.assertEqual(updates, {})
+
+    def test_each_mirror_row_gets_missing_module_fields(self):
+        rows = [self._row(m, a) for m, a in self.ARCH_BY_MIRROR.items()]
+        for row in rows:
+            row.product_name = row.product_name.replace("10.2", "10")
+        matched = [self._matched(m, a, module_name="emacs") for m, a in self.ARCH_BY_MIRROR.items()]
+
+        updates, _ = self._run(rows, matched)
+
+        self.assertEqual(set(updates), {1000 + m for m in self.ARCH_BY_MIRROR})
+        for fields in updates.values():
+            self.assertEqual(
+                fields,
+                {"module_name": "emacs", "module_stream": "29", "module_version": "1",
+                 "module_context": None},
+            )
+
+    def test_new_nevra_is_created_for_every_mirror(self):
+        matched = [self._matched(m, a) for m, a in self.ARCH_BY_MIRROR.items()]
+
+        updates, bulk_create = self._run([], matched)
+
+        self.assertEqual(updates, {})
+        created = bulk_create.await_args.args[0]
+        self.assertEqual(
+            sorted((p.supported_products_rh_mirror_id, p.product_name) for p in created),
+            sorted((m, f"Rocky Linux 10 {a}") for m, a in self.ARCH_BY_MIRROR.items()),
+        )
 
 
 if __name__ == "__main__":
