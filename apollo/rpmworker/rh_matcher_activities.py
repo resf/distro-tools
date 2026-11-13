@@ -142,15 +142,19 @@ async def create_or_update_advisory_packages(
 
     existing_packages = await AdvisoryPackage.filter(advisory_id=advisory.id).all()
     existing_nevras = {pkg.nevra for pkg in existing_packages}
-    existing_by_nevra = {pkg.nevra: pkg for pkg in existing_packages}
+    # A src or noarch NEVRA is stored once per repo and mirror, so updates must find the
+    # row for this mirror, not whichever row shares the NEVRA.
+    existing_by_key = {
+        (pkg.nevra, pkg.repo_name, pkg.supported_products_rh_mirror_id): pkg
+        for pkg in existing_packages
+    }
     new_nevras = {pkg.nevra for pkg in packages}
 
     # Add new packages
     new_packages = []
     stale_product_ids = {}
     for pkg in packages:
-        existing = existing_by_nevra.get(pkg.nevra)
-        if existing is None:
+        if pkg.nevra not in existing_nevras:
             new_packages.append(
                 AdvisoryPackage(
                     advisory_id=advisory.id,
@@ -168,7 +172,9 @@ async def create_or_update_advisory_packages(
                     product_name=pkg.product_name,
                 )
             )
-        elif existing.product_name != pkg.product_name:
+            continue
+        existing = existing_by_key.get((pkg.nevra, pkg.repo_name, pkg.mirror_id))
+        if existing and existing.product_name != pkg.product_name:
             stale_product_ids.setdefault(pkg.product_name, []).append(existing.id)
     if new_packages:
         logger.info("Adding %d new packages to advisory %s", len(new_packages), advisory.name)
@@ -187,7 +193,7 @@ async def create_or_update_advisory_packages(
 
     # Fill missing module fields on existing packages (do not overwrite resolved streams)
     for pkg in packages:
-        existing = existing_by_nevra.get(pkg.nevra)
+        existing = existing_by_key.get((pkg.nevra, pkg.repo_name, pkg.mirror_id))
         if not existing or existing.module_name:
             continue
         if not pkg.module_name:
