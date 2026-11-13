@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import re
 from dataclasses import dataclass
@@ -14,6 +15,19 @@ from apollo.rpm_helpers import parse_nevra
 from common.logger import Logger
 
 RHEL_CONTAINER_RE = re.compile(r"rhel(?:\d|)\/")
+
+# Heartbeat at least this often inside long loops that otherwise never await.
+HEARTBEAT_EVERY_ADVISORIES = 200
+
+
+async def _heartbeat(*details) -> None:
+    # Lets Temporal tell a working matcher from a dead worker (see
+    # LONG_ACTIVITY_HEARTBEAT_TIMEOUT). The SDK sends heartbeats from a task on this
+    # event loop, so yield to let it run. Outside an activity (tests, scripts) there is
+    # nothing to report to.
+    if activity.in_activity():
+        activity.heartbeat(*details)
+        await asyncio.sleep(0)
 
 
 def _normalize_module_nevra_key(nevra_key: str) -> str:
@@ -414,6 +428,14 @@ async def get_supported_products_with_rh_mirrors(filter_major_versions: Optional
     return ret
 
 
+@activity.defn
+async def get_rh_mirror_major_versions(supported_product_id: int) -> list[int]:
+    mirrors = await SupportedProductsRhMirror.filter(
+        supported_product_id=supported_product_id, active=True
+    ).prefetch_related("rpm_repomds")
+    return sorted({int(m.match_major_version) for m in mirrors if m.rpm_repomds})
+
+
 async def get_matching_rh_advisories(
     mirror: SupportedProductsRhMirror
 ) -> list[RedHatAdvisory]:
@@ -767,6 +789,7 @@ async def process_repomd(
     module_packages = {}
     for url in urls_to_fetch:
         logger.info("Fetching %s", url)
+        await _heartbeat("fetch", url)
         repomd_xml = await repomd.download_xml(url)
         primary_xml = await repomd.get_data_from_repomd(
             url, "primary", repomd_xml
@@ -833,7 +856,9 @@ async def process_repomd(
     # Now check against advisories, and see if we're matching any
     # If we match, that means we can start creating the supporting
     # mirror advisories
-    for advisory in advisories:
+    for index, advisory in enumerate(advisories):
+        if index % HEARTBEAT_EVERY_ADVISORIES == 0:
+            await _heartbeat("match", rpm_repomd.repo_name, index)
         logger.debug(f"Processing advisory: {advisory.name} inside of `process_repomd` for {mirror.name}")
         clean_advisory_nvras = {}
         # Loop through each package in the advisory and check if we
@@ -942,6 +967,7 @@ async def match_rh_repos(params) -> None:
             logger.debug(f"Skipping mirror {mirror.name} with major version {mirror.match_major_version} due to filtering")
             continue
         logger.info("Processing mirror: %s", mirror.name)
+        await _heartbeat("mirror", mirror.name)
         advisories = await get_matching_rh_advisories(mirror)
         for rpm_repomd in mirror.rpm_repomds:
             if rpm_repomd.arch != mirror.match_arch:
@@ -971,6 +997,7 @@ async def match_rh_repos(params) -> None:
 
     for advisory_name, obj in all_advisories.items():
         logger.debug(f"Attempting to clone advisory: {advisory_name}")
+        await _heartbeat("clone", advisory_name)
         await clone_advisory(
             supported_product,
             list(set(obj["mirrors"])),
@@ -988,6 +1015,7 @@ async def block_remaining_rh_advisories(supported_product_id: int) -> None:
         active=True
     )
     for mirror in mirrors:
+        await _heartbeat("block", mirror.name)
         advisories = await get_matching_rh_advisories(mirror)
         await SupportedProductsRhBlock.bulk_create(
             [

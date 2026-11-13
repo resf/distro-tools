@@ -61,17 +61,16 @@ ingress:
   #    hosts:
   #      - chart-example.local
 
-resources: {}
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
+resources:
+  # Measured on a production snapshot with full-size 8 / 9.8 / 10.2 repos: the matcher
+  # runs one major per activity and peaks at 10.3 GiB (EL10; EL9 10.0, EL8 6.3). The
+  # request lets the scheduler place the worker on a node with room for it (it was
+  # BestEffort and evicted first under node memory pressure); the limit keeps an
+  # overrun inside this pod instead of starving the node.
+  requests:
+    memory: 12Gi
+  limits:
+    memory: 14Gi
 
 autoscaling:
   enabled: false
@@ -82,7 +81,10 @@ autoscaling:
 
 cron:
   enabled: true
+  suspend: false
   schedule: "0 */6 * * *"
+  # Fixed so a new cron run is skipped while the previous one is still open.
+  workflowId: rh-matcher-cron
   majorVersions: []
   preCommand:
     - trap 'curl --max-time 2 -s -f -XPOST http://127.0.0.1:15020/quitquitquit' EXIT
@@ -91,7 +93,9 @@ cron:
   postCommand:
     - echo "Complete!"
 
-nodeSelector: {}
+# Apollo images are built for amd64 only.
+nodeSelector:
+  kubernetes.io/arch: amd64
 
 tolerations: []
 
