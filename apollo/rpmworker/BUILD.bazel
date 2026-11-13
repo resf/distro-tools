@@ -8,6 +8,7 @@ py_library(
         "rh_matcher_activities.py",
         "rh_matcher_workflows.py",
         "temporal.py",
+        "worker.py",
     ],
     imports = ["../.."],
     visibility = ["//:__subpackages__"],

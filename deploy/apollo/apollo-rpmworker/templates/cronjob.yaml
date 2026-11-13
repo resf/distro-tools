@@ -7,11 +7,16 @@ metadata:
     {{- include "apollo-rpmworker.labels" . | nindent 4 }}
 spec:
   schedule: '{{ .Values.cron.schedule }}'
+  # Set explicitly so an upgrade also clears a manual `kubectl patch` suspend.
+  suspend: {{ .Values.cron.suspend | default false }}
+  concurrencyPolicy: Forbid
   jobTemplate:
     spec:
+      # Every retried pod would start another run.
+      backoffLimit: 0
       template:
         spec:
-          restartPolicy: OnFailure
+          restartPolicy: Never
           {{- with .Values.imagePullSecrets }}
           imagePullSecrets:
             {{- toYaml . | nindent 8 }}
@@ -19,7 +24,8 @@ spec:
           serviceAccountName: {{ include "apollo-rpmworker.serviceAccountName" . }}
           securityContext:
             {{- toYaml .Values.podSecurityContext | indent 8 }}
-          activeDeadlineSeconds: 43200
+          # The pod only starts the workflow; it doesn't wait for the run.
+          activeDeadlineSeconds: 300
           containers:
           - name: {{ .Chart.Name }}-rh-matcher-workflow
             image: temporalio/admin-tools:1.10.5
@@ -35,11 +41,21 @@ spec:
               {{- range $cmd := $.Values.cron.preCommand }}
               {{ $cmd }}
               {{- end }}
+              # A fixed workflow ID means at most one cron-started run is open at a time.
               {{- if .Values.cron.majorVersions }}
-              tctl wf run --tq v2-rpmworker --wt RhMatcherWorkflow --input '{"major_versions": {{ .Values.cron.majorVersions | toJson }}}'
+              out=$(tctl wf start --tq v2-rpmworker --wt RhMatcherWorkflow --wid {{ .Values.cron.workflowId | default "rh-matcher-cron" }} --input '{"major_versions": {{ .Values.cron.majorVersions | toJson }}}' 2>&1)
               {{- else }}
-              tctl wf run --tq v2-rpmworker --wt RhMatcherWorkflow
+              out=$(tctl wf start --tq v2-rpmworker --wt RhMatcherWorkflow --wid {{ .Values.cron.workflowId | default "rh-matcher-cron" }} 2>&1)
               {{- end }}
+              rc=$?
+              echo "$out"
+              if [ "$rc" -ne 0 ]; then
+                if echo "$out" | grep -q "code = AlreadyExists"; then
+                  echo "Previous {{ .Values.cron.workflowId | default "rh-matcher-cron" }} run is still open; skipping."
+                else
+                  exit "$rc"
+                fi
+              fi
               {{- range $cmd := $.Values.cron.postCommand }}
               {{ $cmd }}
               {{- end }}

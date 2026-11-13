@@ -7,11 +7,16 @@ metadata:
     {{- include "apollo-rhworker.labels" . | nindent 4 }}
 spec:
   schedule: '{{ .Values.cron.schedule }}'
+  # Set explicitly so an upgrade also clears a manual `kubectl patch` suspend.
+  suspend: {{ .Values.cron.suspend | default false }}
+  concurrencyPolicy: Forbid
   jobTemplate:
     spec:
+      # Every retried pod would start another run.
+      backoffLimit: 0
       template:
         spec:
-          restartPolicy: OnFailure
+          restartPolicy: Never
           {{- with .Values.imagePullSecrets }}
           imagePullSecrets:
             {{- toYaml . | nindent 8 }}
@@ -19,6 +24,7 @@ spec:
           serviceAccountName: {{ include "apollo-rhworker.serviceAccountName" . }}
           securityContext:
             {{- toYaml .Values.podSecurityContext | indent 8 }}
+          # The pod only starts the workflow; it doesn't wait for the run.
           activeDeadlineSeconds: 300
           containers:
           - name: {{ .Chart.Name }}-poll-rh-advisories-workflow
@@ -35,7 +41,17 @@ spec:
               {{- range $cmd := $.Values.cron.preCommand }}
               {{ $cmd }}
               {{- end }}
-              tctl wf run --tq v2-rhworker --wt PollRHCSAFAdvisoriesWorkflow
+              # A fixed workflow ID means at most one cron-started run is open at a time.
+              out=$(tctl wf start --tq v2-rhworker --wt PollRHCSAFAdvisoriesWorkflow --wid {{ .Values.cron.workflowId | default "poll-rhcsaf-cron" }} 2>&1)
+              rc=$?
+              echo "$out"
+              if [ "$rc" -ne 0 ]; then
+                if echo "$out" | grep -q "code = AlreadyExists"; then
+                  echo "Previous {{ .Values.cron.workflowId | default "poll-rhcsaf-cron" }} run is still open; skipping."
+                else
+                  exit "$rc"
+                fi
+              fi
               {{- range $cmd := $.Values.cron.postCommand }}
               {{ $cmd }}
               {{- end }}

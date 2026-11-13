@@ -133,6 +133,15 @@ py_test(
 )
 
 py_test(
+    name = "test_rh_matcher_workflows",
+    srcs = ["test_rh_matcher_workflows.py"],
+    deps = [
+        "//apollo/rpmworker:rpmworker_lib",
+        "//apollo/rpm_helpers:rpm_helpers_lib",
+    ],
+)
+
+py_test(
     name = "test_minor_version_rollover",
     srcs = ["test_minor_version_rollover.py"],
     deps = [
