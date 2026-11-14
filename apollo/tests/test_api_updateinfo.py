@@ -343,6 +343,22 @@ class TestGenerateUpdateinfoXMLDeduplication(unittest.TestCase):
         tree = self._generate_xml(create_mock_advisory([]), supported_product_id=1)
         self.assertEqual(len(tree.findall(".//package")), 0)
 
+    def test_multi_digit_epoch_preserved(self):
+        """Epochs with more than one digit are not truncated to the last digit"""
+        packages = [
+            create_mock_package("bind-32:9.18.33-15.el10_2.2.src.rpm", "bind", "BaseOS", 1),
+            create_mock_package("bind-libs-32:9.18.33-15.el10_2.2.x86_64.rpm", "bind", "BaseOS", 1),
+            create_mock_package("qemu-img-18:10.1.0-7.el10_2.x86_64.rpm", "bind", "BaseOS", 1),
+            create_mock_package("dhcp-client-12:4.4.2-19.b1.el9.x86_64.rpm", "bind", "BaseOS", 1),
+            create_mock_package("openssl-1:3.2.2-6.el10.x86_64.rpm", "bind", "BaseOS", 1),
+        ]
+        tree = self._generate_xml(create_mock_advisory(packages), supported_product_id=1)
+        epochs = {p.get("name"): p.get("epoch") for p in tree.findall(".//package")}
+        self.assertEqual(epochs["bind-libs"], "32")
+        self.assertEqual(epochs["qemu-img"], "18")
+        self.assertEqual(epochs["dhcp-client"], "12")
+        self.assertEqual(epochs["openssl"], "1")
+
     def test_v2_different_architectures_and_modules(self):
         """V2 handles different architectures (x86_64/noarch) and module packages"""
         # Test 1: Different architectures aren't duplicates
