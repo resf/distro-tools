@@ -4,12 +4,13 @@ Tests for the v2 compatibility API serialization (advisory source attribution)
 
 import unittest
 import datetime
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
-from apollo.server.routes.api_compat import v3_advisory_to_v2
+from apollo.server.routes.api_compat import fetch_advisories_compat, v3_advisory_to_v2
 from apollo.server import attribution
 from apollo.db.serialize import Advisory_Pydantic, Advisory_Pydantic_WithSource
 from apollo.db.advisory import fetch_advisories
+from common.fastapi import RenderErrorTemplateException
 
 
 def create_mock_advisory(red_hat_advisory_name="RHSA-2024:1234"):
@@ -147,6 +148,39 @@ class TestFetchAdvisoriesSql(unittest.IsolatedAsyncioTestCase):
     async def test_product_filter_still_uses_exists(self):
         sql = (await self._sql(product="Rocky Linux 9")).lower()
         self.assertIn("exists (select name from advisory_affected_products", sql)
+
+
+class TestFetchAdvisoriesCompatDates(unittest.IsolatedAsyncioTestCase):
+    """filters.before/filters.after with RFC 3339 offsets reach the query as naive UTC"""
+
+    async def _forwarded(self, **dates):
+        params = Mock()
+        params.get_size.return_value = 10
+        params.get_offset.return_value = 0
+        with patch(
+            "apollo.server.routes.api_compat.fetch_advisories",
+            new=AsyncMock(return_value=(0, [])),
+        ) as fetch:
+            await fetch_advisories_compat(params, **dates)
+        args = fetch.await_args.args
+        return args[4], args[5]
+
+    async def test_offsets_are_converted_to_naive_utc(self):
+        before, after = await self._forwarded(
+            before_raw="2026-11-14T00:00:00+00:00",
+            after_raw="2026-11-13T05:06:44.500-07:00",
+        )
+        self.assertEqual(before, datetime.datetime(2026, 11, 14))
+        self.assertEqual(after, datetime.datetime(2026, 11, 13, 12, 6, 44, 500000))
+
+    async def test_z_suffix_is_unchanged(self):
+        _, after = await self._forwarded(after_raw="2026-11-13T12:06:44Z")
+        self.assertEqual(after, datetime.datetime(2026, 11, 13, 12, 6, 44))
+
+    async def test_invalid_after_is_400(self):
+        with self.assertRaises(RenderErrorTemplateException) as ctx:
+            await self._forwarded(after_raw="not-a-date")
+        self.assertEqual(ctx.exception.status_code, 400)
 
 
 if __name__ == "__main__":
