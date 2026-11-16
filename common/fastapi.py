@@ -67,13 +67,19 @@ class DateTimeParams(BaseModel):
 
 
 def parse_rfc3339_date(date: str) -> Optional[datetime.datetime]:
-    if date:
-        try:
-            return datetime.datetime.fromisoformat(date.removesuffix("Z"))
-        except ValueError:
-            return None
+    if not date:
+        return None
 
-    return None
+    try:
+        parsed = datetime.datetime.fromisoformat(date.removesuffix("Z"))
+        # Callers bind the result as naive UTC, the form a Z suffix already
+        # yields; asyncpg refuses an aware datetime for a `timestamp` bind.
+        if parsed.tzinfo is not None:
+            parsed = parsed.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+    except (ValueError, OverflowError):
+        # OverflowError: an offset that pushes the instant past year 1 or 9999.
+        return None
+    return parsed
 
 
 def to_rfc3339_date(date: datetime.datetime) -> str:

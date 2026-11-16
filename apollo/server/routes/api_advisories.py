@@ -1,7 +1,7 @@
 import datetime
 from typing import TypeVar, Generic, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.exceptions import HTTPException
 from fastapi_pagination import Params
 from fastapi_pagination.links import Page
@@ -45,8 +45,16 @@ async def _advisory_with_source(advisory: Advisory) -> Advisory_Pydantic_WithSou
     )
 
 
-def _parse_list_date(raw: Optional[str], field: str) -> Optional[datetime.datetime]:
-    """Parse before_raw/after_raw. Invalid values are 400, matching v2 compat."""
+def _parse_list_date(
+    value: Optional[str], legacy: Optional[str], field: str
+) -> Optional[datetime.datetime]:
+    """Parse before/after, falling back to the older before_raw/after_raw
+    names. Invalid values are 400, matching v2 compat."""
+    if value is not None and legacy is not None:
+        raise HTTPException(
+            status_code=400, detail=f"Use {field} or {field}_raw, not both"
+        )
+    raw = value if value is not None else legacy
     if raw is None:
         return None
     parsed = parse_rfc3339_date(raw)
@@ -62,16 +70,34 @@ def _parse_list_date(raw: Optional[str], field: str) -> Optional[datetime.dateti
 async def list_advisories(
     params: Params = Depends(),
     product: Optional[str] = None,
-    before_raw: Optional[str] = None,
-    after_raw: Optional[str] = None,
+    before: Optional[str] = Query(
+        default=None,
+        description="RFC 3339 timestamp; only advisories published before it. "
+        "Offsets are converted to UTC.",
+    ),
+    after: Optional[str] = Query(
+        default=None,
+        description="RFC 3339 timestamp; only advisories published after it. "
+        "Offsets are converted to UTC.",
+    ),
+    before_raw: Optional[str] = Query(
+        default=None,
+        deprecated=True,
+        description="Deprecated: use before. Sending both is a 400.",
+    ),
+    after_raw: Optional[str] = Query(
+        default=None,
+        deprecated=True,
+        description="Deprecated: use after. Sending both is a 400.",
+    ),
     cve: Optional[str] = None,
     synopsis: Optional[str] = None,
     keyword: Optional[str] = None,
     severity: Optional[str] = None,
     kind: Optional[str] = None,
 ):
-    before = _parse_list_date(before_raw, "before")
-    after = _parse_list_date(after_raw, "after")
+    before_at = _parse_list_date(before, before_raw, "before")
+    after_at = _parse_list_date(after, after_raw, "after")
 
     # Honor cve/keyword/product/etc. The previous Advisory.all() path ignored
     # every filter query param (distro-tools#38). OSV already uses this helper,
@@ -81,8 +107,8 @@ async def list_advisories(
         params.size * (params.page - 1),
         keyword,
         product,
-        before,
-        after,
+        before_at,
+        after_at,
         cve,
         synopsis,
         severity,

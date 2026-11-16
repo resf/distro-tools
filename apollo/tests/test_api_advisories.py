@@ -322,5 +322,87 @@ class TestListAdvisoriesFilters(_ListAdvisoriesClient):
         )
 
 
+class TestListAdvisoriesDateParams(_ListAdvisoriesClient):
+    """before/after names, the *_raw fallbacks, and RFC 3339 offsets"""
+
+    def _forwarded(self, field, **params):
+        self._get_page(size=10, **params)
+        return self.fetch_calls[0][field]
+
+    def test_after_with_z_is_forwarded_as_naive_utc(self):
+        self.assertEqual(
+            self._forwarded("after", after="2026-11-13T12:06:44Z"),
+            datetime.datetime(2026, 11, 13, 12, 6, 44),
+        )
+
+    def test_after_with_utc_offset_is_forwarded_as_naive_utc(self):
+        # Python's isoformat() output for an aware UTC datetime, as CEM sends it.
+        self.assertEqual(
+            self._forwarded("after", after="2026-11-13T12:06:44.160727+00:00"),
+            datetime.datetime(2026, 11, 13, 12, 6, 44, 160727),
+        )
+
+    def test_after_with_non_utc_offset_is_converted_to_utc(self):
+        self.assertEqual(
+            self._forwarded("after", after="2026-11-13T05:06:44-07:00"),
+            datetime.datetime(2026, 11, 13, 12, 6, 44),
+        )
+
+    def test_before_is_forwarded(self):
+        self.assertEqual(
+            self._forwarded("before", before="2026-01-02T05:34:05+02:30"),
+            datetime.datetime(2026, 1, 2, 3, 4, 5),
+        )
+
+    def test_after_raw_still_works_and_accepts_offsets(self):
+        self.assertEqual(
+            self._forwarded("after", after_raw="2026-11-13T12:06:44+00:00"),
+            datetime.datetime(2026, 11, 13, 12, 6, 44),
+        )
+
+    def test_unset_dates_are_not_forwarded(self):
+        self._get_page(size=10)
+        self.assertIsNone(self.fetch_calls[0]["before"])
+        self.assertIsNone(self.fetch_calls[0]["after"])
+
+    def test_after_and_after_raw_together_is_400(self):
+        response = self.client.get(
+            "/",
+            params={
+                "after": "2026-11-13T12:06:44Z",
+                "after_raw": "2026-11-13T12:06:44Z",
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "Use after or after_raw, not both")
+        self.assertEqual(self.fetch_calls, [])
+
+    def test_before_and_before_raw_together_is_400(self):
+        response = self.client.get("/?before=&before_raw=2026-01-02T03:04:05Z")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.json()["detail"], "Use before or before_raw, not both"
+        )
+        self.assertEqual(self.fetch_calls, [])
+
+    def test_invalid_after_is_400(self):
+        response = self.client.get("/", params={"after": "not-a-date"})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "Invalid after date")
+        self.assertEqual(self.fetch_calls, [])
+
+    def test_offset_past_the_datetime_range_is_400(self):
+        response = self.client.get("/", params={"after": "0001-01-01T00:00:00+01:00"})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "Invalid after date")
+        self.assertEqual(self.fetch_calls, [])
+
+    def test_empty_before_is_400(self):
+        response = self.client.get("/?before=")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "Invalid before date")
+        self.assertEqual(self.fetch_calls, [])
+
+
 if __name__ == "__main__":
     unittest.main()

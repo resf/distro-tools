@@ -34,12 +34,28 @@ List Advisories
     </thead>
     <tbody>
         <tr>
+            <td class="parameter-name"><code>after</code></td>
+            <td>query</td>
+            <td>string</td>
+            <td></td>
+            <td>No</td>
+            <td>RFC 3339 timestamp; only advisories published after it. Offsets are converted to UTC.</td>
+        </tr>
+        <tr>
             <td class="parameter-name"><code>after_raw</code></td>
             <td>query</td>
             <td>string</td>
             <td></td>
             <td>No</td>
+            <td>Deprecated: use <code>after</code>. Sending both is a 400.</td>
+        </tr>
+        <tr>
+            <td class="parameter-name"><code>before</code></td>
+            <td>query</td>
+            <td>string</td>
             <td></td>
+            <td>No</td>
+            <td>RFC 3339 timestamp; only advisories published before it. Offsets are converted to UTC.</td>
         </tr>
         <tr>
             <td class="parameter-name"><code>before_raw</code></td>
@@ -47,7 +63,7 @@ List Advisories
             <td>string</td>
             <td></td>
             <td>No</td>
-            <td></td>
+            <td>Deprecated: use <code>before</code>. Sending both is a 400.</td>
         </tr>
         <tr>
             <td class="parameter-name"><code>cve</code></td>
